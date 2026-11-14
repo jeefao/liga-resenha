@@ -1,0 +1,1 @@
+Publique todos os arquivos na raiz do repositório GitHub Pages. No Chrome Android, abra o endereço HTTPS e escolha Instalar aplicativo ou Adicionar à tela inicial. Abra uma vez online antes de usar offline. Dados de arquivos HTML locais não migram automaticamente: exporte backup na versão antiga e importe na aba Atletas antes de iniciar a liga.
