@@ -1,0 +1,60 @@
+# Backup semanal do banco da Liga Resenha V6 (toda terça, depois da etapa de segunda).
+# Gera um arquivo .sql.gz com todas as tabelas e dados do schema public e guarda
+# neste repositório PARTICULAR. Mantém os últimos 26 backups (cerca de 6 meses).
+# Precisa do secret SUPABASE_DB_URL (Settings > Secrets and variables > Actions).
+name: Backup semanal
+
+on:
+  schedule:
+    - cron: '23 6 * * 2' # terça às 06:23 UTC (03:23 em Brasília)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar pg_dump 17
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Gerar backup
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "Falta o secret SUPABASE_DB_URL (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          mkdir -p backups
+          arquivo="backups/liga-resenha-v6-$(date -u +%Y-%m-%d).sql"
+          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" \
+            --schema=public --no-owner --no-privileges --file="$arquivo"
+          # Confere se o backup tem as tabelas principais antes de guardar
+          grep -q "CREATE TABLE public.ligas " "$arquivo"
+          grep -q "CREATE TABLE public.ligas_versoes " "$arquivo"
+          echo "Tamanho: $(du -h "$arquivo" | cut -f1)"
+          gzip -f "$arquivo"
+          # Mantém só os 26 mais recentes
+          ls -1 backups/*.sql.gz | sort | head -n -26 | xargs -r rm -f
+
+      - name: Guardar no repositório
+        run: |
+          git config user.name "backup-liga-resenha"
+          git config user.email "backup-liga-resenha@users.noreply.github.com"
+          git add -A backups
+          if git diff --cached --quiet; then
+            echo "Nada novo para guardar."
+          else
+            git commit -q -m "Backup $(date -u +%Y-%m-%d)"
+            git push
+          fi

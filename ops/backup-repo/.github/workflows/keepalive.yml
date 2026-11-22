@@ -1,0 +1,36 @@
+# Mantém o projeto gratuito do Supabase da V6 ativo: uma chamada por dia à função
+# public.keepalive() (não lê nem devolve nenhum dado das ligas).
+# A URL e a chave abaixo são PÚBLICAS (as mesmas que estão no app). Nunca coloque
+# a senha do banco nem a chave secreta neste arquivo.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '17 9 * * *' # todo dia às 09:17 UTC (06:17 em Brasília)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: https://frioxrtyffuotmmdmtxu.supabase.co
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi
+    steps:
+      - name: Chamar o banco
+        run: |
+          for tentativa in 1 2 3; do
+            if resposta=$(curl -fsS --max-time 30 -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+                -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+                -H "Content-Type: application/json" -d '{}'); then
+              echo "Resposta do banco: $resposta"
+              exit 0
+            fi
+            echo "Tentativa $tentativa falhou; nova tentativa em 30 s."
+            sleep 30
+          done
+          echo "O banco não respondeu. Verifique no painel do Supabase se o projeto está pausado."
+          exit 1

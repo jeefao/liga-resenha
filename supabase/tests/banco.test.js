@@ -121,6 +121,13 @@ describe('segurança (RLS e permissões)', () => {
     await expect(admin(() => db.query(`insert into public.admins values ('${OUTRO}')`))).rejects.toThrow(/permission denied/);
   });
 
+  it('keepalive responde sem login e não expõe dados', async () => {
+    await criarLiga();
+    const r = await como('anon', null, () => db.query('select public.keepalive() as r'));
+    expect(r.rows[0].r).toMatch(/^ok \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+    await expect(como('anon', null, () => db.query('select * from public.ligas'))).rejects.toThrow(/permission denied/);
+  });
+
   it('funções internas não podem ser chamadas pelo app', async () => {
     await expect(admin(() => db.query(`select public._exigir_admin()`))).rejects.toThrow(/permission denied/);
     await expect(
