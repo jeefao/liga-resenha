@@ -1,3 +1,5 @@
 node_modules/
 .env
 .env.*
+# Documentos internos (contêm dados pessoais/PIX) — não publicar
+regulamento/
