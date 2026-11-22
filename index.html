@@ -106,6 +106,27 @@ td:not(:first-child),th:not(:first-child){text-align:center}
 }
 
 .br-scroll{overflow-x:auto;padding:8px 0 16px}.br-grid{width:960px;display:grid;grid-template-columns:260px 260px 260px;column-gap:80px;grid-template-rows:40px repeat(8,75px);position:relative}.br-head{font-weight:800;color:var(--gold);text-align:center;align-self:center}.br-lines{position:absolute;left:0;top:40px;width:960px;height:600px;pointer-events:none;z-index:0}.br-lines path{fill:none;stroke:#d5ad52;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.br-node{position:relative;z-index:1;align-self:center}.br-match{background:#101e32;border:1px solid #64748b;border-radius:12px;overflow:hidden}.br-label{padding:6px 10px;color:#f4c85a;font-size:12px;font-weight:800;background:#172945}.br-team{min-height:36px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #334155;font-size:13px}.br-team strong{font-size:16px}.br-win{background:#244b38;color:#b9f6cc}.br-empty{color:#a8b6c9}.score input{font-size:20px;max-width:68px}.round-stack .match-card{margin-bottom:8px}
+body{padding-bottom:84px}
+label{display:block;font-weight:600}
+label input,label select{margin-top:6px;font-weight:400}
+.form-grid{display:grid;gap:12px}
+.sync{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;width:max-content;max-width:calc(100% - 24px);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;border-radius:14px;font-weight:700;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.sync button{padding:7px 12px;font-size:13px}
+.s-ok{background:#14361f;border:1px solid rgba(34,197,94,.7);color:#bbf7d0}
+.s-info{background:#12305a;border:1px solid rgba(96,165,250,.6);color:#dbeafe}
+.s-warn{background:#4a2a07;border:1px solid rgba(245,158,11,.8);color:#fde68a}
+.s-err{background:#5a1420;border:1px solid rgba(251,113,133,.85);color:#fecdd3}
+.ligas-list{display:grid;gap:10px}
+.liga-card{padding:14px;border-radius:16px;background:rgba(9,18,32,.6);border:1px solid rgba(255,255,255,.09)}
+.liga-card h3{font-size:17px}
+.chip{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;border:1px solid}
+.st-preparacao{color:#bfdbfe;border-color:rgba(96,165,250,.6);background:rgba(30,64,175,.25)}
+.st-andamento{color:#fde68a;border-color:rgba(244,200,90,.6);background:rgba(244,200,90,.12)}
+.st-finalizada{color:#bbf7d0;border-color:rgba(34,197,94,.6);background:rgba(20,83,45,.3)}
+.st-arquivada{color:#cbd5e1;border-color:rgba(148,163,184,.5);background:rgba(51,65,85,.35)}
+summary{cursor:pointer}
+.modal-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{width:100%;max-width:520px;max-height:90vh;overflow:auto;background:#0f1a2b;border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:18px}
 </style>
 </head>
 <body>
@@ -118,16 +139,23 @@ td:not(:first-child),th:not(:first-child){text-align:center}
       <div class="badges">
         <span class="badge">Liga Resenha C/D</span>
         <span class="badge">Londrina-PR</span>
-        <span class="badge">Salvamento local</span>
+        <span class="badge">Salvamento online</span>
       </div>
     </div>
   </div>
 </div>
+<div id="update-banner"></div>
 <div id="lifecycle"></div>
 <nav id="nav"></nav>
 <main id="main"></main>
+<div id="sync"></div>
+<div id="modal"></div>
+<script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const KEY='resenha16-evento-20261114-v4';
+const APP_VERSION='6.1.0';
+const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
+const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
+const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
 const FORMATS={
 16:{counts:[4,4,4,4],label:'Todos os atletas avançam'},
 20:{counts:[5,5,5,1],label:'3 melhores de cada grupo + melhor quarto'},
@@ -136,6 +164,487 @@ const FORMATS={
 32:{counts:[8,8,0,0],label:'2 melhores de cada grupo'}
 };
 const SIZES=[16,20,24,28,32];
+const STATUS_LABEL={preparacao:'Em preparação',andamento:'Em andamento',finalizada:'Finalizada',arquivada:'Arquivada'};
+const ETAPA_LABEL={cadastro:'Cadastro de atletas',sorteio:'Sorteio dos grupos',grupos:'Fase de grupos',mata_mata:'Mata-mata',encerrada:'Encerrada'};
+const ABA_DA_ETAPA={cadastro:'Atletas',sorteio:'Grupos',grupos:'Jogos',mata_mata:'Mata-mata',encerrada:'Chave'};
+const tabs=['Painel','Atletas','Grupos','Jogos','Classificação','Mata-mata','Chave','Histórico'];
+
+/* ---------- Estado ---------- */
+let sb=null;
+let view='carregando';      // carregando | login | inicio | nova | liga
+let S=null;                 // dados da liga aberta (mesmo formato da versão anterior)
+let L=null;                 // metadados da liga aberta (id, nome, data, versao...)
+let tab='Painel';
+let usuario=null;
+let lista=[],lixeira=[],listaInfo={};
+let mostrarLixeira=false;
+let fila={pendente:false,eventos:[],motivo:null};
+let enviando=false;
+let sync={estado:'',msg:''};
+let historico=null;
+let ocupado=false;
+
+const $=id=>document.getElementById(id);
+const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const objeto=v=>v&&typeof v==='object'&&!Array.isArray(v)?JSON.parse(JSON.stringify(v)):{};
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}
+function hoje(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)}
+function fmtData(s){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||'');return m?`${m[3]}/${m[2]}/${m[1]}`:esc(s)}
+function fmtHora(iso){return iso?new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''}
+function fmtDataHora(iso){return iso?new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):''}
+function novoId(){return crypto.randomUUID()}
+
+/* ---------- Validação dos dados (nunca substitui por dados padrão) ---------- */
+function validarDados(x){
+  if(!x||typeof x!=='object'||!Array.isArray(x.names)||!SIZES.includes(x.names.length)||!x.names.every(n=>typeof n==='string'))
+    throw new Error('dados da liga inválidos');
+  const d={names:[...x.names],scores:objeto(x.scores),finals:objeto(x.finals),breaks:objeto(x.breaks),drawn:!!x.drawn,status:x.status};
+  const temResultado=d.drawn||Object.keys(d.scores).length||Object.keys(d.finals).length;
+  d.status=['draft','started','drawn','ended'].includes(d.status)?d.status:(temResultado?'drawn':'draft');
+  if((d.status==='draft'||d.status==='started')&&temResultado)d.status='drawn';
+  d.drawn=d.status==='drawn'||(d.status==='ended'&&!!x.drawn);
+  return d;
+}
+function comDados(d,fn){const old=S;S=d;try{return fn()}finally{S=old}}
+function etapaDe(d){return comDados(d,()=>{if(S.status==='draft')return 'cadastro';if(S.status==='started')return 'sorteio';if(S.status==='ended')return 'encerrada';return complete()?'mata_mata':'grupos'})}
+function statusDe(d){return d.status==='draft'?'preparacao':d.status==='ended'?'finalizada':'andamento'}
+function statusAtual(){const s=statusDe(S);return s==='finalizada'&&L&&L.status==='arquivada'?'arquivada':s}
+function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status}))}
+function metaDe(r){return {id:r.id,nome:r.nome,data:r.data,participantes:r.participantes,status:r.status,etapa:r.etapa,versao:r.versao,atualizado_em:r.atualizado_em}}
+
+/* ---------- Erros ---------- */
+function ehErroDeRede(e){return !navigator.onLine||/Failed to fetch|NetworkError|Load failed|fetch failed|network/i.test(String(e&&(e.message||e)))}
+function traduzErro(e){
+  const m=String(e&&(e.message||e)||'erro desconhecido');
+  if(ehErroDeRede(e))return 'sem conexão com o servidor';
+  if(/acesso_negado|permission denied|JWT|jwt|401/.test(m))return 'sessão expirada ou sem permissão — entre novamente';
+  if(/motivo_obrigatorio/.test(m))return 'liga finalizada exige um motivo para correção';
+  if(/participantes_travados/.test(m))return 'a quantidade de atletas não pode mudar depois de iniciar a liga';
+  if(/liga_na_lixeira/.test(m))return 'a liga está na lixeira';
+  if(/liga_nao_encontrada|PGRST116/.test(m))return 'liga não encontrada';
+  return m;
+}
+
+/* ---------- Cópia local (cache temporário, nunca é a fonte oficial) ---------- */
+const cacheKey=id=>'lr6:liga:'+id;
+function gravarCache(){
+  if(!L||!S)return;
+  const ok=lsSet(cacheKey(L.id),{meta:L,dados:dadosParaServidor(),pendente:fila.pendente,eventos:fila.eventos,motivo:fila.motivo,em:new Date().toISOString()});
+  if(!ok&&fila.pendente)setSync('erro','não foi possível guardar a cópia neste aparelho — mantenha o app aberto até salvar');
+  atualizarListaGuardada(L);
+}
+function atualizarListaGuardada(meta){
+  const c=lsGet('lr6:lista')||{em:null,ligas:[]};
+  const ligas=(c.ligas||[]).filter(x=>x.id!==meta.id);
+  ligas.push({...meta,excluida_em:null});
+  ligas.sort((a,b)=>String(b.data).localeCompare(String(a.data))||String(b.atualizado_em).localeCompare(String(a.atualizado_em)));
+  lsSet('lr6:lista',{em:c.em,ligas});
+}
+
+/* ---------- Salvamento online ---------- */
+function setSync(estado,msg=''){sync={estado,msg};renderSync()}
+function persist(eventos=[],motivo=null){
+  fila.pendente=true;
+  fila.eventos.push(...eventos.map(e=>({tipo:e.tipo,descricao:String(e.descricao).slice(0,500)})));
+  if(fila.eventos.length>100){const n=fila.eventos.length-90;fila.eventos=[{tipo:'alteracao',descricao:n+' alterações feitas sem conexão'},...fila.eventos.slice(-90)]}
+  if(motivo)fila.motivo=motivo;
+  gravarCache();
+  if(sync.estado==='conflito'){renderSync();return}
+  setSync(navigator.onLine?'pendente':'offline');
+  enviar();
+}
+function devolverParaFila(lote){fila.pendente=true;fila.eventos=lote.eventos.concat(fila.eventos);fila.motivo=fila.motivo||lote.motivo}
+async function enviar(){
+  if(enviando||!fila.pendente||!L||view!=='liga'||sync.estado==='conflito')return;
+  if(!navigator.onLine){setSync('offline');return}
+  enviando=true;setSync('salvando');
+  const lote={eventos:fila.eventos,motivo:fila.motivo};
+  fila={pendente:false,eventos:[],motivo:null};
+  try{
+    const {data,error}=await sb.rpc('salvar_liga',{p_id:L.id,p_versao_esperada:L.versao,p_dados:dadosParaServidor(),p_status:statusAtual(),p_etapa:etapaDe(S),p_eventos:lote.eventos,p_motivo:lote.motivo});
+    if(error)throw error;
+    if(!data||!data.ok){
+      devolverParaFila(lote);gravarCache();
+      if(data&&data.conflito){setSync('conflito');abrirConflito(data)}else setSync('erro','resposta inesperada do servidor');
+      return;
+    }
+    Object.assign(L,{versao:data.versao,status:data.status,etapa:data.etapa,participantes:data.participantes,atualizado_em:data.atualizado_em});
+    gravarCache();
+    setSync(fila.pendente?'pendente':'ok');
+  }catch(e){
+    devolverParaFila(lote);gravarCache();
+    if(ehErroDeRede(e))setSync('offline');else setSync('erro',traduzErro(e));
+  }finally{
+    enviando=false;
+    if(fila.pendente&&sync.estado==='pendente')enviar();
+  }
+}
+function tentarNovamente(){if(sync.estado!=='conflito'){sync.estado='pendente';enviar()}}
+function renderSync(){
+  const el=$('sync');if(!el)return;
+  if(view!=='liga'||!sync.estado){el.innerHTML='';return}
+  const pend=fila.pendente?' — alterações guardadas neste aparelho':'';
+  const m={
+    salvando:['s-info','Salvando…'],
+    ok:['s-ok','✓ Salvo no servidor às '+fmtHora(L&&L.atualizado_em)],
+    pendente:['s-warn','Alterações pendentes'],
+    offline:['s-warn','Sem conexão'+pend+(sync.msg?' • '+sync.msg:'')],
+    erro:['s-err','Falha ao salvar: '+sync.msg+pend],
+    conflito:['s-err','Conflito: esta liga foi alterada em outro aparelho'],
+    desatualizada:['s-warn','Esta liga foi alterada em outro aparelho']
+  }[sync.estado];
+  if(!m){el.innerHTML='';return}
+  let btn='';
+  if((sync.estado==='erro'||sync.estado==='offline')&&fila.pendente)btn='<button onclick="tentarNovamente()">Tentar novamente</button>';
+  if(sync.estado==='desatualizada')btn='<button onclick="abrirLiga(L.id,{ignorarCache:true})">Recarregar</button>';
+  if(sync.estado==='conflito')btn='<button onclick="abrirConflito({})">Resolver</button>';
+  el.innerHTML=`<div class="sync ${m[0]}"><span>${esc(m[1])}</span>${btn}</div>`;
+}
+
+/* ---------- Conflito entre aparelhos ---------- */
+function fecharModal(){$('modal').innerHTML=''}
+function abrirConflito(info){
+  $('modal').innerHTML=`<div class="modal-bg"><div class="modal-box"><h2>Conflito de alterações</h2>
+  <p>Esta liga foi alterada em outro aparelho${info.versao_servidor?` (versão ${info.versao_servidor}${info.atualizado_em?', às '+fmtHora(info.atualizado_em):''})`:''}. As alterações feitas aqui ainda <b>não</b> foram gravadas no servidor.</p>
+  <p class="muted" style="margin-top:10px">Escolha o que fazer. Nada será apagado: a opção não escolhida fica guardada.</p>
+  <div class="form-grid" style="margin-top:14px">
+   <button onclick="usarVersaoServidor()">Usar a versão do servidor</button>
+   <p class="muted">As alterações deste aparelho são baixadas num arquivo de backup.</p>
+   <button class="secondary" onclick="manterMinhasAlteracoes()">Manter as alterações deste aparelho</button>
+   <p class="muted">A versão do servidor fica no Histórico e pode ser restaurada.</p>
+  </div></div></div>`;
+}
+async function usarVersaoServidor(){
+  const id=L.id,nome=L.nome;
+  const copia={app:'liga-resenha-v6',tipo:'liga',exportado_em:new Date().toISOString(),observacao:'Alterações descartadas em conflito',liga:{...L},dados:dadosParaServidor()};
+  lsSet('lr6:descartada:'+id+':'+Date.now(),copia);
+  baixarJSON(`alteracoes-descartadas-${slug(nome)}-${Date.now()}.json`,copia);
+  fila={pendente:false,eventos:[],motivo:null};sync={estado:'',msg:''};
+  fecharModal();
+  await abrirLiga(id,{ignorarCache:true});
+}
+async function manterMinhasAlteracoes(){
+  try{
+    const {data,error}=await sb.from('ligas').select('versao').eq('id',L.id).single();
+    if(error)throw error;
+    L.versao=data.versao;
+    fila.pendente=true;
+    fila.eventos.push({tipo:'conflito',descricao:'Conflito resolvido: alterações deste aparelho mantidas sobre a versão '+data.versao});
+    gravarCache();fecharModal();
+    setSync('pendente');enviar();
+  }catch(e){alert('Não foi possível resolver agora: '+traduzErro(e))}
+}
+
+/* ---------- Abrir liga ---------- */
+async function abrirLiga(id,{ignorarCache=false}={}){
+  if(enviando)return;
+  fecharModal();
+  view='carregando';render();
+  const cache=ignorarCache?null:lsGet(cacheKey(id));
+  let srv=null,erro=null;
+  try{const {data,error}=await sb.from('ligas').select('*').eq('id',id).single();if(error)throw error;srv=data}catch(e){erro=e}
+  fila={pendente:false,eventos:[],motivo:null};historico=null;sync={estado:'',msg:''};
+  if(srv){
+    let dadosSrv;
+    try{dadosSrv=validarDados(srv.dados)}catch{alert('Os dados desta liga no servidor estão inválidos. Nada foi alterado. Use a exportação geral para guardar um backup e me avise.');voltarInicio(true);return}
+    L=metaDe(srv);
+    let dadosCache=null;
+    if(cache&&cache.pendente&&cache.meta&&cache.meta.id===id){try{dadosCache=validarDados(cache.dados)}catch{}}
+    if(dadosCache&&cache.meta.versao===srv.versao){
+      S=dadosCache;fila={pendente:true,eventos:cache.eventos||[],motivo:cache.motivo||null};
+      entrarNaLiga();setSync('pendente');enviar();return;
+    }
+    if(dadosCache){
+      S=dadosCache;L.versao=cache.meta.versao;fila={pendente:true,eventos:cache.eventos||[],motivo:cache.motivo||null};
+      entrarNaLiga();setSync('conflito');abrirConflito({versao_servidor:srv.versao,atualizado_em:srv.atualizado_em});return;
+    }
+    S=dadosSrv;gravarCache();entrarNaLiga();setSync('ok');return;
+  }
+  if(cache&&cache.meta&&cache.meta.id===id){
+    try{S=validarDados(cache.dados)}catch{alert('Não foi possível abrir a liga: '+traduzErro(erro));voltarInicio(true);return}
+    L=cache.meta;fila={pendente:!!cache.pendente,eventos:cache.eventos||[],motivo:cache.motivo||null};
+    entrarNaLiga();
+    setSync(ehErroDeRede(erro)?'offline':'erro',ehErroDeRede(erro)?'exibindo a cópia guardada neste aparelho em '+fmtDataHora(cache.em):traduzErro(erro));
+    return;
+  }
+  alert('Não foi possível abrir a liga: '+traduzErro(erro));
+  voltarInicio(true);
+}
+function entrarNaLiga(){
+  view='liga';
+  const salva=lsGet('lr6:aba:'+L.id);
+  tab=tabs.includes(salva)?salva:(ABA_DA_ETAPA[L.etapa]||'Painel');
+  render();
+}
+function voltarInicio(forcar=false){
+  if(!forcar){
+    if(enviando)return alert('Aguarde terminar de salvar.');
+    if(fila.pendente&&!confirm('Há alterações ainda não gravadas no servidor. Elas ficam guardadas neste aparelho e serão enviadas quando você abrir esta liga de novo. Voltar mesmo assim?'))return;
+  }
+  L=null;S=null;historico=null;fila={pendente:false,eventos:[],motivo:null};sync={estado:'',msg:''};
+  fecharModal();view='inicio';render();carregarLista();
+}
+
+/* ---------- Login ---------- */
+async function entrarLogin(ev){
+  ev.preventDefault();
+  const btn=$('btnEntrar'),msg=$('loginMsg');
+  btn.disabled=true;msg.textContent='Entrando…';
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('senha').value});
+    if(error)throw error;
+    const adm=await sb.rpc('is_admin');
+    if(adm.error)throw adm.error;
+    if(adm.data!==true){await sb.auth.signOut();throw new Error('Este usuário não tem permissão de administrador.')}
+    usuario=data.user;view='inicio';render();carregarLista();
+  }catch(e){
+    msg.textContent=/Invalid login/i.test(e.message||'')?'E-mail ou senha incorretos.':traduzErro(e);
+    btn.disabled=false;
+  }
+}
+async function sair(){
+  if(!confirm('Sair da conta neste aparelho?'))return;
+  await sb.auth.signOut();usuario=null;view='login';render();
+}
+function renderLogin(){
+  return `<section><h2>Entrar</h2><p class="muted">Acesso do administrador da Liga Resenha.</p>
+  <form onsubmit="entrarLogin(event)" class="form-grid" style="margin-top:12px">
+   <label>E-mail<input id="email" type="email" autocomplete="username" required></label>
+   <label>Senha<input id="senha" type="password" autocomplete="current-password" required></label>
+   <div class="panel-actions"><button type="submit" id="btnEntrar">ENTRAR</button></div>
+   <p id="loginMsg" class="warn"></p>
+  </form></section>`;
+}
+
+/* ---------- Minhas Ligas ---------- */
+async function carregarLista(){
+  listaInfo={carregando:true};if(view==='inicio')render();
+  try{
+    const {data,error}=await sb.from('ligas').select('id,nome,data,participantes,status,etapa,versao,atualizado_em,excluida_em').order('data',{ascending:false}).order('atualizado_em',{ascending:false});
+    if(error)throw error;
+    lista=data.filter(x=>!x.excluida_em);lixeira=data.filter(x=>x.excluida_em);
+    const ant=lsGet('lr6:lista');
+    lsSet('lr6:lista',{em:new Date().toISOString(),ligas:lista});
+    // Ligas guardadas no aparelho com alterações pendentes continuam listadas
+    for(const x of ((ant&&ant.ligas)||[]))if(!data.some(y=>y.id===x.id)&&pendenteNoAparelho(x.id))lista.push(x);
+    listaInfo={origem:'servidor'};
+  }catch(e){
+    const c=lsGet('lr6:lista');lista=(c&&c.ligas)||[];lixeira=[];
+    listaInfo={origem:'cache',erro:traduzErro(e),em:c&&c.em};
+  }
+  if(view==='inicio')render();
+}
+function pendenteNoAparelho(id){const c=lsGet(cacheKey(id));return !!(c&&c.pendente)}
+function ligaCard(x){
+  const pend=pendenteNoAparelho(x.id);
+  return `<div class="liga-card">
+   <div class="row" style="justify-content:space-between;align-items:flex-start">
+    <div><h3>${esc(x.nome)}</h3><p class="muted">${fmtData(x.data)} • ${x.participantes} atletas</p></div>
+    <span class="chip st-${x.status}">${STATUS_LABEL[x.status]||esc(x.status)}</span>
+   </div>
+   <p style="margin-top:8px">Etapa: <b>${ETAPA_LABEL[x.etapa]||esc(x.etapa)}</b></p>
+   <p class="muted">Último salvamento: ${fmtDataHora(x.atualizado_em)} • versão ${x.versao}</p>
+   ${pend?'<p class="warn" style="margin-top:4px">⚠ Alterações pendentes neste aparelho — abra a liga para enviar</p>':''}
+   <div class="panel-actions">
+    <button onclick="abrirLiga('${x.id}')">ABRIR</button>
+    <button class="secondary" onclick="duplicarLiga('${x.id}')">Duplicar</button>
+    ${x.status==='finalizada'?`<button class="secondary" onclick="mudarArquivo('${x.id}',true)">Arquivar</button>`:''}
+    ${x.status==='arquivada'?`<button class="secondary" onclick="mudarArquivo('${x.id}',false)">Desarquivar</button>`:''}
+   </div></div>`;
+}
+function renderInicio(){
+  const ativas=lista.filter(x=>x.status!=='arquivada'),arquivadas=lista.filter(x=>x.status==='arquivada');
+  const antiga=ligaAntigaDoAparelho();
+  let h=`<section><div class="panel-actions" style="margin-top:0"><button style="flex:1;font-size:17px;padding:15px" onclick="view='nova';render()">NOVA LIGA RELÂMPAGO</button></div></section>`;
+  if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
+  if(antiga)h+=`<section class="tie-card tie-pending"><b>Liga da versão anterior encontrada neste aparelho</b>
+   <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>
+   <p class="muted" style="margin-top:6px">Ela continua guardada aqui. Você pode importá-la como uma nova liga online.</p>
+   <div class="panel-actions"><button onclick="importarAntiga()">Importar como nova liga</button><button class="secondary" onclick="baixarAntiga()">Baixar backup</button><button class="ghost" onclick="ocultarAntiga()">Ocultar aviso</button></div></section>`;
+  h+=`<section><h2>MINHAS LIGAS</h2>${listaInfo.carregando&&!lista.length?'<p class="muted">Carregando…</p>':ativas.length?'<div class="ligas-list">'+ativas.map(ligaCard).join('')+'</div>':listaInfo.origem==='cache'?'<p class="muted">Nenhuma liga guardada neste aparelho.</p>':'<p class="muted">Nenhuma liga ainda. Toque em NOVA LIGA RELÂMPAGO.</p>'}</section>`;
+  if(arquivadas.length)h+=`<section><details><summary><b>Arquivadas (${arquivadas.length})</b></summary><div class="ligas-list" style="margin-top:10px">${arquivadas.map(ligaCard).join('')}</div></details></section>`;
+  h+=`<section><h3>Backups</h3><p class="muted" style="margin-top:6px">Exporte todas as ligas num arquivo. A importação sempre cria ligas novas e nunca altera as existentes.</p>
+   <div class="panel-actions"><button class="secondary" onclick="exportarTodas()">Exportar todas as ligas</button><button class="secondary" onclick="$('imp').click()">Importar backup</button><input id="imp" type="file" accept=".json,application/json" hidden onchange="importarArquivo(event)"></div></section>`;
+  h+=`<section><details ${mostrarLixeira?'open':''} ontoggle="mostrarLixeira=this.open"><summary><b>Lixeira (${lixeira.length})</b></summary>${lixeira.length?lixeira.map(x=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(x.nome)}</h3><p class="muted">${fmtData(x.data)} • ${x.participantes} atletas • na lixeira desde ${fmtDataHora(x.excluida_em)}</p><div class="panel-actions"><button class="secondary" onclick="retirarDaLixeira('${x.id}')">Retirar da lixeira</button></div></div>`).join(''):'<p class="muted" style="margin-top:8px">Vazia.</p>'}</details></section>`;
+  h+=`<p class="muted" style="text-align:center;margin-top:14px">${usuario&&usuario.email?'Conectado como '+esc(usuario.email)+' • ':''}<a href="#" onclick="sair();return false">Sair</a></p>`;
+  return h;
+}
+
+/* ---------- Nova liga ---------- */
+function renderNova(){
+  return `<section><h2>Nova Liga Relâmpago</h2>
+  <form onsubmit="criarLiga(event)" class="form-grid" style="margin-top:10px">
+   <label>Nome da competição<input id="nlNome" maxlength="120" required placeholder="Ex.: Relâmpago de Sábado"></label>
+   <label>Data<input id="nlData" type="date" required value="${hoje()}"></label>
+   <label>Quantidade de participantes<select id="nlQtd">${SIZES.map(n=>`<option value="${n}">${n} atletas — ${n/4} grupos</option>`).join('')}</select></label>
+   <p class="muted" id="nlRegra">${FORMATS[16].label}</p>
+   <div class="panel-actions"><button type="submit" id="nlBtn">CRIAR E CADASTRAR ATLETAS</button><button type="button" class="secondary" onclick="view='inicio';render()">Cancelar</button></div>
+  </form></section>`;
+}
+async function criarLiga(ev){
+  ev.preventDefault();
+  if(ocupado)return;
+  const nome=$('nlNome').value.trim(),data=$('nlData').value,n=Number($('nlQtd').value);
+  if(!nome||!data||!SIZES.includes(n))return alert('Preencha nome, data e quantidade.');
+  if(!navigator.onLine)return alert('Sem conexão. É preciso internet para criar uma liga.');
+  ocupado=true;$('nlBtn').disabled=true;
+  const id=novoId();
+  try{
+    const {data:r,error}=await sb.rpc('criar_liga',{p_id:id,p_nome:nome,p_data:data,p_dados:{names:Array(n).fill(''),scores:{},finals:{},breaks:{},drawn:false,status:'draft'}});
+    if(error)throw error;
+    lsSet('lr6:aba:'+id,'Atletas');
+    await abrirLiga(r.id);
+  }catch(e){alert('A liga não foi criada: '+traduzErro(e));if($('nlBtn'))$('nlBtn').disabled=false}
+  finally{ocupado=false}
+}
+
+/* ---------- Duplicar, arquivar, lixeira ---------- */
+async function duplicarLiga(id){
+  if(ocupado)return;
+  const base=lista.find(x=>x.id===id)||(L&&L.id===id?L:null);
+  const nome=prompt('Nome da nova liga (atletas e formato serão copiados, resultados não):','Cópia de '+(base?base.nome:'liga'));
+  if(!nome||!nome.trim())return;
+  ocupado=true;
+  try{
+    let names;
+    if(L&&L.id===id&&S)names=[...S.names];
+    else{const {data,error}=await sb.from('ligas').select('dados').eq('id',id).single();if(error)throw error;names=validarDados(data.dados).names}
+    const novo=novoId();
+    const {error}=await sb.rpc('criar_liga',{p_id:novo,p_nome:nome.trim(),p_data:hoje(),p_dados:{names,scores:{},finals:{},breaks:{},drawn:false,status:'draft'},p_motivo:'Duplicada de "'+(base?base.nome:id)+'"'});
+    if(error)throw error;
+    if(view==='liga'&&(enviando||fila.pendente)){alert('Liga duplicada. Ela aparece em Minhas Ligas.');return}
+    lsSet('lr6:aba:'+novo,'Atletas');
+    await abrirLiga(novo);
+  }catch(e){alert('Não foi possível duplicar: '+traduzErro(e))}
+  finally{ocupado=false}
+}
+async function mudarArquivo(id,arquivar){
+  const x=lista.find(y=>y.id===id);if(!x||ocupado)return;
+  if(!confirm(arquivar?'Arquivar esta liga? Ela continua disponível para consulta.':'Desarquivar esta liga?'))return;
+  ocupado=true;
+  try{
+    const {data,error}=await sb.rpc('salvar_liga',{p_id:id,p_versao_esperada:x.versao,p_status:arquivar?'arquivada':'finalizada',p_eventos:[{tipo:arquivar?'arquivada':'desarquivada',descricao:arquivar?'Liga arquivada':'Liga desarquivada'}]});
+    if(error)throw error;
+    if(!data.ok)alert('A liga foi alterada em outro aparelho. A lista será atualizada; tente de novo.');
+  }catch(e){alert('Não foi possível: '+traduzErro(e))}
+  finally{ocupado=false;carregarLista()}
+}
+async function moverParaLixeira(){
+  if(enviando||fila.pendente)return alert('Aguarde as alterações serem salvas no servidor.');
+  if(!confirm('Mover "'+L.nome+'" para a lixeira? Ela pode ser recuperada depois em Minhas Ligas › Lixeira.'))return;
+  try{const {error}=await sb.rpc('mover_para_lixeira',{p_id:L.id});if(error)throw error;voltarInicio(true)}
+  catch(e){alert('Não foi possível: '+traduzErro(e))}
+}
+async function retirarDaLixeira(id){
+  try{const {error}=await sb.rpc('retirar_da_lixeira',{p_id:id});if(error)throw error}
+  catch(e){alert('Não foi possível: '+traduzErro(e))}
+  carregarLista();
+}
+
+/* ---------- Exportar / importar ---------- */
+function slug(s){return String(s||'liga').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase()||'liga'}
+function baixarJSON(nome,obj){const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function exportarLiga(){baixarJSON(`liga-${slug(L.nome)}-${L.data}-v${L.versao}.json`,{app:'liga-resenha-v6',tipo:'liga',exportado_em:new Date().toISOString(),liga:{...L},dados:dadosParaServidor()})}
+async function exportarTodas(){
+  try{
+    const {data,error}=await sb.from('ligas').select('*').order('data');
+    if(error)throw error;
+    baixarJSON(`liga-resenha-todas-${hoje()}.json`,{app:'liga-resenha-v6',tipo:'todas',exportado_em:new Date().toISOString(),ligas:data.map(r=>({liga:{...metaDe(r),excluida_em:r.excluida_em},dados:r.dados}))});
+  }catch(e){alert('Não foi possível exportar: '+traduzErro(e))}
+}
+function importarArquivo(ev){
+  const f=ev.target.files[0];ev.target.value='';if(!f)return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    let itens;
+    try{
+      const x=JSON.parse(r.result);
+      if(x&&x.app==='liga-resenha-v6'&&x.tipo==='liga')itens=[{liga:x.liga||{},dados:x.dados}];
+      else if(x&&x.app==='liga-resenha-v6'&&x.tipo==='todas'&&Array.isArray(x.ligas))itens=x.ligas;
+      else if(x&&Array.isArray(x.names))itens=[{liga:{nome:'Liga importada'},dados:x}];
+      else throw new Error('formato não reconhecido');
+      itens=itens.map((it,i)=>{try{return {nome:String((it.liga&&it.liga.nome)||'Liga importada').slice(0,100),data:/^\d{4}-\d{2}-\d{2}$/.test(it.liga&&it.liga.data)?it.liga.data:hoje(),dados:validarDados(it.dados)}}catch{throw new Error('liga '+(i+1)+' do arquivo está inválida')}});
+      if(!itens.length)throw new Error('arquivo sem ligas');
+    }catch(e){return alert('Backup inválido: '+e.message+'. Nada foi importado.')}
+    if(!confirm(`Importar ${itens.length} liga(s) como NOVAS ligas? Nenhuma liga existente será alterada.`))return;
+    let ok=0,falhas=[];
+    for(const it of itens){
+      const {error}=await sb.rpc('criar_liga',{p_id:novoId(),p_nome:it.nome+' (importada)',p_data:it.data,p_dados:dadosParaServidor(it.dados),p_status:statusDe(it.dados),p_etapa:etapaDe(it.dados),p_motivo:'Importada de backup'});
+      if(error)falhas.push(it.nome+': '+traduzErro(error));else ok++;
+    }
+    alert(`${ok} liga(s) importada(s).`+(falhas.length?'\nFalhas:\n'+falhas.join('\n'):''));
+    carregarLista();
+  };
+  r.readAsText(f);
+}
+function hashTexto(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return String(h)}
+function ligaAntigaDoAparelho(){
+  for(const k of LEGACY_KEYS){
+    let raw;try{raw=localStorage.getItem(k)}catch{raw=null}
+    if(!raw)continue;
+    try{const d=validarDados(JSON.parse(raw));const assinatura=hashTexto(raw);if(lsGet('lr6:antiga-ocultada')===assinatura)return null;return {k,raw,d,assinatura}}catch{}
+  }
+  return null;
+}
+async function importarAntiga(){
+  const a=ligaAntigaDoAparelho();if(!a||ocupado)return;
+  const nome=prompt('Nome para esta liga:','Liga importada do aparelho');if(!nome||!nome.trim())return;
+  const data=prompt('Data da liga (AAAA-MM-DD):',hoje());if(!data||!/^\d{4}-\d{2}-\d{2}$/.test(data))return alert('Data inválida.');
+  ocupado=true;
+  try{
+    const id=novoId();
+    const {error}=await sb.rpc('criar_liga',{p_id:id,p_nome:nome.trim(),p_data:data,p_dados:dadosParaServidor(a.d),p_status:statusDe(a.d),p_etapa:etapaDe(a.d),p_motivo:'Importada da versão anterior (dados do aparelho)'});
+    if(error)throw error;
+    lsSet('lr6:antiga-ocultada',a.assinatura);
+    await abrirLiga(id);
+  }catch(e){alert('Não foi possível importar: '+traduzErro(e))}
+  finally{ocupado=false}
+}
+function baixarAntiga(){const a=ligaAntigaDoAparelho();if(a)baixarJSON('liga-versao-anterior-backup.json',JSON.parse(a.raw))}
+function ocultarAntiga(){const a=ligaAntigaDoAparelho();if(a&&confirm('Ocultar este aviso? Os dados continuam guardados no aparelho.')){lsSet('lr6:antiga-ocultada',a.assinatura);render()}}
+
+/* ---------- Histórico e versões ---------- */
+async function carregarHistorico(){
+  historico={carregando:true};
+  try{
+    const [ev,vs]=await Promise.all([
+      sb.from('ligas_eventos').select('versao,tipo,descricao,criado_em').eq('liga_id',L.id).order('id',{ascending:false}).limit(300),
+      sb.from('ligas_versoes').select('versao,motivo,status,etapa,participantes,excluida,criado_em').eq('liga_id',L.id).order('versao',{ascending:false}).limit(300)
+    ]);
+    if(ev.error)throw ev.error;if(vs.error)throw vs.error;
+    historico={eventos:ev.data,versoes:vs.data};
+  }catch(e){historico={erro:traduzErro(e)}}
+  if(view==='liga'&&tab==='Histórico')render();
+}
+function renderHistorico(){
+  if(!historico){carregarHistorico();return '<section><h2>Histórico</h2><p class="muted">Carregando…</p></section>'}
+  if(historico.carregando)return '<section><h2>Histórico</h2><p class="muted">Carregando…</p></section>';
+  if(historico.erro)return `<section><h2>Histórico</h2><p class="warn">Não foi possível carregar: ${esc(historico.erro)}</p><div class="panel-actions"><button class="secondary" onclick="historico=null;render()">Tentar novamente</button></div></section>`;
+  let h=`<section><h2>Histórico de alterações</h2><div class="panel-actions" style="margin-top:0"><button class="secondary" onclick="historico=null;render()">Atualizar</button><button class="secondary" onclick="exportarLiga()">Exportar esta liga</button></div>
+   <table style="margin-top:10px"><tr><th>Quando</th><th>Alteração</th><th>Versão</th></tr>${historico.eventos.map(e=>`<tr><td class="muted">${fmtDataHora(e.criado_em)}</td><td style="text-align:left">${esc(e.descricao||e.tipo)}</td><td>${e.versao}</td></tr>`).join('')}</table></section>`;
+  h+=`<section><h2>Versões salvas</h2><p class="muted">Cada gravação no servidor guarda uma cópia completa. Restaurar cria uma nova versão; nada é apagado.</p>
+   ${historico.versoes.map(v=>`<div class="liga-card" style="margin-top:8px"><div class="row" style="justify-content:space-between"><b>Versão ${v.versao}${v.versao===L.versao?' (atual)':''}</b><span class="muted">${fmtDataHora(v.criado_em)}</span></div><p class="muted">${esc(v.motivo)} • ${STATUS_LABEL[v.status]||esc(v.status)} • ${ETAPA_LABEL[v.etapa]||esc(v.etapa)} • ${v.participantes} atletas${v.excluida?' • na lixeira':''}</p><div class="panel-actions"><button class="secondary" onclick="baixarVersao(${v.versao})">Baixar</button>${v.versao!==L.versao?`<button class="secondary" onclick="restaurarVersao(${v.versao})">Restaurar esta versão</button>`:''}</div></div>`).join('')}</section>`;
+  h+=`<section><h3>Lixeira</h3><p class="muted" style="margin-top:6px">Retira a liga de Minhas Ligas. Pode ser recuperada depois.</p><div class="panel-actions"><button class="secondary" onclick="moverParaLixeira()">Mover para a lixeira</button></div></section>`;
+  return h;
+}
+async function baixarVersao(v){
+  try{const {data,error}=await sb.from('ligas_versoes').select('*').eq('liga_id',L.id).eq('versao',v).single();if(error)throw error;
+    baixarJSON(`liga-${slug(data.nome)}-${data.data}-v${v}.json`,{app:'liga-resenha-v6',tipo:'liga',exportado_em:new Date().toISOString(),liga:{id:L.id,nome:data.nome,data:data.data,participantes:data.participantes,status:data.status,etapa:data.etapa,versao:v},dados:data.dados})}
+  catch(e){alert('Não foi possível baixar: '+traduzErro(e))}
+}
+async function restaurarVersao(v){
+  if(enviando||fila.pendente)return alert('Aguarde as alterações serem salvas no servidor.');
+  if(!confirm(`Restaurar a versão ${v}? O estado atual continua guardado no histórico.`))return;
+  try{
+    const {data,error}=await sb.rpc('restaurar_versao',{p_id:L.id,p_versao:v,p_versao_esperada:L.versao});
+    if(error)throw error;
+    if(!data.ok){alert('A liga foi alterada em outro aparelho. Ela será recarregada; tente de novo.')}
+    await abrirLiga(L.id,{ignorarCache:true});
+  }catch(e){alert('Não foi possível restaurar: '+traduzErro(e))}
+}
+
+/* ---------- Regras da Liga Relâmpago (aprovadas — não alterar critérios) ---------- */
 function capacity(){return S.names.length}
 function groupIndexes(){
 return Array.from({length:capacity()/4},(_,i)=>i)
@@ -158,6 +667,7 @@ el.value=String(capacity());return;
 }
 S.names=Array.from({length:n},(_,i)=>names[i]||'');
 S.scores={};S.finals={};S.breaks={};S.drawn=false;
+persist([{tipo:'configuracao',descricao:'Quantidade de atletas alterada para '+n}]);
 tab='Atletas';render();
 }
 function clearNames(){
@@ -165,6 +675,7 @@ if(S.status!=='draft')return;
 if(!confirm('Limpar a lista para cadastrar novos atletas?'))return;
 S.names=Array(capacity()).fill('');
 S.scores={};S.finals={};S.breaks={};
+persist([{tipo:'cadastro',descricao:'Lista de atletas limpa'}]);
 tab='Atletas';render();
 }
 function namesCounter(){
@@ -193,26 +704,6 @@ ${SIZES.map(n=>`<option value="${n}" ${n===capacity()?'selected':''}>${n} atleta
 <p class="muted">16 atletas classificados • 8 duplas nas quartas</p>
 </section>`;
 }
-const DEFAULT_NAMES=["Jeferson","Victor","Paulo Moreno","Hugo","Sandro","Dionatan","Eric","Paulo B.","Alex","Felipe C.","Elias","Helio","Roger","Rafael G.","Reinaldo","Caio"];
-let S;
-try{S=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem('resenha16-evento-20261114-v3'))}catch{}
-S=S||{names:[...DEFAULT_NAMES],scores:{},finals:{},tab:'Início',drawn:false,status:'draft'};
-function normalize(x){
-  x.names=Array.isArray(x.names)&&SIZES.includes(x.names.length)&&x.names.every(n=>typeof n==='string')?x.names:[...DEFAULT_NAMES];
-  x.scores=x.scores||{};x.finals=x.finals||{};x.tab=x.tab||'Início';
-  x.status=['draft','started','drawn','ended'].includes(x.status)?x.status:(x.drawn||Object.keys(x.scores).length||Object.keys(x.finals).length?'drawn':'draft');
-  if(x.status==='draft'||x.status==='started'){
-    if(x.drawn||Object.keys(x.scores||{}).length||Object.keys(x.finals||{}).length)x.status='drawn';
-  }
-  x.drawn=x.status==='drawn'||(x.status==='ended'&&!!x.drawn);
-  return x;
-}
-S=normalize(S);
-const tabs=['Início','Atletas','Grupos','Jogos','Classificação','Mata-mata','Chave'];
-let tab=S.tab;
-const $=id=>document.getElementById(id);
-const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){alert('Não foi possível salvar no aparelho. Exporte os dados.')}}
 function group(g){return [0,1,2,3].map(i=>g*4+i)}
 const patterns=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
 function games(g){return patterns.map((p,i)=>({id:g+'-'+i,a:p.slice(0,2).map(j=>g*4+j),b:p.slice(2).map(j=>g*4+j)}))}
@@ -251,6 +742,7 @@ function tieUI(scope,list,limit=list.length){
     return `<section class="tie-card ${done?'tie-done':'tie-pending'}"><b>${done?'Desempate resolvido':'EMPATE — precisa resolver'}</b><p style="margin-top:8px">${b.map(x=>name(x.i)).join(' • ')}</p>${o.length?'<p class="muted" style="margin-top:8px">Ordem definida: '+o.map(i=>esc(rawName(i))).join(' → ')+'</p>':''}${done?'<p style="margin-top:8px">Ordem final: '+[...o,...left.map(x=>x.i)].map(i=>esc(rawName(i))).join(' → ')+'</p>':`<p class="muted" style="margin-top:8px">Selecione quem venceu ${left.length===2?'o desempate':'a próxima posição do desempate'}:</p><div class="row" style="margin-top:6px">${left.map(x=>`<button onclick="chooseTie('${k}',${x.i})" ${S.status!=='drawn'?'disabled':''}>${name(x.i)} venceu</button>`).join('')}</div>`}${o.length&&S.status==='drawn'?`<div class="row" style="margin-top:10px"><button class="secondary" onclick="resetTie('${k}')">Refazer desempate</button></div>`:''}</section>`
   }).join('')
 }
+function escopoTexto(k){return k.startsWith('g')?'Grupo '+'ABCDEFGH'[+k.slice(1,k.indexOf(':'))]:'Ranking dos '+(+k.slice(1,k.indexOf(':'))+1)+'º colocados'}
 function changeTie(k){
   if(S.status!=='drawn')return false;
   if(Object.keys(S.finals).length&&!confirm('Alterar desempate apagará o mata-mata. Continuar?'))return false;
@@ -258,23 +750,27 @@ function changeTie(k){
   if(k.startsWith('g'))for(let x of Object.keys(S.breaks))if(x.startsWith('r'))delete S.breaks[x];
   return true;
 }
-function chooseTie(k,i){if(!changeTie(k))return;let o=S.breaks[k]||[];if(!o.includes(i))S.breaks[k]=[...o,i];render()}
-function resetTie(k){if(!changeTie(k))return;delete S.breaks[k];render()}
+function chooseTie(k,i){if(!changeTie(k))return;let o=S.breaks[k]||[];if(!o.includes(i))S.breaks[k]=[...o,i];persist([{tipo:'desempate',descricao:'Desempate manual — '+escopoTexto(k)+': '+rawName(i)+' à frente'}]);render()}
+function resetTie(k){if(!changeTie(k))return;delete S.breaks[k];persist([{tipo:'desempate',descricao:'Desempate refeito — '+escopoTexto(k)}]);render()}
 function tieRow(scope,list,x,limit=list.length){let b=blocks(list).find(b=>b.some(y=>y.i===x.i));return list.indexOf(b[0])<limit&&b.length>1&&order(scope,b).length<b.length-1?' class="highlight-tie"':''}
 function complete(){return groupIndexes().every(g=>games(g).every(m=>valid(S.scores[m.id])))}
-function scorecard(m,kind='scores',extraClass=''){let v=S[kind][m.id]||[];return `<div class="match-card ${extraClass}"><div class="match-label">${kind==='finals'?m.id.toUpperCase():'Jogo'}</div><div class="name">${pair(m.a)}</div><div class="vs">×</div><div class="name">${pair(m.b)}</div><div class="score"><input type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" oninput="digit(this,'b${m.id}')" id="a${m.id}" value="${v[0]??''}" placeholder="0"><b>×</b><input type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" oninput="digit(this)" id="b${m.id}" value="${v[1]??''}" placeholder="0"><button onclick="record('${m.id}','${kind}')">Salvar</button>${valid(v)?'<span class="ok">✓ salvo</span>':''}</div></div>`}
+function scorecard(m,kind='scores',extraClass=''){let v=S[kind][m.id]||[];return `<div class="match-card ${extraClass}"><div class="match-label">${kind==='finals'?m.id.toUpperCase():'Jogo'}</div><div class="name">${pair(m.a)}</div><div class="vs">×</div><div class="name">${pair(m.b)}</div><div class="score"><input type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" oninput="digit(this,'b${m.id}')" id="a${m.id}" value="${v[0]??''}" placeholder="0"><b>×</b><input type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" oninput="digit(this)" id="b${m.id}" value="${v[1]??''}" placeholder="0"><button onclick="record('${m.id}','${kind}')">Salvar</button>${valid(v)?'<span class="ok">✓ lançado</span>':''}</div></div>`}
 function placeholderCard(label,text){return `<div class="match-card placeholder"><div><div class="match-label">${label}</div><div>${text}</div></div></div>`}
 function digit(el,next){el.value=el.value.replace(/[^0-9]/g,'').slice(0,1);if(el.value&&next){let n=$(next);if(n){n.focus();n.select()}}}
+function jogoTexto(id,k){if(k==='scores'){const [g,j]=id.split('-');return 'Grupo '+'ABCDEFGH'[+g]+', jogo '+(+j+1)}return {f:'Final',t:'Disputa de 3º'}[id]||id.toUpperCase()}
 function record(id,k){
   if(S.status!=='drawn')return alert('Lançamentos bloqueados.');
   let a=$('a'+id).value,b=$('b'+id).value;
   if(a===''||b===''||!valid([+a,+b]))return alert('Informe dois placares inteiros diferentes. Não há empate.');
+  const antes=S[k][id];
   if(k==='scores'&&Object.keys(S.finals).length&&JSON.stringify(S.scores[id])!==JSON.stringify([+a,+b])){if(!confirm('Alterar a fase de grupos apagará o mata-mata. Continuar?'))return;S.finals={}}
   if(k==='finals'&&id.startsWith('q')&&JSON.stringify(S.finals[id])!==JSON.stringify([+a,+b])){delete S.finals[['q1','q2'].includes(id)?'s1':'s2'];delete S.finals.f;delete S.finals.t}
   if(k==='finals'&&id.startsWith('s')&&JSON.stringify(S.finals[id])!==JSON.stringify([+a,+b])){delete S.finals.f;delete S.finals.t}
   if(k==='scores'&&JSON.stringify(S.scores[id])!==JSON.stringify([+a,+b])){for(let x of Object.keys(S.breaks||{}))if(x.startsWith('r')||x.startsWith('g'+id.split('-')[0]+':'))delete S.breaks[x];}
+  if(JSON.stringify(antes)===JSON.stringify([+a,+b]))return;
   S[k][id]=[+a,+b];
-  save(); render();
+  persist([{tipo:'placar',descricao:jogoTexto(id,k)+': '+a+'×'+b+(valid(antes)?' (antes '+antes[0]+'×'+antes[1]+')':'')}]);
+  render();
 }
 function setnames(){
   if(S.status!=='draft')return alert('Cadastro bloqueado após iniciar a liga.');
@@ -283,20 +779,16 @@ function setnames(){
   if(Object.keys(S.scores).length&&!confirm('Alterar nomes mantém os placares associados às posições. Continuar?'))return;
   S.names=n;
   if(!Object.keys(S.scores).length)S.drawn=false;
-  save();tab='Grupos';render();
+  persist([{tipo:'cadastro',descricao:n.length+' atletas cadastrados'}]);
+  tab='Grupos';render();
 }
 function shuffle(){
   if(S.status!=='started'||S.drawn)return alert('Sorteio indisponível.');
   if(!confirm('Confirmar sorteio único desta liga?'))return;
   for(let i=capacity()-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[S.names[i],S.names[j]]=[S.names[j],S.names[i]]}
-  S.scores={};S.finals={};S.drawn=true;S.status='drawn';delete S.breaks;save();render();
-}
-function exportData(){let blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='liga-resenha-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-function importData(e){
-  if(S.status!=='draft')return alert('Importação disponível somente antes de iniciar.');
-  let f=e.target.files[0];if(!f)return;let r=new FileReader();
-  r.onload=()=>{try{let x=JSON.parse(r.result);if(!Array.isArray(x.names)||!SIZES.includes(x.names.length)||!x.names.every(y=>typeof y==='string')||!x.scores||!x.finals)throw 0;if(!confirm('Substituir dados atuais pelo backup?'))return;S=normalize(x);tab=S.tab||'Atletas';save();render()}catch{alert('Backup inválido')}};
-  r.readAsText(f)
+  S.scores={};S.finals={};S.drawn=true;S.status='drawn';delete S.breaks;
+  persist([{tipo:'sorteio',descricao:'Sorteio dos grupos realizado'}]);
+  render();
 }
 function winner(m){return S.finals[m.id][0]>S.finals[m.id][1]?m.a:m.b}
 function loser(m){return S.finals[m.id][0]>S.finals[m.id][1]?m.b:m.a}
@@ -305,21 +797,27 @@ function startLeague(){
   if(!SIZES.includes(capacity())||S.names.some(n=>!n.trim())||new Set(S.names.map(n=>n.trim().toLowerCase())).size!==capacity())return alert('Cadastre '+capacity()+' atletas diferentes.');
   if(tab==='Atletas'&&$('names')&&$('names').value.trim()!==S.names.join('\n'))return alert('Salve as alterações dos atletas antes de iniciar.');
   if(!confirm('Iniciar liga e bloquear cadastro?'))return;
-  S.status='started'; tab='Grupos'; render();
+  S.status='started';
+  persist([{tipo:'inicio',descricao:'Liga iniciada (cadastro bloqueado)'}]);
+  tab='Grupos'; render();
 }
 function endLeague(){
   if(!['started','drawn'].includes(S.status))return;
   let done=complete()&&['q1','q2','q3','q4','s1','s2','f','t'].every(k=>valid(S.finals[k]));
   if(!confirm(done?'Encerrar liga e bloquear resultados?':'A liga está incompleta. Encerrar mesmo assim?'))return;
-  S.status='ended'; render();
+  S.status='ended';
+  persist([{tipo:'finalizacao',descricao:done?'Liga finalizada':'Liga encerrada incompleta'}]);
+  render();
 }
-function newLeague(){
-  if(S.status!=='ended')return;
-  if(!confirm('Iniciar novo cadastro? Os resultados atuais serão apagados. Exporte o backup antes de continuar.'))return;
-  S={names:[...S.names],scores:{},finals:{},breaks:{},tab:'Atletas',drawn:false,status:'draft'};
-  tab='Atletas'; render();
+function corrigirResultados(){
+  if(S.status!=='ended'||L.status==='arquivada')return;
+  const motivo=prompt('Correção administrativa de liga finalizada.\nInforme o motivo (fica registrado no histórico):');
+  if(!motivo||!motivo.trim())return;
+  S.status=S.drawn?'drawn':'started';
+  persist([{tipo:'reabertura',descricao:'Liga reaberta para correção'}],motivo.trim());
+  render();
 }
-function statusText(){return {draft:'Não iniciada',started:'Iniciada — aguardando sorteio',drawn:'Em andamento — sorteio bloqueado',ended:'Encerrada'}[S.status]}
+function statusText(d){d=d||S;return {draft:'Não iniciada',started:'Iniciada — aguardando sorteio',drawn:'Em andamento — sorteio bloqueado',ended:'Encerrada'}[d.status]}
 function totalGroupGames(){return groupIndexes().flatMap(g=>games(g)).filter(m=>valid(S.scores[m.id])).length}
 function totalFinalGames(){return Object.values(S.finals).filter(valid).length}
 function progressSummary(){
@@ -327,21 +825,20 @@ function progressSummary(){
   if(S.status==='started')return 'Liga iniciada. Falta realizar o sorteio único dos grupos.';
   if(S.status==='drawn'&&!complete())return `Fase de grupos em andamento: ${totalGroupGames()}/${groupGameCount()} jogos lançados.`;
   if(S.status==='drawn'&&complete())return `Grupos concluídos. Mata-mata: ${totalFinalGames()}/8 jogos lançados.`;
-  return 'Liga encerrada. Resultados preservados até iniciar uma nova liga.';
+  return 'Liga encerrada. Resultados preservados para consulta.';
 }
 function heroActionHtml(){
   if(S.status==='draft')return '<button onclick="startLeague()">INICIAR LIGA</button>';
   if(S.status==='started')return '<button onclick="tab=\'Grupos\';render()">IR PARA O SORTEIO</button>';
   if(S.status==='drawn'&&!complete())return '<button onclick="tab=\'Jogos\';render()">LANÇAR JOGOS</button>';
   if(S.status==='drawn'&&complete())return '<button onclick="tab=\'Mata-mata\';render()">IR PARA O MATA-MATA</button>';
-  return '<button onclick="newLeague()">NOVA LIGA</button>';
+  return '<button onclick="tab=\'Chave\';render()">VER CHAVE</button>';
 }
 function renderHome(){
-  let groupsDone=groupIndexes().filter(groupDone).length;
   return `<section><h2>Painel da Liga</h2><p class="muted">${progressSummary()}</p><div class="quick-box"><div class="quick-item"><div class="muted">Status</div><div class="v">${statusText()}</div></div><div class="quick-item"><div class="muted">Jogos dos grupos</div><div class="v">${totalGroupGames()} / ${groupGameCount()}</div></div><div class="quick-item"><div class="muted">Mata-mata</div><div class="v">${totalFinalGames()} / 8</div></div></div><div class="hero-actions">${heroActionHtml()}<button class="secondary" onclick="tab='Atletas';render()">ATLETAS</button><button class="secondary" onclick="tab='Classificação';render()">CLASSIFICAÇÃO</button></div></section><section><h2>Fluxo da competição</h2><div class="grid-4"><div class="kpi"><div class="muted">1</div><div class="name">Cadastre</div><div class="muted">Confira os ${capacity()} inscritos</div></div><div class="kpi"><div class="muted">2</div><div class="name">Inicie e sorteie</div><div class="muted">Sorteio único com trava</div></div><div class="kpi"><div class="muted">3</div><div class="name">Lance os grupos</div><div class="muted">${groupGameCount()} jogos + desempates</div></div><div class="kpi"><div class="muted">4</div><div class="name">Feche a chave</div><div class="muted">Quartas, semi, final e 3º</div></div></div></section><section><h2>Atletas inscritos</h2><div class="names-grid">${Array.from({length:Math.ceil(capacity()/8)},(_,i)=>i).map(col=>`<div class="list-card">${S.names.slice(col*8,(col+1)*8).map((n,i)=>`<div>${String(col*8+i+1).padStart(2,'0')} • <span class="name">${esc(n)}</span></div>`).join('')}</div>`).join('')}</div></section>`;
 }
 function renderGroups(){
-  let h=`<section><h2>Grupos</h2><p class="muted">Para evitar sorteios acidentais, o sistema só libera o sorteio após iniciar a liga. Depois de sortear, o botão fica travado até encerrar e iniciar uma nova liga.</p><div class="panel-actions"><button onclick="shuffle()" ${S.status!=='started'||S.drawn?'disabled':''}>${S.drawn?'Sorteio realizado — bloqueado':'Sortear grupos'}</button><button class="secondary" onclick="tab='Jogos';render()" ${!S.drawn?'disabled':''}>Ir para jogos</button></div><p class="muted" style="margin-top:10px">${S.drawn?'Sorteio concluído.':'Grupos ainda não sorteados: abaixo está a ordem atual dos atletas.'}</p></section>`;
+  let h=`<section><h2>Grupos</h2><p class="muted">Para evitar sorteios acidentais, o sistema só libera o sorteio após iniciar a liga. Depois de sortear, o sorteio fica travado.</p><div class="panel-actions"><button onclick="shuffle()" ${S.status!=='started'||S.drawn?'disabled':''}>${S.drawn?'Sorteio realizado — bloqueado':'Sortear grupos'}</button><button class="secondary" onclick="tab='Jogos';render()" ${!S.drawn?'disabled':''}>Ir para jogos</button></div><p class="muted" style="margin-top:10px">${S.drawn?'Sorteio concluído.':'Grupos ainda não sorteados: abaixo está a ordem atual dos atletas.'}</p></section>`;
   for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><div class="group-list" style="margin-top:8px">${group(g).map((i,pos)=>`<div>${pos+1}. <span class="name">${name(i)}</span></div>`).join('')}</div></section>`;
   return h;
 }
@@ -392,31 +889,106 @@ function renderKnockout(bracketOnly=false){
     t={id:'t',a:loser(ss[0]),b:loser(ss[1])};
   }
   if(bracketOnly)return renderBracket(qs,ss,f,t);
-  h+='<section><h2>Quartas de final</h2>'+qs.map(m=>scorecard(m,'finals')).join('')+'</section><section><h2>Semifinais</h2>'+ss.map((m,i)=>m?scorecard(m,'finals'):placeholderCard('S'+(i+1),'Aguardando as quartas')).join('')+'</section><section><h2>Final e terceiro lugar</h2>'+(f?scorecard(f,'finals')+scorecard(t,'finals'):placeholderCard('FINAL / 3º','Aguardando as semifinais'))+'</section>'; 
+  h+='<section><h2>Quartas de final</h2>'+qs.map(m=>scorecard(m,'finals')).join('')+'</section><section><h2>Semifinais</h2>'+ss.map((m,i)=>m?scorecard(m,'finals'):placeholderCard('S'+(i+1),'Aguardando as quartas')).join('')+'</section><section><h2>Final e terceiro lugar</h2>'+(f?scorecard(f,'finals')+scorecard(t,'finals'):placeholderCard('FINAL / 3º','Aguardando as semifinais'))+'</section>';
   if(f&&valid(S.finals.f))h+=`<section><h2 class="tag">Campeões: ${pair(winner(f))}</h2><p style="margin-top:8px">2º lugar: ${pair(loser(f))}</p>${t&&valid(S.finals.t)?'<p style="margin-top:4px">3º lugar: '+pair(winner(t))+'</p>':''}</section>`;
   return h;
 }
+
+/* ---------- Telas ---------- */
 function renderLifecycle(){
-  $('lifecycle').innerHTML=`<section class="header-card"><div class="row" style="justify-content:space-between;align-items:center"><div><div class="status-chip">Status: ${statusText()}</div><p class="muted" style="margin-top:8px">${progressSummary()}</p></div><div class="row">${S.status==='draft'?'<button onclick="startLeague()">INICIAR LIGA</button>':S.status==='ended'?'<button onclick="newLeague()">NOVA LIGA</button>':'<button class="secondary" onclick="endLeague()">ENCERRAR LIGA</button>'}</div></div></section>`;
+  const st=statusAtual();
+  let acoes='';
+  if(st==='arquivada')acoes='<p class="muted">Liga arquivada (somente consulta). Desarquive em Minhas Ligas para corrigir.</p>';
+  else if(S.status==='draft')acoes='<button onclick="startLeague()">INICIAR LIGA</button>';
+  else if(S.status==='ended')acoes='<button class="secondary" onclick="corrigirResultados()">CORRIGIR RESULTADOS</button><button class="secondary" onclick="duplicarLiga(L.id)">DUPLICAR LIGA</button>';
+  else acoes='<button class="secondary" onclick="endLeague()">ENCERRAR LIGA</button>';
+  $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost" onclick="voltarInicio()">← Minhas Ligas</button>
+   <h2 style="margin:12px 0 2px">${esc(L.nome)}</h2>
+   <p class="muted">${fmtData(L.data)} • ${capacity()} atletas • <span class="chip st-${st}">${STATUS_LABEL[st]}</span></p>
+   <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px"><div><div class="status-chip">${statusText()}</div><p class="muted" style="margin-top:8px">${progressSummary()}</p></div><div class="row">${acoes}</div></div></section>`;
 }
 function render(){
-  S.tab=tab; save(); renderLifecycle();
-  $('nav').innerHTML=tabs.map(t=>`<button class="${t===tab?'active':'secondary'}" onclick="tab='${t}';render()">${t}</button>`).join('');
+  renderSync();
+  if(view!=='liga'){$('lifecycle').innerHTML='';$('nav').innerHTML='';$('nav').style.display='none'}
   let h='';
-  if(tab==='Início')h=renderHome();
-  if(tab==='Atletas')h=`<section><h2>Cadastro de atletas</h2><p class="muted">Escolha a quantidade de atletas. Escreva ou cole um nome por linha.</p>${configHtml()}<textarea id="names" oninput="namesCounter()" rows="${Math.min(capacity()+1,33)}" ${S.status!=='draft'?'disabled':''}>${esc(S.names.join('\n'))}</textarea><p id="namesCounter" style="margin-top:8px"></p><div class="panel-actions"><button class="secondary" onclick="clearNames()" ${S.status!=='draft'?'disabled':''}>Limpar lista</button><button id="saveNamesBtn" onclick="setnames()" ${S.status!=='draft'?'disabled':''}>Salvar atletas</button><button class="secondary" onclick="exportData()">Exportar backup</button><button class="secondary" onclick="document.getElementById('imp').click()" ${S.status!=='draft'?'disabled':''}>Importar backup</button><input id="imp" type="file" accept=".json" hidden onchange="importData(event)"></div></section>`;
-  if(tab==='Grupos')h=renderGroups();
-  if(tab==='Jogos')h=renderGroupGames();
-  if(tab==='Classificação')h=renderClassification();
-  if(tab==='Mata-mata')h=renderKnockout();
-  if(tab==='Chave')h=renderKnockout(true);
-  h+=`<div class="footer-note">Dados salvos neste navegador. Exporte o backup se quiser guardar o resultado da liga antes de começar uma nova.</div>`;
+  if(view==='carregando')h='<section><p class="muted">Carregando…</p></section>';
+  if(view==='erro')h='<section><h2>Não foi possível iniciar</h2><p class="muted">O app não conseguiu carregar os componentes necessários. Verifique a conexão e recarregue a página.</p><div class="panel-actions"><button onclick="location.reload()">Recarregar</button></div></section>';
+  if(view==='login')h=renderLogin();
+  if(view==='inicio')h=renderInicio();
+  if(view==='nova')h=renderNova();
+  if(view==='liga'){
+    lsSet('lr6:aba:'+L.id,tab);
+    renderLifecycle();
+    $('nav').style.display='';
+    $('nav').innerHTML=tabs.map(t=>`<button class="${t===tab?'active':'secondary'}" onclick="tab='${t}';render()">${t}</button>`).join('');
+    if(tab==='Painel')h=renderHome();
+    if(tab==='Atletas')h=`<section><h2>Cadastro de atletas</h2><p class="muted">Escolha a quantidade de atletas. Escreva ou cole um nome por linha.</p>${configHtml()}<textarea id="names" oninput="namesCounter()" rows="${Math.min(capacity()+1,33)}" ${S.status!=='draft'?'disabled':''}>${esc(S.names.join('\n'))}</textarea><p id="namesCounter" style="margin-top:8px"></p><div class="panel-actions"><button class="secondary" onclick="clearNames()" ${S.status!=='draft'?'disabled':''}>Limpar lista</button><button id="saveNamesBtn" onclick="setnames()" ${S.status!=='draft'?'disabled':''}>Salvar atletas</button><button class="secondary" onclick="exportarLiga()">Exportar backup</button></div></section>`;
+    if(tab==='Grupos')h=renderGroups();
+    if(tab==='Jogos')h=renderGroupGames();
+    if(tab==='Classificação')h=renderClassification();
+    if(tab==='Mata-mata')h=renderKnockout();
+    if(tab==='Chave')h=renderKnockout(true);
+    if(tab==='Histórico')h=renderHistorico();
+  }
+  h+=`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
   $('main').innerHTML=h;
-  if(tab==='Atletas')namesCounter();
-  if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="record"], #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
+  if(view==='nova'){const q=$('nlQtd');q.onchange=()=>{$('nlRegra').textContent=FORMATS[q.value].label}}
+  if(view==='liga'){
+    if(tab==='Atletas')namesCounter();
+    if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="record"], #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
+  }
 }
-render();
+
+/* ---------- Início do app ---------- */
+async function iniciar(){
+  if(!window.supabase||!window.supabase.createClient){view='erro';render();return}
+  sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'lr6-auth'}});
+  sb.auth.onAuthStateChange((ev,session)=>{
+    if(ev==='SIGNED_OUT'){usuario=null;if(view==='inicio'||view==='nova'){view='login';render()}}
+    else if(session)usuario=session.user;
+  });
+  view='carregando';render();
+  let session=null;
+  try{const r=await sb.auth.getSession();session=r.data&&r.data.session}catch{}
+  let temSessaoGuardada=false;try{temSessaoGuardada=!!localStorage.getItem('lr6-auth')}catch{}
+  if(!session&&!(temSessaoGuardada&&!navigator.onLine)){view='login';render();return}
+  usuario=session&&session.user;
+  view='inicio';render();carregarLista();
+}
+window.addEventListener('online',()=>{if(view==='liga'&&fila.pendente)tentarNovamente();if(view==='inicio')carregarLista()});
+window.addEventListener('offline',()=>{if(view==='liga'&&sync.estado!=='conflito')setSync('offline')});
+window.addEventListener('beforeunload',e=>{if(enviando||fila.pendente){e.preventDefault();e.returnValue=''}});
+async function conferirVersaoNoServidor(recarregar){
+  if(view!=='liga'||!L||fila.pendente||enviando||!navigator.onLine||document.visibilityState!=='visible')return;
+  try{
+    const {data,error}=await sb.from('ligas').select('versao').eq('id',L.id).single();
+    if(error||!data||!L||data.versao<=L.versao||fila.pendente||enviando)return;
+    if(recarregar)abrirLiga(L.id,{ignorarCache:true});else setSync('desatualizada');
+  }catch{}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(view==='liga')conferirVersaoNoServidor(true);else if(view==='inicio')carregarLista()}});
+setInterval(()=>{
+  if(view!=='liga')return;
+  if(fila.pendente&&!enviando&&(sync.estado==='offline'||sync.estado==='pendente'))tentarNovamente();
+  else conferirVersaoNoServidor(false);
+},30000);
+iniciar();
 </script>
-<script>if ("serviceWorker" in navigator && location.protocol !== "file:") { window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(console.error)); }</script>
+<script>
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+  let tinhaControle=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!tinhaControle){tinhaControle=true;return}
+    document.getElementById('update-banner').innerHTML='<div class="sync s-info" style="position:static;transform:none;margin:10px 0"><span>Nova versão do app disponível.</span><button onclick="atualizarApp()">Atualizar</button></div>';
+  });
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').then(reg=>{setInterval(()=>reg.update().catch(()=>{}),60*60*1000)}).catch(console.error));
+}
+function atualizarApp(){
+  if((typeof enviando!=='undefined'&&enviando)||(typeof fila!=='undefined'&&fila.pendente)){
+    if(!confirm('Há alterações ainda não gravadas no servidor. Elas ficam guardadas neste aparelho. Atualizar mesmo assim?'))return;
+  }
+  location.reload();
+}
+</script>
 </body>
 </html>

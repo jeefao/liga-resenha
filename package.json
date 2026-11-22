@@ -1,0 +1,14 @@
+{
+  "name": "liga-resenha-v6",
+  "private": true,
+  "type": "module",
+  "description": "Liga Resenha V6 — Liga Relâmpago. O app é estático (index.html); este arquivo serve apenas para os testes.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@supabase/supabase-js": "2.119.0",
+    "vitest": "5.1.0"
+  }
+}
