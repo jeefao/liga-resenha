@@ -68,6 +68,15 @@ td:not(:first-child),th:not(:first-child){text-align:center}
 .warn{color:var(--warn)}
 .hero-actions,.panel-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .score{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.placar{display:grid;gap:3px;margin-top:4px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.14)}
+.placar-linha{display:flex;align-items:center;background:linear-gradient(180deg,#1e4fbf 0%,#14388a 100%)}
+.placar-linha.venceu{background:linear-gradient(180deg,#2457cc 0%,#173f9a 100%)}
+.placar-nome{flex:1;min-width:0;padding:11px 12px;font-weight:800;font-size:14px;letter-spacing:.3px;text-transform:uppercase;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.placar-linha.venceu .placar-nome{color:#fde68a}
+.placar input{width:52px;height:42px;flex:none;margin:4px 5px 4px 0;padding:0;text-align:center;font-size:24px;font-weight:900;background:#fff;color:#0b1220;border:0;border-radius:6px}
+.placar-linha.venceu input{background:#f4c85a}
+.placar input:disabled{opacity:.85}
+.placar-status{font-size:12px;font-weight:700}
 .score input{width:68px;text-align:center;flex:0 0 68px}
 .match-card{padding:12px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);box-shadow:0 8px 20px rgba(0,0,0,.15)}
 .match-label{display:inline-flex;padding:5px 8px;border-radius:999px;background:rgba(244,200,90,.12);border:1px solid rgba(244,200,90,.2);font-size:12px;font-weight:800;color:#fde68a;margin-bottom:8px}
@@ -78,6 +87,8 @@ td:not(:first-child),th:not(:first-child){text-align:center}
 .highlight-tie{background:rgba(120,53,15,.55)!important}
 .names-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .group-list{line-height:1.7}
+.inscritos{columns:2 200px;column-gap:24px;line-height:1.7}
+.inscritos>div{break-inside:avoid}
 .quick-box{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
 .quick-item{padding:14px;border-radius:18px;background:rgba(9,18,32,.6);border:1px solid rgba(255,255,255,.08)}
 .bracket-wrap{overflow-x:auto;padding-bottom:6px}
@@ -130,6 +141,14 @@ label input,label select{margin-top:6px;font-weight:400}
 .at-inativo{color:#cbd5e1;border-color:rgba(148,163,184,.5);background:rgba(51,65,85,.35)}
 .at-sel{color:var(--text);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.06)}
 .at-sem{color:#fde68a;border-color:rgba(245,158,11,.7);background:rgba(245,158,11,.12)}
+.tabela-rolagem{overflow-x:auto;margin-top:12px;-webkit-overflow-scrolling:touch}
+.rk{min-width:max-content}
+.rk th,.rk td{text-align:center;padding:6px 7px;white-space:nowrap}
+.rk .rk-nome{text-align:left;position:sticky;left:0;background:#0f1a2b}
+.rk th small,.rk td small{display:block;font-size:10px;color:var(--muted)}
+.rk td.desc,td.desc{text-decoration:line-through;opacity:.5}
+.rk td.parcial{font-style:italic;color:var(--muted)}
+.rk td.aus{color:var(--warn)}
 .atl-list{display:grid;gap:6px}
 .atl-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(9,18,32,.6);border:1px solid rgba(255,255,255,.09)}
 .atl-row .chip{font-size:11px;padding:2px 8px;margin-top:4px}
@@ -169,7 +188,7 @@ summary{cursor:pointer}
 <div id="modal"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.2.1';
+const APP_VERSION='6.3.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -235,7 +254,7 @@ function etapaDe(d){return comDados(d,()=>{if(S.status==='draft')return 'cadastr
 function statusDe(d){return d.status==='draft'?'preparacao':d.status==='ended'?'finalizada':'andamento'}
 function statusAtual(){const s=statusDe(S);return s==='finalizada'&&L&&L.status==='arquivada'?'arquivada':s}
 function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status}))}
-function metaDe(r){return {id:r.id,nome:r.nome,data:r.data,participantes:r.participantes,status:r.status,etapa:r.etapa,versao:r.versao,atualizado_em:r.atualizado_em}}
+function metaDe(r){return {id:r.id,nome:r.nome,data:r.data,participantes:r.participantes,status:r.status,etapa:r.etapa,versao:r.versao,atualizado_em:r.atualizado_em,temporada_id:r.temporada_id||null,etapa_numero:r.etapa_numero||null}}
 
 /* ---------- Erros ---------- */
 function ehErroDeRede(e){return !navigator.onLine||/Failed to fetch|NetworkError|Load failed|fetch failed|network/i.test(String(e&&(e.message||e)))}
@@ -248,6 +267,10 @@ function traduzErro(e){
   if(/liga_na_lixeira/.test(m))return 'a liga está na lixeira';
   if(/liga_nao_encontrada|PGRST116/.test(m))return 'liga não encontrada';
   if(/atleta_ja_existe/.test(m))return 'já existe um atleta com esse nome no cadastro';
+  if(/etapa_ja_existe/.test(m))return 'esta etapa já foi criada';
+  if(/temporada_fechada/.test(m))return 'a temporada não está em andamento (reabra para criar etapas)';
+  if(/ligas_etapa_unica/.test(m))return 'já existe outra etapa com este número nesta temporada';
+  if(/criar_temporada|salvar_temporada|criar_etapa/.test(m)&&/not find|PGRST202|does not exist/.test(m))return 'as temporadas ainda não foram instaladas no servidor';
   if(/atleta_em_uso/.test(m))return 'este atleta aparece em alguma liga (inclusive na lixeira) e não pode ser apagado';
   if(/atleta_ativo/.test(m))return 'marque o atleta como inativo antes de apagar';
   if(/liga_fora_da_lixeira/.test(m))return 'só é possível apagar ligas que estão na lixeira';
@@ -403,6 +426,8 @@ async function abrirLiga(id,{ignorarCache=false}={}){
 }
 function entrarNaLiga(){
   view='liga';carregarAtletas();
+  CONFRONTO_DIRETO=false;
+  if(L.temporada_id){const t=(T&&T.id===L.temporada_id)?T:temporadas.find(x=>x.id===L.temporada_id);CONFRONTO_DIRETO=t?regrasCompletas(t.regras).confronto_direto:true}
   const salva=lsGet('lr6:aba:'+L.id);
   tab=tabs.includes(salva)?salva:(ABA_DA_ETAPA[L.etapa]||'Painel');
   render();
@@ -412,7 +437,9 @@ function voltarInicio(forcar=false){
     if(enviando)return alert('Aguarde terminar de salvar.');
     if(fila.pendente&&!confirm('Há alterações ainda não gravadas no servidor. Elas ficam guardadas neste aparelho e serão enviadas quando você abrir esta liga de novo. Voltar mesmo assim?'))return;
   }
-  L=null;S=null;historico=null;fila={pendente:false,eventos:[],motivo:null};sync={estado:'',msg:''};
+  const tid=L&&L.temporada_id;
+  L=null;S=null;historico=null;fila={pendente:false,eventos:[],motivo:null};sync={estado:'',msg:''};CONFRONTO_DIRETO=false;
+  if(tid){fecharModal();abrirTemporada(tid);return}
   fecharModal();view='inicio';render();carregarLista();
 }
 
@@ -450,8 +477,9 @@ function renderLogin(){
 /* ---------- Minhas Ligas ---------- */
 async function carregarLista(){
   listaInfo={carregando:true};if(view==='inicio')render();
+  carregarTemporadas();
   try{
-    const {data,error}=await sb.from('ligas').select('id,nome,data,participantes,status,etapa,versao,atualizado_em,excluida_em').order('data',{ascending:false}).order('atualizado_em',{ascending:false});
+    const {data,error}=await sb.from('ligas').select('id,nome,data,participantes,status,etapa,versao,atualizado_em,excluida_em,temporada_id,etapa_numero').order('data',{ascending:false}).order('atualizado_em',{ascending:false});
     if(error)throw error;
     lista=data.filter(x=>!x.excluida_em);lixeira=data.filter(x=>x.excluida_em);
     const ant=lsGet('lr6:lista');
@@ -481,10 +509,12 @@ function ligaCard(x){
     <button class="secondary" onclick="duplicarLiga('${x.id}')">Duplicar</button>
     ${x.status==='finalizada'?`<button class="secondary" onclick="mudarArquivo('${x.id}',true)">Arquivar</button>`:''}
     ${x.status==='arquivada'?`<button class="secondary" onclick="mudarArquivo('${x.id}',false)">Desarquivar</button>`:''}
+    <button class="ghost" onclick="moverParaLixeira('${x.id}')">🗑 Lixeira</button>
    </div></div>`;
 }
 function renderInicio(){
-  const ativas=lista.filter(x=>x.status!=='arquivada'),arquivadas=lista.filter(x=>x.status==='arquivada');
+  const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
+  const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
   let h=`<section><div class="panel-actions" style="margin-top:0"><button style="flex:1;font-size:17px;padding:15px" onclick="view='nova';render()">NOVA LIGA</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirAtletas()">ATLETAS</button></div></section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
@@ -492,11 +522,12 @@ function renderInicio(){
    <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>
    <p class="muted" style="margin-top:6px">Ela continua guardada aqui. Você pode importá-la como uma nova liga online.</p>
    <div class="panel-actions"><button onclick="importarAntiga()">Importar como nova liga</button><button class="secondary" onclick="baixarAntiga()">Baixar backup</button><button class="ghost" onclick="ocultarAntiga()">Ocultar aviso</button></div></section>`;
-  h+=`<section><h2>MINHAS LIGAS</h2>${listaInfo.carregando&&!lista.length?'<p class="muted">Carregando…</p>':ativas.length?'<div class="ligas-list">'+ativas.map(ligaCard).join('')+'</div>':listaInfo.origem==='cache'?'<p class="muted">Nenhuma liga guardada neste aparelho.</p>':'<p class="muted">Nenhuma liga ainda. Toque em NOVA LIGA.</p>'}</section>`;
+  h+=`<section><div class="row" style="justify-content:space-between;align-items:center"><h2>TEMPORADAS</h2><button class="secondary" onclick="view='nova-temporada';render()">+ Nova temporada</button></div>${tAtivas.length?'<div class="ligas-list" style="margin-top:10px">'+tAtivas.map(temporadaCard).join('')+'</div>':'<p class="muted" style="margin-top:8px">Nenhuma temporada ainda.</p>'}${tArquivadas.length?`<details style="margin-top:10px"><summary><b>Temporadas arquivadas (${tArquivadas.length})</b></summary><div class="ligas-list" style="margin-top:10px">${tArquivadas.map(temporadaCard).join('')}</div></details>`:''}</section>`;
+  h+=`<section><h2>LIGAS RELÂMPAGO</h2>${listaInfo.carregando&&!lista.length?'<p class="muted">Carregando…</p>':ativas.length?'<div class="ligas-list">'+ativas.map(ligaCard).join('')+'</div>':listaInfo.origem==='cache'?'<p class="muted">Nenhuma liga guardada neste aparelho.</p>':'<p class="muted">Nenhuma liga ainda. Toque em NOVA LIGA.</p>'}</section>`;
   if(arquivadas.length)h+=`<section><details><summary><b>Arquivadas (${arquivadas.length})</b></summary><div class="ligas-list" style="margin-top:10px">${arquivadas.map(ligaCard).join('')}</div></details></section>`;
   h+=`<section><h3>Backups</h3><p class="muted" style="margin-top:6px">Exporte todas as ligas num arquivo. A importação sempre cria ligas novas e nunca altera as existentes.</p>
    <div class="panel-actions"><button class="secondary" onclick="exportarTodas()">Exportar todas as ligas</button><button class="secondary" onclick="$('imp').click()">Importar backup</button><input id="imp" type="file" accept=".json,application/json" hidden onchange="importarArquivo(event)"></div></section>`;
-  h+=`<section><details ${mostrarLixeira?'open':''} ontoggle="mostrarLixeira=this.open"><summary><b>Lixeira (${lixeira.length})</b></summary>${lixeira.length?lixeira.map(x=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(x.nome)}</h3><p class="muted">${fmtData(x.data)} • ${x.participantes} atletas • na lixeira desde ${fmtDataHora(x.excluida_em)}</p><div class="panel-actions"><button class="secondary" onclick="retirarDaLixeira('${x.id}')">Retirar da lixeira</button><button class="danger" onclick="apagarDeVez('${x.id}')">Apagar de vez</button></div></div>`).join('')+`<div class="panel-actions" style="margin-top:14px"><button class="danger" onclick="esvaziarLixeira()">ESVAZIAR LIXEIRA (${lixeira.length})</button></div><p class="muted" style="margin-top:6px">Apagar de vez não tem volta. Antes, o app baixa um arquivo de backup das ligas apagadas.</p>`:'<p class="muted" style="margin-top:8px">Vazia.</p>'}</details></section>`;
+  h+=`<section><details ${mostrarLixeira?'open':''} ontoggle="mostrarLixeira=this.open"><summary><b>Lixeira (${lixeira.length})</b></summary>${lixeira.length?lixeira.map(x=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(x.nome)}</h3><p class="muted">${x.etapa_numero?'Etapa '+x.etapa_numero+' de temporada • ':''}${fmtData(x.data)} • ${x.participantes} atletas • na lixeira desde ${fmtDataHora(x.excluida_em)}</p><div class="panel-actions"><button class="secondary" onclick="retirarDaLixeira('${x.id}')">Retirar da lixeira</button><button class="danger" onclick="apagarDeVez('${x.id}')">Apagar de vez</button></div></div>`).join('')+`<div class="panel-actions" style="margin-top:14px"><button class="danger" onclick="esvaziarLixeira()">ESVAZIAR LIXEIRA (${lixeira.length})</button></div><p class="muted" style="margin-top:6px">Apagar de vez não tem volta. Antes, o app baixa um arquivo de backup das ligas apagadas.</p>`:'<p class="muted" style="margin-top:8px">Vazia.</p>'}</details></section>`;
   h+=`<p class="muted" style="text-align:center;margin-top:14px">${usuario&&usuario.email?'Conectado como '+esc(usuario.email)+' • ':''}<a href="#" onclick="sair();return false">Sair</a></p>`;
   return h;
 }
@@ -720,6 +751,445 @@ async function vincularCadastro(){
   }catch(e){alert('Não foi possível vincular: '+traduzErro(e))}
 }
 
+/* ---------- Temporadas ---------- */
+const REGRAS_PADRAO={etapas:10,dobradas:[5],descartes:1,ausencia:'zero',especiais:[3,7],confronto_direto:true,
+  pontos:{vitoria:1,bonus_6x0:1,derrota_0x6:-1,posicao:[12,10,7,5],quartas:[1,1],semi:[1,2],terceiro:[1,1],final:[3,3]}};
+const T_STATUS={andamento:'Em andamento',encerrada:'Encerrada',arquivada:'Arquivada'};
+const tTabs=['Ranking','Etapas','Ajustes','Regras'];
+let temporadas=lsGet('lr6:temporadas')?.lista||[];
+let T=null,TE=[],tTab='Ranking',tInfo={};
+const pontosCache=new Map();
+
+function numLista(v,max){return [...new Set((Array.isArray(v)?v:String(v||'').split(/[^0-9]+/)).map(Number).filter(n=>Number.isInteger(n)&&n>=1&&n<=max))].sort((a,b)=>a-b)}
+function inteiro(v,pad){const n=Number(v);return Number.isFinite(n)?Math.round(n):pad}
+function regrasCompletas(r){
+  r=r&&typeof r==='object'?r:{};const p=r.pontos||{},P=REGRAS_PADRAO.pontos;
+  const par=(x,d)=>Array.isArray(x)&&x.length===2?x.map((v,i)=>inteiro(v,d[i])):[...d];
+  const etapas=Math.min(60,Math.max(1,inteiro(r.etapas,REGRAS_PADRAO.etapas)));
+  return {etapas,
+    dobradas:numLista(r.dobradas??REGRAS_PADRAO.dobradas,etapas),
+    descartes:Math.max(0,Math.min(etapas-1,inteiro(r.descartes,REGRAS_PADRAO.descartes))),
+    ausencia:r.ausencia==='minimo'?'minimo':'zero',
+    especiais:numLista(r.especiais??REGRAS_PADRAO.especiais,etapas),
+    confronto_direto:r.confronto_direto!==false,
+    pontos:{vitoria:inteiro(p.vitoria,P.vitoria),bonus_6x0:inteiro(p.bonus_6x0,P.bonus_6x0),derrota_0x6:inteiro(p.derrota_0x6,P.derrota_0x6),
+      posicao:Array.isArray(p.posicao)&&p.posicao.length===4?p.posicao.map((v,i)=>inteiro(v,P.posicao[i])):[...P.posicao],
+      quartas:par(p.quartas,P.quartas),semi:par(p.semi,P.semi),terceiro:par(p.terceiro,P.terceiro),final:par(p.final,P.final)}};
+}
+// Menor pontuação possível jogando: último do grupo perdendo os 3 jogos por 0×6
+function pontosMinimos(R){return R.pontos.posicao[3]+3*Math.min(0,R.pontos.derrota_0x6)}
+
+/* Pontos de cada atleta numa etapa (calculados a partir dos placares) */
+function pontosDaEtapa(liga,R){
+  const chave=liga.id+':'+liga.versao+':'+JSON.stringify(R);
+  if(pontosCache.has(chave))return pontosCache.get(chave);
+  let d;try{d=validarDados(liga.dados)}catch{return null}
+  const out={porId:new Map(),semVinculo:[],gruposCompletos:false,mataCompleto:false,iniciada:!!d.drawn};
+  if(!d.drawn){pontosCache.set(chave,out);return out}
+  const P=R.pontos,velho=CONFRONTO_DIRETO;CONFRONTO_DIRETO=R.confronto_direto;
+  try{comDados(d,()=>{
+    const pos=S.names.map(()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[]}));
+    for(const g of groupIndexes()){
+      for(const m of games(g)){const v=S.scores[m.id];if(!valid(v))continue;
+        [m.a,m.b].forEach((lado,k)=>lado.forEach(i=>{const x=pos[i];
+          if(v[k]>v[1-k]){x.v++;x.grupo+=P.vitoria}
+          if(v[k]===6&&v[1-k]===0){x.b++;x.grupo+=P.bonus_6x0}
+          if(v[k]===0&&v[1-k]===6){x.dz++;x.grupo+=P.derrota_0x6}
+        }))}
+      const r=rank(g);
+      if(groupDone(g)&&!pending('g'+g,r))r.forEach((x,k)=>{pos[x.i].posicao=k+1;pos[x.i].grupo+=P.posicao[k]});
+    }
+    out.gruposCompletos=complete()&&!groupPending();
+    if(out.gruposCompletos){
+      const lists=listsGeneral(),counts=FORMATS[capacity()].counts;
+      const semEmpate=!lists.some((l,k)=>counts[k]>0&&pending('r'+k,l,counts[k]));
+      const q=lists.flatMap((l,k)=>l.slice(0,counts[k]));
+      if(semEmpate&&q.length===16){
+        const duos=Array.from({length:8},(_,i)=>q.slice(i*2,i*2+2).map(x=>x.i));
+        const dar=(lado,pts,txt)=>lado.forEach(i=>{pos[i].mata+=pts;pos[i].mataTxt.push(txt)});
+        const jogo=(id,a,b,[part,vit],nome)=>{dar(a,part,nome);dar(b,part,nome);const v=S.finals[id];if(!valid(v))return null;const w=v[0]>v[1]?a:b,l=v[0]>v[1]?b:a;dar(w,vit,'vitória '+nome);return {w,l}};
+        const qs=[[0,7],[3,4],[1,6],[2,5]].map((p,i)=>jogo('q'+(i+1),duos[p[0]],duos[p[1]],P.quartas,'quartas'));
+        const ss=[0,1].map(i=>qs[2*i]&&qs[2*i+1]?jogo('s'+(i+1),qs[2*i].w,qs[2*i+1].w,P.semi,'semifinal'):null);
+        if(ss[0]&&ss[1]){const f=jogo('f',ss[0].w,ss[1].w,P.final,'final');const t=jogo('t',ss[0].l,ss[1].l,P.terceiro,'3º lugar');out.mataCompleto=!!(f&&t)}
+      }
+    }
+    S.names.forEach((n,i)=>{
+      const id=S.ids[i];const x=pos[i];x.total=x.grupo+x.mata;
+      if(id)out.porId.set(id,x);else if(n.trim())out.semVinculo.push(n);
+    });
+  })}finally{CONFRONTO_DIRETO=velho}
+  pontosCache.set(chave,out);return out;
+}
+const ligaEncerrada=l=>l.status==='finalizada'||l.status==='arquivada';
+
+function calcularRanking(){
+  const R=regrasCompletas(T.regras),min=pontosMinimos(R);
+  const porNum=new Map(TE.filter(l=>!l.excluida_em).map(l=>[l.etapa_numero,l]));
+  const pts=new Map([...porNum].map(([n,l])=>[n,pontosDaEtapa(l,R)]));
+  const ids=new Set();
+  for(const l of porNum.values())(Array.isArray(l.dados&&l.dados.ids)?l.dados.ids:[]).forEach(id=>id&&ids.add(id));
+  const ajustes=(T.dados&&Array.isArray(T.dados.ajustes)?T.dados.ajustes:[]);
+  ajustes.forEach(a=>a.atleta_id&&ids.add(a.atleta_id));
+  const encerradas=[...porNum.values()].filter(ligaEncerrada).length;
+  const linhas=[...ids].map(id=>{
+    const cel=[];
+    for(let n=1;n<=R.etapas;n++){
+      const l=porNum.get(n),mult=R.dobradas.includes(n)?2:1;
+      if(!l){cel.push({tipo:'futura'});continue}
+      const p=pts.get(n),x=p&&p.porId.get(id);
+      if(x){cel.push({tipo:ligaEncerrada(l)?'jogou':'andamento',valor:x.total*mult,det:x,mult});continue}
+      if(ligaEncerrada(l)){cel.push({tipo:'ausente',valor:(R.ausencia==='minimo'?min:0)*mult,mult});continue}
+      cel.push({tipo:'futura'});
+    }
+    const cand=cel.filter(c=>c.tipo==='jogou'||c.tipo==='ausente');
+    if(R.descartes&&cand.length>R.descartes)[...cand].sort((a,b)=>a.valor-b.valor).slice(0,R.descartes).forEach(c=>c.descarte=true);
+    const aj=ajustes.filter(a=>a.atleta_id===id).reduce((s,a)=>s+inteiro(a.pontos,0),0);
+    const total=cel.reduce((s,c)=>s+(c.valor!=null&&!c.descarte?c.valor:0),0)+aj;
+    const at=atletaPorId(id);
+    return {id,nome:at?at.nome:'(atleta removido)',situacao:at&&at.situacao,cel,aj,total,etapas:cel.filter(c=>c.tipo==='jogou'||c.tipo==='andamento').length};
+  });
+  linhas.sort((a,b)=>b.total-a.total||a.nome.localeCompare(b.nome,'pt-BR'));
+  linhas.forEach((x,i)=>x.pos=i&&linhas[i-1].total===x.total?linhas[i-1].pos:i+1);
+  const semVinculo=[...pts].filter(([,p])=>p&&p.semVinculo.length).map(([n,p])=>({n,qtd:p.semVinculo.length}));
+  return {R,linhas,semVinculo,encerradas,porNum,pts};
+}
+
+/* Carregar */
+async function carregarTemporadas(){
+  try{
+    const {data,error}=await sb.from('temporadas').select('id,nome,inicio,status,versao,regras,publica,atualizado_em').order('inicio',{ascending:false,nullsFirst:false}).order('criado_em',{ascending:false});
+    if(error)throw error;
+    temporadas=data;lsSet('lr6:temporadas',{em:new Date().toISOString(),lista:data});
+  }catch(e){if(!/temporadas.*(does not exist|schema cache)|PGRST205/.test(String(e&&e.message)))console.warn(e)}
+  if(view==='inicio')render();
+}
+async function abrirTemporada(id){
+  view='temporada';T=temporadas.find(t=>t.id===id)||T;tInfo={carregando:true};
+  const salva=lsGet('lr6:taba:'+id);tTab=tTabs.includes(salva)?salva:'Ranking';
+  render();
+  try{
+    const [t,e]=await Promise.all([
+      sb.from('temporadas').select('*').eq('id',id).single(),
+      sb.from('ligas').select('id,nome,data,status,etapa,etapa_numero,participantes,versao,excluida_em,atualizado_em,dados').eq('temporada_id',id)
+    ]);
+    if(t.error)throw t.error;if(e.error)throw e.error;
+    T=t.data;TE=e.data;tInfo={origem:'servidor'};
+    lsSet('lr6:temporada:'+id,{em:new Date().toISOString(),T,TE});
+  }catch(err){
+    const c=lsGet('lr6:temporada:'+id);
+    if(c){T=c.T;TE=c.TE;tInfo={origem:'cache',erro:traduzErro(err),em:c.em}}
+    else{alert('Não foi possível abrir a temporada: '+traduzErro(err));view='inicio';render();return}
+  }
+  if(!atletas.length||atletasInfo.origem!=='servidor')carregarAtletas();
+  if(view==='temporada')render();
+}
+async function salvarTemporada(campos,motivo){
+  if(!navigator.onLine){alert('Sem conexão. Alterações da temporada precisam de internet.');return false}
+  try{
+    const {data,error}=await sb.rpc('salvar_temporada',{p_id:T.id,p_versao_esperada:T.versao,...campos,p_motivo:motivo});
+    if(error)throw error;
+    if(data.conflito){alert('A temporada foi alterada em outro aparelho. Ela será recarregada; confira e faça de novo.');await abrirTemporada(T.id);return false}
+    delete data.ok;T=data;
+    const k=temporadas.findIndex(x=>x.id===T.id);if(k>=0)temporadas[k]={...temporadas[k],...T};
+    lsSet('lr6:temporada:'+T.id,{em:new Date().toISOString(),T,TE});
+    return true;
+  }catch(e){alert('Não foi salvo: '+traduzErro(e));return false}
+}
+
+/* Início: cartões das temporadas */
+function temporadaCard(t){
+  const R=regrasCompletas(t.regras),n=lista.filter(l=>l.temporada_id===t.id).length;
+  return `<div class="liga-card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${esc(t.nome)}</h3><p class="muted">${t.inicio?'Início '+fmtData(t.inicio)+' • ':''}${n} de ${R.etapas} etapas criadas</p></div><span class="chip st-${t.status==='andamento'?'andamento':t.status==='encerrada'?'finalizada':'arquivada'}">${T_STATUS[t.status]||esc(t.status)}</span></div>
+   <div class="panel-actions"><button onclick="abrirTemporada('${t.id}')">ABRIR</button></div></div>`;
+}
+
+/* Formulário de regras (nova temporada e aba Regras) */
+function regrasFormHtml(R,bloqueado){
+  const P=R.pontos,dis=bloqueado?'disabled':'';
+  const num=(id,v,min=-99,max=99)=>`<input id="${id}" type="number" inputmode="numeric" min="${min}" max="${max}" value="${v}" ${dis} style="max-width:90px">`;
+  return `<div class="form-grid">
+   <label>Quantidade de etapas${num('rgEtapas',R.etapas,1,60)}</label>
+   <label>Etapas que valem o dobro (ex.: 5 ou 5, 10)<input id="rgDobradas" value="${R.dobradas.join(', ')}" ${dis}></label>
+   <label>Descartes (piores etapas que não contam; 0 = sem descarte)${num('rgDescartes',R.descartes,0,59)}</label>
+   <label>Ausência vale<select id="rgAusencia" ${dis}><option value="zero" ${R.ausencia==='zero'?'selected':''}>0 ponto</option><option value="minimo" ${R.ausencia==='minimo'?'selected':''}>A menor pontuação possível jogando (${pontosMinimos(R)} pontos)</option></select></label>
+   <label>Etapas especiais (duplas sorteadas a partir da semifinal)<input id="rgEspeciais" value="${R.especiais.join(', ')}" ${dis}></label>
+   <label style="flex-direction:row;align-items:center;gap:10px"><input id="rgConfronto" type="checkbox" ${R.confronto_direto?'checked':''} ${dis} style="width:20px;height:20px"> Usar confronto direto como 4º critério de desempate</label>
+   </div>
+   <details style="margin-top:12px"><summary><b>Tabela de pontos</b></summary>
+   <table style="margin-top:8px"><tr><th>Item</th><th>Pontos</th></tr>
+    <tr><td>Vitória no jogo de grupo</td><td>${num('rgVit',P.vitoria)}</td></tr>
+    <tr><td>Bônus por vitória 6×0</td><td>${num('rgBonus',P.bonus_6x0)}</td></tr>
+    <tr><td>Derrota por 0×6</td><td>${num('rgDz',P.derrota_0x6)}</td></tr>
+    ${[0,1,2,3].map(i=>`<tr><td>${i+1}º no grupo</td><td>${num('rgPos'+i,P.posicao[i])}</td></tr>`).join('')}
+    ${[['quartas','Quartas'],['semi','Semifinal'],['terceiro','Disputa de 3º'],['final','Final']].map(([k,t])=>`<tr><td>${t}: participação / ${k==='final'?'campeão':'vitória'}</td><td><span class="row" style="gap:6px;flex-wrap:nowrap">${num('rg'+k+'0',P[k][0])}${num('rg'+k+'1',P[k][1])}</span></td></tr>`).join('')}
+   </table><p class="muted" style="margin-top:6px">Vitória, bônus 6×0 e derrota 0×6 valem nos jogos de grupo. No mata-mata contam participação e vitória.</p></details>`;
+}
+function lerRegrasForm(){
+  const v=id=>$(id).value;
+  return regrasCompletas({etapas:v('rgEtapas'),dobradas:v('rgDobradas'),descartes:v('rgDescartes'),ausencia:v('rgAusencia'),especiais:v('rgEspeciais'),confronto_direto:$('rgConfronto').checked,
+    pontos:{vitoria:v('rgVit'),bonus_6x0:v('rgBonus'),derrota_0x6:v('rgDz'),posicao:[0,1,2,3].map(i=>v('rgPos'+i)),
+      quartas:[v('rgquartas0'),v('rgquartas1')],semi:[v('rgsemi0'),v('rgsemi1')],terceiro:[v('rgterceiro0'),v('rgterceiro1')],final:[v('rgfinal0'),v('rgfinal1')]}});
+}
+
+/* Nova temporada */
+function renderNovaTemporada(){
+  const base=temporadas[0]?regrasCompletas(temporadas[0].regras):regrasCompletas(REGRAS_PADRAO);
+  return `<section><button class="ghost" onclick="view='inicio';render()">← Início</button><h2 style="margin-top:12px">Nova temporada</h2>
+   <p class="muted">${temporadas[0]?'As regras vêm preenchidas com as da temporada "'+esc(temporadas[0].nome)+'". Ajuste o que quiser.':'As regras vêm preenchidas com o regulamento da 3ª temporada. Ajuste o que quiser.'}</p>
+   <div class="form-grid" style="margin-top:12px"><label>Nome<input id="ntNome" maxlength="120" placeholder="Ex.: 4ª Temporada 2027"></label><label>Início<input id="ntInicio" type="date" value="${hoje()}"></label></div>
+   <h3 style="margin-top:16px">Regras</h3>${regrasFormHtml(base,false)}
+   <div class="panel-actions"><button id="ntBtn" onclick="criarTemporada()">CRIAR TEMPORADA</button><button class="secondary" onclick="view='inicio';render()">Cancelar</button></div></section>`;
+}
+async function criarTemporada(){
+  if(ocupado)return;
+  const nome=$('ntNome').value.trim();if(!nome)return alert('Informe o nome da temporada.');
+  if(!navigator.onLine)return alert('Sem conexão. É preciso internet para criar uma temporada.');
+  const regras=lerRegrasForm(),id=novoId();
+  ocupado=true;$('ntBtn').disabled=true;
+  try{
+    const {data,error}=await sb.rpc('criar_temporada',{p_id:id,p_nome:nome,p_inicio:$('ntInicio').value||null,p_regras:regras,p_dados:{ajustes:[]}});
+    if(error)throw error;
+    delete data.ok;temporadas.unshift(data);lsSet('lr6:taba:'+id,'Etapas');
+    await abrirTemporada(id);
+  }catch(e){alert('A temporada não foi criada: '+traduzErro(e));if($('ntBtn'))$('ntBtn').disabled=false}
+  finally{ocupado=false}
+}
+
+/* Tela da temporada */
+function renderTemporadaCabecalho(){
+  const R=regrasCompletas(T.regras),criadas=TE.filter(l=>!l.excluida_em).length,enc=TE.filter(l=>!l.excluida_em&&ligaEncerrada(l)).length;
+  let acoes='';
+  if(T.status==='andamento')acoes=`<button class="secondary" onclick="mudarStatusTemporada('encerrada')">Encerrar temporada</button>`;
+  else if(T.status==='encerrada')acoes=`<button class="secondary" onclick="mudarStatusTemporada('andamento')">Reabrir</button><button class="secondary" onclick="mudarStatusTemporada('arquivada')">Arquivar</button>`;
+  else acoes=`<button class="secondary" onclick="mudarStatusTemporada('encerrada')">Desarquivar</button>`;
+  return `<section class="header-card"><button class="ghost" onclick="sairDaTemporada()">← Início</button>
+   <h2 style="margin:12px 0 2px">${esc(T.nome)}</h2>
+   <p class="muted">${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}${enc} etapa(s) encerrada(s) • ${criadas} de ${R.etapas} criadas • <span class="chip st-${T.status==='andamento'?'andamento':T.status==='encerrada'?'finalizada':'arquivada'}">${T_STATUS[T.status]||esc(T.status)}</span></p>
+   ${tInfo.origem==='cache'?`<p class="warn" style="margin-top:6px">Sem conexão: mostrando a cópia guardada em ${fmtDataHora(tInfo.em)}.</p>`:''}
+   <div class="panel-actions">${acoes}</div></section>`;
+}
+function sairDaTemporada(){T=null;TE=[];view='inicio';render();carregarLista()}
+async function mudarStatusTemporada(st){
+  const txt={encerrada:T.status==='arquivada'?'Desarquivar a temporada?':'Encerrar a temporada? Não será possível criar novas etapas até reabrir.',andamento:'Reabrir a temporada?',arquivada:'Arquivar a temporada? Ela continua disponível para consulta.'}[st];
+  if(!confirm(txt))return;
+  if(await salvarTemporada({p_status:st},{encerrada:'Temporada encerrada',andamento:'Temporada reaberta',arquivada:'Temporada arquivada'}[st]))render();
+}
+function renderTemporada(){
+  if(!T)return '<section><p class="muted">Carregando…</p></section>';
+  if(tTab==='Ranking')return renderRankingTemporada();
+  if(tTab==='Etapas')return renderEtapasTemporada();
+  if(tTab==='Ajustes')return renderAjustesTemporada();
+  if(tTab==='Regras')return renderRegrasTemporada();
+  return '';
+}
+function celulaRanking(c){
+  if(c.tipo==='futura')return '<td class="muted">–</td>';
+  const t=c.tipo==='ausente'?'F':'';
+  return `<td class="${c.descarte?'desc':''} ${c.tipo==='andamento'?'parcial':''} ${c.tipo==='ausente'?'aus':''}" title="${c.tipo==='ausente'?'Falta':''}${c.descarte?' (descartada)':''}">${c.valor}${t?'<small>'+t+'</small>':''}</td>`;
+}
+function renderRankingTemporada(){
+  if(tInfo.carregando&&!TE.length)return '<section><p class="muted">Carregando…</p></section>';
+  const {R,linhas,semVinculo,encerradas}=calcularRanking();
+  let h=`<section><h2>Ranking</h2><p class="muted">${encerradas} de ${R.etapas} etapas encerradas.${R.dobradas.length?' Etapa(s) '+R.dobradas.join(', ')+' valem o dobro.':''} ${R.descartes?R.descartes+' descarte(s) (riscados)'+(encerradas<R.etapas?' — provisório até a última etapa':'')+'.':'Sem descarte.'} Falta (F) vale ${R.ausencia==='minimo'?pontosMinimos(R):0}. Valores em itálico: etapa em andamento.</p>`;
+  if(semVinculo.length)h+=`<p class="warn" style="margin-top:8px">⚠ ${semVinculo.map(x=>'Etapa '+x.n+': '+x.qtd+' nome(s) sem vínculo com o cadastro').join(' • ')} — esses nomes não entram no ranking. Abra a etapa, aba Atletas, e use "Vincular ao cadastro".</p>`;
+  if(!linhas.length)return h+'<p class="muted" style="margin-top:10px">Ainda não há resultados. Crie a primeira etapa na aba Etapas.</p></section>';
+  h+=`<div class="tabela-rolagem"><table class="rk"><tr><th>#</th><th class="rk-nome">Atleta</th>${Array.from({length:R.etapas},(_,i)=>`<th>E${i+1}${R.dobradas.includes(i+1)?'<small>×2</small>':''}</th>`).join('')}<th>Aj.</th><th>Total</th></tr>
+   ${linhas.map(x=>`<tr><td>${x.pos}º</td><td class="rk-nome"><a href="#" onclick="detalheAtletaTemporada('${x.id}');return false">${esc(x.nome)}</a>${x.situacao==='convidado'?' <span class="chip at-convidado">conv.</span>':''}</td>${x.cel.map(celulaRanking).join('')}<td>${x.aj||''}</td><td><b>${x.total}</b></td></tr>`).join('')}
+   </table></div><p class="muted" style="margin-top:8px">Toque no nome para ver os pontos de cada etapa. Empate no total: mesma posição.</p><div class="panel-actions"><button class="secondary" onclick="abrirWhatsAppRanking()">📤 Enviar ranking no WhatsApp</button></div></section>`;
+  return h;
+}
+function detalheAtletaTemporada(id){
+  const {R,linhas}=calcularRanking(),x=linhas.find(l=>l.id===id);if(!x)return;
+  const aj=((T.dados&&T.dados.ajustes)||[]).filter(a=>a.atleta_id===id);
+  const linhasEt=x.cel.map((c,i)=>{
+    if(c.tipo==='futura')return '';
+    const n=i+1,d=c.det;
+    let txt=c.tipo==='ausente'?'Falta':`Grupo: ${d.v} vitória(s)${d.b?', '+d.b+' bônus 6×0':''}${d.dz?', '+d.dz+' derrota(s) 0×6':''}${d.posicao?', '+d.posicao+'º lugar':', posição pendente'} = ${d.grupo}${d.mata?' • Mata-mata ('+d.mataTxt.join(', ')+') = '+d.mata:''}`;
+    return `<tr><td>E${n}</td><td>${txt}${c.mult>1?' • vale o dobro':''}${c.tipo==='andamento'?' • em andamento':''}</td><td class="${c.descarte?'desc':''}">${c.valor}</td></tr>`;
+  }).join('');
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>${esc(x.nome)}</h2><p class="muted">${x.pos}º lugar • ${x.total} pontos</p>
+   <table style="margin-top:10px"><tr><th>Etapa</th><th>Detalhe</th><th>Pts</th></tr>${linhasEt||'<tr><td colspan="3" class="muted">Sem etapas.</td></tr>'}
+   ${aj.map(a=>`<tr><td>Ajuste</td><td>${esc(a.motivo)}${a.etapa?' (etapa '+a.etapa+')':''}</td><td>${a.pontos}</td></tr>`).join('')}</table>
+   <div class="panel-actions"><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
+}
+function renderEtapasTemporada(){
+  const R=regrasCompletas(T.regras),porNum=new Map(TE.filter(l=>!l.excluida_em).map(l=>[l.etapa_numero,l]));
+  const aberta=T.status==='andamento';
+  let h=`<section><h2>Etapas</h2><p class="muted">Cada etapa funciona como uma liga: atletas, sorteio, jogos, classificação e mata-mata. O sorteio evita repetir no mesmo grupo quem já jogou junto nas etapas anteriores desta temporada.</p><div class="ligas-list" style="margin-top:12px">`;
+  for(let n=1;n<=R.etapas;n++){
+    const l=porNum.get(n),tags=(R.dobradas.includes(n)?'<span class="chip at-convidado">vale o dobro</span> ':'')+(R.especiais.includes(n)?'<span class="chip at-membro">especial</span>':'');
+    if(l)h+=`<div class="liga-card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>Etapa ${n}</h3><p class="muted">${fmtData(l.data)} • ${l.participantes} atletas • ${ETAPA_LABEL[l.etapa]||esc(l.etapa)}</p><div style="margin-top:4px">${tags}</div></div><span class="chip st-${l.status}">${STATUS_LABEL[l.status]||esc(l.status)}</span></div><div class="panel-actions"><button onclick="abrirLiga('${l.id}')">ABRIR</button><button class="ghost" onclick="moverParaLixeira('${l.id}')">🗑 Lixeira</button></div></div>`;
+    else h+=`<div class="liga-card" style="opacity:.85"><div class="row" style="justify-content:space-between;align-items:center"><div><h3>Etapa ${n}</h3><div style="margin-top:4px">${tags}</div></div>${aberta?`<button class="secondary" onclick="abrirNovaEtapa(${n})">Criar</button>`:''}</div></div>`;
+  }
+  h+='</div>';
+  const extras=TE.filter(l=>!l.excluida_em&&l.etapa_numero>R.etapas);
+  if(extras.length)h+=`<p class="warn" style="margin-top:10px">Há etapas além da quantidade definida nas regras: ${extras.map(l=>l.etapa_numero).join(', ')}. Elas não entram no ranking até você aumentar a quantidade de etapas.</p>`;
+  return h+'</section>';
+}
+function abrirNovaEtapa(n){
+  $('modal').innerHTML=`<div class="modal-bg"><div class="modal-box"><h2>Criar etapa ${n}</h2>
+   <div class="form-grid" style="margin-top:10px"><label>Data<input id="neData" type="date" value="${hoje()}"></label>
+   <label>Quantidade de participantes<select id="neQtd">${SIZES.map(q=>`<option value="${q}">${q} atletas — ${q/4} grupos</option>`).join('')}</select></label>
+   <p class="muted">Com menos de 16 inscritos, o regulamento prevê cancelar a etapa ou fazer uma liga relâmpago (fora do ranking).</p></div>
+   <div class="panel-actions"><button id="neBtn" onclick="criarEtapa(${n})">CRIAR E ESCOLHER ATLETAS</button><button class="secondary" onclick="fecharModal()">Cancelar</button></div></div></div>`;
+}
+async function criarEtapa(n){
+  if(ocupado)return;
+  if(!navigator.onLine)return alert('Sem conexão. É preciso internet para criar a etapa.');
+  const q=Number($('neQtd').value),data=$('neData').value,id=novoId();
+  if(!data||!SIZES.includes(q))return;
+  ocupado=true;$('neBtn').disabled=true;
+  try{
+    const {error}=await sb.rpc('criar_etapa',{p_temporada_id:T.id,p_numero:n,p_id:id,p_nome:T.nome+' — Etapa '+n,p_data:data,p_dados:{names:Array(q).fill(''),ids:Array(q).fill(null),scores:{},finals:{},breaks:{},drawn:false,status:'draft'}});
+    if(error)throw error;
+    lsSet('lr6:aba:'+id,'Atletas');fecharModal();
+    await abrirLiga(id);
+  }catch(e){alert('A etapa não foi criada: '+traduzErro(e));if($('neBtn'))$('neBtn').disabled=false}
+  finally{ocupado=false}
+}
+function renderAjustesTemporada(){
+  const aj=(T.dados&&Array.isArray(T.dados.ajustes)?T.dados.ajustes:[]),R=regrasCompletas(T.regras);
+  const nomes=calcularRanking().linhas.map(x=>x.id);
+  const opcoes=[...new Set([...nomes,...atletas.filter(a=>a.situacao!=='inativo').map(a=>a.id)])].map(id=>atletaPorId(id)).filter(Boolean).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  let h=`<section><h2>Ajustes de pontos</h2><p class="muted">Pontos somados ou descontados manualmente no ranking (ex.: −5 por atraso de mais de 10 minutos na confirmação). Ajustes não entram no descarte. Cada ajuste fica registrado no histórico da temporada.</p>`;
+  if(T.status!=='arquivada')h+=`<div class="form-grid" style="margin-top:12px">
+    <label>Atleta<select id="ajAtleta"><option value="">Escolha…</option>${opcoes.map(a=>`<option value="${a.id}">${esc(a.nome)}</option>`).join('')}</select></label>
+    <label>Etapa (opcional)<select id="ajEtapa"><option value="">—</option>${Array.from({length:R.etapas},(_,i)=>`<option value="${i+1}">Etapa ${i+1}</option>`).join('')}</select></label>
+    <label>Pontos (use − para descontar)<input id="ajPontos" type="number" inputmode="numeric" value="-5" style="max-width:120px"></label>
+    <label>Motivo<input id="ajMotivo" maxlength="200" placeholder="Ex.: atraso na confirmação"></label>
+    </div><div class="panel-actions"><button onclick="adicionarAjuste()">ADICIONAR AJUSTE</button></div>`;
+  h+=aj.length?`<table style="margin-top:14px"><tr><th>Atleta</th><th>Etapa</th><th>Pts</th><th>Motivo</th><th></th></tr>${aj.map(a=>`<tr><td>${esc((atletaPorId(a.atleta_id)||{}).nome||'?')}</td><td>${a.etapa||'–'}</td><td>${a.pontos}</td><td>${esc(a.motivo)}<div class="muted">${fmtDataHora(a.em)}</div></td><td>${T.status!=='arquivada'?`<button class="ghost" onclick="removerAjuste('${a.id}')">Remover</button>`:''}</td></tr>`).join('')}</table>`:'<p class="muted" style="margin-top:12px">Nenhum ajuste.</p>';
+  return h+'</section>';
+}
+async function adicionarAjuste(){
+  const atleta_id=$('ajAtleta').value,pontos=inteiro($('ajPontos').value,NaN),motivo=$('ajMotivo').value.trim(),etapa=$('ajEtapa').value?Number($('ajEtapa').value):null;
+  if(!atleta_id||!Number.isFinite(pontos)||!pontos||!motivo)return alert('Escolha o atleta, informe os pontos (diferente de 0) e o motivo.');
+  const at=atletaPorId(atleta_id);
+  if(!confirm('Lançar '+(pontos>0?'+':'')+pontos+' ponto(s) para '+at.nome+'?\nMotivo: '+motivo))return;
+  const dados={...(T.dados||{}),ajustes:[...((T.dados&&T.dados.ajustes)||[]),{id:novoId(),atleta_id,etapa,pontos,motivo,em:new Date().toISOString()}]};
+  if(await salvarTemporada({p_dados:dados},'Ajuste: '+at.nome+' '+(pontos>0?'+':'')+pontos+' ('+motivo+')'))render();
+}
+async function removerAjuste(id){
+  const a=((T.dados&&T.dados.ajustes)||[]).find(x=>x.id===id);if(!a)return;
+  const nome=(atletaPorId(a.atleta_id)||{}).nome||'?';
+  if(!confirm('Remover o ajuste de '+a.pontos+' ponto(s) de '+nome+' ('+a.motivo+')? Ele continua no histórico da temporada.'))return;
+  const dados={...T.dados,ajustes:T.dados.ajustes.filter(x=>x.id!==id)};
+  if(await salvarTemporada({p_dados:dados},'Ajuste removido: '+nome+' '+a.pontos+' ('+a.motivo+')'))render();
+}
+function renderRegrasTemporada(){
+  const R=regrasCompletas(T.regras),bloq=T.status==='arquivada';
+  return `<section><h2>Regras da temporada</h2><p class="muted">Mudar uma regra recalcula o ranking inteiro na hora. A alteração fica registrada no histórico da temporada.</p>
+   <div class="form-grid" style="margin-top:12px"><label>Nome<input id="rgNome" maxlength="120" value="${esc(T.nome)}" ${bloq?'disabled':''}></label><label>Início<input id="rgInicio" type="date" value="${esc(T.inicio||'')}" ${bloq?'disabled':''}></label></div>
+   <div style="margin-top:12px">${regrasFormHtml(R,bloq)}</div>
+   ${bloq?'<p class="muted" style="margin-top:10px">Temporada arquivada: desarquive para alterar.</p>':'<div class="panel-actions"><button onclick="salvarRegras()">SALVAR REGRAS</button></div>'}</section>`;
+}
+async function salvarRegras(){
+  const nome=$('rgNome').value.trim();if(!nome)return alert('Informe o nome.');
+  const novas=lerRegrasForm(),antes=regrasCompletas(T.regras);
+  const mudou=JSON.stringify(novas)!==JSON.stringify(antes),mudouNome=nome!==T.nome||($('rgInicio').value||null)!==(T.inicio||null);
+  if(!mudou&&!mudouNome)return alert('Nada mudou.');
+  let motivo='Dados da temporada alterados';
+  if(mudou){const m=prompt('Motivo da mudança de regra (fica no histórico):','Ajuste do regulamento');if(m===null)return;motivo='Regras alteradas: '+(m.trim()||'sem motivo informado')}
+  if(await salvarTemporada({p_nome:nome,p_inicio:$('rgInicio').value||null,p_regras:novas},motivo)){alert('Regras salvas. O ranking foi recalculado.');render()}
+}
+/* ---------- Exportar para o WhatsApp (texto) ---------- */
+// Monta a chave do mata-mata a partir dos dados atuais (null se ainda não liberada)
+function chaveAtual(){
+  if(!complete()||groupPending())return null;
+  const lists=listsGeneral(),counts=FORMATS[capacity()].counts;
+  if(lists.some((l,k)=>counts[k]>0&&pending('r'+k,l,counts[k])))return null;
+  const q=lists.flatMap((l,k)=>l.slice(0,counts[k]));
+  if(q.length!==16)return null;
+  const duos=Array.from({length:8},(_,i)=>q.slice(i*2,i*2+2).map(x=>x.i));
+  const qs=[[0,7],[3,4],[1,6],[2,5]].map((p,i)=>({id:'q'+(i+1),nome:'Quartas '+(i+1),a:duos[p[0]],b:duos[p[1]]}));
+  const ss=[0,1].map(i=>{const x=qs[2*i],y=qs[2*i+1];return valid(S.finals[x.id])&&valid(S.finals[y.id])?{id:'s'+(i+1),nome:'Semifinal '+(i+1),a:winner(x),b:winner(y)}:null});
+  let f=null,t=null;
+  if(ss[0]&&ss[1]&&valid(S.finals.s1)&&valid(S.finals.s2)){f={id:'f',nome:'Final',a:winner(ss[0]),b:winner(ss[1])};t={id:'t',nome:'Disputa de 3º',a:loser(ss[0]),b:loser(ss[1])}}
+  return {duos,qs,ss,f,t};
+}
+function wNome(i){return S.names[i]||'?'}
+function wDupla(p){return p.map(wNome).join(' / ')}
+function wJogo(m,k){
+  const v=S[k][m.id];
+  if(!valid(v))return `${wDupla(m.a)}  x  ${wDupla(m.b)}`;
+  const [ga,gb]=v,venceuA=ga>gb;
+  return `${venceuA?'*'+wDupla(m.a)+'*':wDupla(m.a)}  ${ga} x ${gb}  ${venceuA?wDupla(m.b):'*'+wDupla(m.b)+'*'}`;
+}
+function textoWhatsApp(op){
+  const L_=L,linhas=[];
+  linhas.push(`🎾 *${L_.nome}*`);
+  linhas.push(`📅 ${fmtData(L_.data)} • ${capacity()} atletas${L_.etapa_numero&&!/etapa/i.test(L_.nome)?' • Etapa '+L_.etapa_numero:''}`);
+  if(!S.drawn){
+    linhas.push('','*Atletas confirmados*');
+    S.names.forEach((n,i)=>{if(n.trim())linhas.push(`${String(i+1).padStart(2,'0')}. ${n}`)});
+    linhas.push('','_Grupos ainda não sorteados._');
+    return linhas.join('\n');
+  }
+  for(const g of groupIndexes()){
+    const L2=[];
+    if(op.jogos){L2.push(`*GRUPO ${'ABCDEFGH'[g]}*`);games(g).forEach((m,j)=>L2.push(`${j+1}) ${wJogo(m,'scores')}`))}
+    if(op.classif&&games(g).some(m=>valid(S.scores[m.id]))){
+      const r=rank(g);
+      if(!op.jogos)L2.push(`*GRUPO ${'ABCDEFGH'[g]}*`);
+      L2.push(op.jogos?'_Classificação:_':'');
+      r.forEach((x,k)=>L2.push(`${k+1}º ${wNome(x.i)} — ${x.w}V, saldo ${x.s>0?'+':''}${x.s}`));
+    }
+    if(!op.jogos&&!op.classif)L2.push(`*GRUPO ${'ABCDEFGH'[g]}*: `+group(g).map(wNome).join(', '));
+    linhas.push('',...L2.filter(x=>x!==''));
+  }
+  if(op.mata){
+    const c=chaveAtual();
+    if(c){
+      linhas.push('','🏆 *MATA-MATA*');
+      linhas.push('_Duplas:_');
+      c.duos.forEach((d,i)=>linhas.push(`D${i+1}: ${wDupla(d)}`));
+      linhas.push('');
+      c.qs.forEach(m=>linhas.push(`${m.nome}: ${wJogo(m,'finals')}`));
+      c.ss.forEach(m=>m&&linhas.push(`${m.nome}: ${wJogo(m,'finals')}`));
+      if(c.f){linhas.push(`${c.t.nome}: ${wJogo(c.t,'finals')}`);linhas.push(`${c.f.nome}: ${wJogo(c.f,'finals')}`)}
+      if(c.f&&valid(S.finals.f)){
+        linhas.push('',`🥇 Campeões: *${wDupla(winner(c.f))}*`,`🥈 Vice: ${wDupla(loser(c.f))}`);
+        if(valid(S.finals.t))linhas.push(`🥉 3º lugar: ${wDupla(winner(c.t))}`);
+      }
+    }else linhas.push('','_Mata-mata: aguardando o fim da fase de grupos._');
+  }
+  linhas.push('','_Liga Resenha_');
+  return linhas.join('\n');
+}
+let wOp={jogos:true,classif:false,mata:true};
+function abrirWhatsApp(){
+  const fase=S.drawn?'':'<p class="muted">Os grupos ainda não foram sorteados: sai a lista de atletas.</p>';
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Enviar no WhatsApp</h2>${fase}
+   ${S.drawn?`<div class="row" style="gap:14px;margin-top:8px;flex-wrap:wrap">
+    ${[['jogos','Jogos dos grupos'],['classif','Classificação'],['mata','Mata-mata']].map(([k,t])=>`<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" ${wOp[k]?'checked':''} onchange="wOp.${k}=this.checked;$('wTexto').value=textoWhatsApp(wOp)" style="width:20px;height:20px">${t}</label>`).join('')}</div>`:''}
+   <textarea id="wTexto" rows="14" style="margin-top:10px;font-size:13px">${esc(textoWhatsApp(wOp))}</textarea>
+   <p class="muted" id="wMsg">Você pode editar o texto antes de enviar. Os vencedores aparecem em *negrito* no WhatsApp.</p>
+   <div class="panel-actions"><button onclick="compartilharTexto()">ENVIAR</button><button class="secondary" onclick="copiarTexto()">Copiar</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
+}
+async function compartilharTexto(){
+  const t=$('wTexto').value;
+  if(navigator.share){try{await navigator.share({text:t});return}catch(e){if(e&&e.name==='AbortError')return}}
+  window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');
+}
+async function copiarTexto(){
+  const t=$('wTexto').value;
+  try{await navigator.clipboard.writeText(t);$('wMsg').textContent='✓ Texto copiado. Agora é só colar no grupo.'}
+  catch{$('wTexto').select();document.execCommand('copy');$('wMsg').textContent='✓ Texto copiado. Agora é só colar no grupo.'}
+}
+// Ranking da temporada
+function textoRankingTemporada(){
+  const {R,linhas,encerradas}=calcularRanking();
+  const out=[`🏆 *${T.nome} — Ranking*`,`${encerradas} de ${R.etapas} etapas${R.descartes&&encerradas<R.etapas?' • descarte provisório':''}`,''];
+  linhas.forEach(x=>out.push(`${x.pos}º ${x.nome} — *${x.total}*`));
+  out.push('','_Liga Resenha_');
+  return out.join('\n');
+}
+function abrirWhatsAppRanking(){
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Ranking no WhatsApp</h2>
+   <textarea id="wTexto" rows="16" style="margin-top:10px;font-size:13px">${esc(textoRankingTemporada())}</textarea><p class="muted" id="wMsg">Você pode editar o texto antes de enviar.</p>
+   <div class="panel-actions"><button onclick="compartilharTexto()">ENVIAR</button><button class="secondary" onclick="copiarTexto()">Copiar</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
+}
+
 /* ---------- Nova liga ---------- */
 function renderNova(){
   return `<section><h2>Nova liga</h2>
@@ -779,11 +1249,15 @@ async function mudarArquivo(id,arquivar){
   }catch(e){alert('Não foi possível: '+traduzErro(e))}
   finally{ocupado=false;carregarLista()}
 }
-async function moverParaLixeira(){
-  if(enviando||fila.pendente)return alert('Aguarde as alterações serem salvas no servidor.');
-  if(!confirm('Mover "'+L.nome+'" para a lixeira? Ela pode ser recuperada depois em Minhas Ligas › Lixeira.'))return;
-  try{const {error}=await sb.rpc('mover_para_lixeira',{p_id:L.id});if(error)throw error;voltarInicio(true)}
-  catch(e){alert('Não foi possível: '+traduzErro(e))}
+async function moverParaLixeira(id){
+  const aberta=!id||(L&&L.id===id);
+  const x=aberta?L:(lista.find(y=>y.id===id)||TE.find(y=>y.id===id));if(!x)return;
+  if(aberta&&(enviando||fila.pendente))return alert('Aguarde as alterações serem salvas no servidor.');
+  if(!confirm('Mover "'+x.nome+'" para a lixeira? Ela pode ser recuperada depois em Lixeira, no fim da tela inicial. Lá também dá para apagar de vez.'))return;
+  try{
+    const {error}=await sb.rpc('mover_para_lixeira',{p_id:x.id});if(error)throw error;
+    if(aberta)voltarInicio(true);else if(view==='temporada'&&T)abrirTemporada(T.id);else{mostrarLixeira=true;carregarLista()}
+  }catch(e){alert('Não foi possível: '+traduzErro(e))}
 }
 async function retirarDaLixeira(id){
   try{const {error}=await sb.rpc('retirar_da_lixeira',{p_id:id});if(error)throw error}
@@ -999,7 +1473,24 @@ function rank(g){
 }
 function cmp(a,b){return b.w-a.w||b.s-a.s||b.f-a.f}
 function eq(a,b){return cmp(a,b)===0}
-function blocks(list){let out=[];for(let x of list){let last=out[out.length-1];if(last&&eq(last[0],x))last.push(x);else out.push([x])}return out}
+function blocks(list){let out=[];for(let x of list){let last=out[out.length-1];if(last&&eq(last[0],x))last.push(x);else out.push([x])}return CONFRONTO_DIRETO?out.flatMap(dividirPorConfronto):out}
+// 4º critério nas etapas de temporada: saldo de games nos jogos em que os empatados se enfrentaram
+let CONFRONTO_DIRETO=false;
+function saldoConfronto(i,bloco){
+  let s=0;const g=Math.floor(i/4);
+  for(const m of games(g)){const v=S.scores[m.id];if(!valid(v))continue;
+    const k=m.a.includes(i)?0:m.b.includes(i)?1:-1;if(k<0)continue;
+    if((k?m.a:m.b).some(y=>y!==i&&bloco.includes(y)))s+=v[k]-v[1-k];}
+  return s;
+}
+function dividirPorConfronto(b){
+  if(b.length<2)return [b];
+  const ids=b.map(x=>x.i),sd=new Map(b.map(x=>[x.i,saldoConfronto(x.i,ids)]));
+  const ord=[...b].sort((p,q)=>sd.get(q.i)-sd.get(p.i));
+  const subs=[];for(const x of ord){const l=subs[subs.length-1];if(l&&sd.get(l[0].i)===sd.get(x.i))l.push(x);else subs.push([x])}
+  if(subs.length===1)return [b];
+  return subs.flatMap(s=>s.length>1?dividirPorConfronto(s):[s]);
+}
 function key(scope,block){return scope+':'+block.map(x=>x.i).sort((a,b)=>a-b).join(',')}
 function order(scope,block){let ids=block.map(x=>x.i),chosen=(S.breaks||{})[key(scope,block)]||[];return chosen.filter(i=>ids.includes(i))}
 function sorted(scope,list){return blocks(list.sort(cmp)).flatMap(b=>{let o=order(scope,b);return [...b].sort((a,c)=>(o.includes(a.i)?o.indexOf(a.i):99)-(o.includes(c.i)?o.indexOf(c.i):99)||a.i-c.i)})}
@@ -1025,31 +1516,145 @@ function chooseTie(k,i){if(!changeTie(k))return;let o=S.breaks[k]||[];if(!o.incl
 function resetTie(k){if(!changeTie(k))return;delete S.breaks[k];persist([{tipo:'desempate',descricao:'Desempate refeito — '+escopoTexto(k)}]);render()}
 function tieRow(scope,list,x,limit=list.length){let b=blocks(list).find(b=>b.some(y=>y.i===x.i));return list.indexOf(b[0])<limit&&b.length>1&&order(scope,b).length<b.length-1?' class="highlight-tie"':''}
 function complete(){return groupIndexes().every(g=>games(g).every(m=>valid(S.scores[m.id])))}
-function scorecard(m,kind='scores',extraClass=''){let v=S[kind][m.id]||[];return `<div class="match-card ${extraClass}"><div class="match-label">${kind==='finals'?m.id.toUpperCase():'Jogo'}</div><div class="name">${pair(m.a)}</div><div class="vs">×</div><div class="name">${pair(m.b)}</div><div class="score"><input type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" oninput="digit(this,'b${m.id}')" id="a${m.id}" value="${v[0]??''}" placeholder="0"><b>×</b><input type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" oninput="digit(this)" id="b${m.id}" value="${v[1]??''}" placeholder="0"><button onclick="record('${m.id}','${kind}')">Salvar</button>${valid(v)?'<span class="ok">✓ lançado</span>':''}</div></div>`}
+// Nome curto para o placar: primeiro nome + inicial do último sobrenome (JEFERSON M.).
+// Se dois atletas da liga ficarem iguais, usa o sobrenome inteiro.
+function nomesCurtos(){
+  const curto=n=>{const p=String(n||'').trim().split(/\s+/);return p.length>1?p[0]+' '+p[p.length-1][0]+'.':p[0]||'?'};
+  const longo=n=>{const p=String(n||'').trim().split(/\s+/);return p.length>1?p[0]+' '+p[p.length-1]:p[0]||'?'};
+  const c=S.names.map(curto),cont={};c.forEach(x=>cont[x.toLowerCase()]=(cont[x.toLowerCase()]||0)+1);
+  return c.map((x,i)=>cont[x.toLowerCase()]>1?longo(S.names[i]):x);
+}
+function scorecard(m,kind='scores',extraClass=''){
+  const v=S[kind][m.id]||[],nc=nomesCurtos(),lancado=valid(v),venc=lancado?(v[0]>v[1]?0:1):-1;
+  const dupla=p=>p.map(i=>esc(nc[i])).join(' / ');
+  const linha=(lado,k,next)=>`<div class="placar-linha${venc===k?' venceu':''}"><div class="placar-nome" title="${esc(lado.map(rawName).join(' / '))}">${dupla(lado)}</div><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" id="${k?'b':'a'}${m.id}" value="${v[k]??''}" oninput="digitarPlacar(this,'${m.id}','${kind}',${k})" onfocus="this.select()" aria-label="Games de ${esc(lado.map(rawName).join(' e '))}"></div>`;
+  return `<div class="match-card ${extraClass}"><div class="row" style="justify-content:space-between;align-items:center"><div class="match-label">${esc(jogoTexto(m.id,kind))}</div><span class="placar-status ${lancado?'ok':'muted'}" id="st${m.id}">${lancado?'✓ salvo':'sem placar'}</span></div>
+   <div class="placar">${linha(m.a,0)}${linha(m.b,1)}</div></div>`;
+}
 function placeholderCard(label,text){return `<div class="match-card placeholder"><div><div class="match-label">${label}</div><div>${text}</div></div></div>`}
 function digit(el,next){el.value=el.value.replace(/[^0-9]/g,'').slice(0,1);if(el.value&&next){let n=$(next);if(n){n.focus();n.select()}}}
 function jogoTexto(id,k){if(k==='scores'){const [g,j]=id.split('-');return 'Grupo '+'ABCDEFGH'[+g]+', jogo '+(+j+1)}return {f:'Final',t:'Disputa de 3º'}[id]||id.toUpperCase()}
-function record(id,k){
-  if(S.status!=='drawn')return alert('Lançamentos bloqueados.');
-  let a=$('a'+id).value,b=$('b'+id).value;
-  if(a===''||b===''||!valid([+a,+b]))return alert('Informe dois placares inteiros diferentes. Não há empate.');
-  const antes=S[k][id];
-  if(k==='scores'&&Object.keys(S.finals).length&&JSON.stringify(S.scores[id])!==JSON.stringify([+a,+b])){if(!confirm('Alterar a fase de grupos apagará o mata-mata. Continuar?'))return;S.finals={}}
-  if(k==='finals'&&id.startsWith('q')&&JSON.stringify(S.finals[id])!==JSON.stringify([+a,+b])){delete S.finals[['q1','q2'].includes(id)?'s1':'s2'];delete S.finals.f;delete S.finals.t}
-  if(k==='finals'&&id.startsWith('s')&&JSON.stringify(S.finals[id])!==JSON.stringify([+a,+b])){delete S.finals.f;delete S.finals.t}
-  if(k==='scores'&&JSON.stringify(S.scores[id])!==JSON.stringify([+a,+b])){for(let x of Object.keys(S.breaks||{}))if(x.startsWith('r')||x.startsWith('g'+id.split('-')[0]+':'))delete S.breaks[x];}
-  if(JSON.stringify(antes)===JSON.stringify([+a,+b]))return;
-  S[k][id]=[+a,+b];
-  persist([{tipo:'placar',descricao:jogoTexto(id,k)+': '+a+'×'+b+(valid(antes)?' (antes '+antes[0]+'×'+antes[1]+')':'')}]);
-  render();
+// Placar salva sozinho: com os dois campos preenchidos grava; com os dois vazios apaga.
+const placarTimers={};
+function digitarPlacar(el,id,k,lado){
+  el.value=el.value.replace(/[^0-9]/g,'').slice(-1);
+  if(lado===0&&el.value){const n=$('b'+id);if(n&&n.value===''){n.focus();n.select()}}
+  clearTimeout(placarTimers[id]);
+  const st=$('st'+id),a=$('a'+id).value,b=$('b'+id).value;
+  if(st){
+    if(a!==''&&b!==''&&a===b){st.textContent='não existe empate';st.className='placar-status warn';return}
+    if((a==='')!==(b==='')){st.textContent='complete o placar';st.className='placar-status muted';return}
+  }
+  placarTimers[id]=setTimeout(()=>salvarPlacar(id,k,lado===1),a!==''&&b!==''?250:700);
 }
-function shuffle(){
-  if(S.status!=='started'||S.drawn)return alert('Sorteio indisponível.');
-  if(!confirm('Confirmar sorteio único desta liga?'))return;
-  for(let i=capacity()-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[S.names[i],S.names[j]]=[S.names[j],S.names[i]];[S.ids[i],S.ids[j]]=[S.ids[j],S.ids[i]]}
-  S.scores={};S.finals={};S.drawn=true;S.status='drawn';delete S.breaks;
-  persist([{tipo:'sorteio',descricao:'Sorteio dos grupos realizado'}]);
+function salvarPlacar(id,k,avancar){
+  const ea=$('a'+id),eb=$('b'+id);if(!ea||!eb)return;
+  const a=ea.value,b=eb.value;
+  let novo;
+  if(a===''&&b==='')novo=null;
+  else if(a!==''&&b!==''&&valid([+a,+b]))novo=[+a,+b];
+  else return;
+  const ok=aplicarPlacar(id,k,novo);
+  const antes=S[k][id];
+  if(!ok){const v=S[k][id]||[];ea.value=v[0]??'';eb.value=v[1]??'';const st=$('st'+id);if(st){st.textContent=valid(v)?'✓ salvo':'sem placar';st.className='placar-status '+(valid(v)?'ok':'muted')}return}
   render();
+  if(avancar&&novo){
+    // vai para o próximo jogo ainda sem placar
+    const campos=[...document.querySelectorAll('.placar input')];
+    const k0=campos.findIndex(x=>x.id==='b'+id);
+    const prox=campos.slice(k0+1).find(x=>x.id.startsWith('a')&&x.value===''&&!x.disabled);
+    if(prox)prox.focus();
+  }
+}
+function aplicarPlacar(id,k,novo){
+  if(S.status!=='drawn'){alert('Lançamentos bloqueados.');return false}
+  const antes=S[k][id];
+  if(JSON.stringify(antes??null)===JSON.stringify(novo))return false;
+  if(k==='scores'&&Object.keys(S.finals).length){if(!confirm('Alterar a fase de grupos apagará o mata-mata. Continuar?'))return false;S.finals={}}
+  if(k==='finals'&&id.startsWith('q')){delete S.finals[['q1','q2'].includes(id)?'s1':'s2'];delete S.finals.f;delete S.finals.t}
+  if(k==='finals'&&id.startsWith('s')){delete S.finals.f;delete S.finals.t}
+  if(k==='scores'){for(let x of Object.keys(S.breaks||{}))if(x.startsWith('r')||x.startsWith('g'+id.split('-')[0]+':'))delete S.breaks[x];}
+  if(novo)S[k][id]=novo;else delete S[k][id];
+  persist([{tipo:'placar',descricao:jogoTexto(id,k)+': '+(novo?novo[0]+'×'+novo[1]:'placar apagado')+(valid(antes)?' (antes '+antes[0]+'×'+antes[1]+')':'')}]);
+  return true;
+}
+/* ---------- Sorteio dos grupos sem repetir quem já caiu junto ---------- */
+// Busca as ligas anteriores (já sorteadas) e devolve a lista de grupos de cada uma,
+// da mais recente para a mais antiga. Só conta atletas ligados ao cadastro.
+async function historicoDeGrupos(limite=6){
+  if(L.temporada_id)limite=60;
+  const consulta=L.temporada_id
+    ?sb.from('ligas').select('id,data,criado_em,excluida_em,dados').eq('temporada_id',L.temporada_id).lt('etapa_numero',L.etapa_numero).order('etapa_numero',{ascending:false})
+    :sb.from('ligas').select('id,data,criado_em,excluida_em,dados').neq('id',L.id).lte('data',L.data).order('data',{ascending:false}).order('criado_em',{ascending:false}).limit(40);
+  const {data,error}=await consulta;
+  if(error)throw error;
+  const out=[];
+  for(const r of data){
+    if(r.excluida_em)continue;
+    const d=r.dados||{};
+    if(!d.drawn||!Array.isArray(d.ids)||!Array.isArray(d.names))continue;
+    const grupos=[];for(let g=0;g<d.ids.length/4;g++)grupos.push(d.ids.slice(g*4,g*4+4).filter(Boolean));
+    out.push(grupos);
+    if(out.length>=limite)break;
+  }
+  return out;
+}
+// Peso de cada par que já caiu no mesmo grupo: a liga mais recente pesa mais.
+function pesosDeRepeticao(hist){
+  const w=new Map(),n=hist.length;
+  hist.forEach((grupos,k)=>{const peso=2**(n-1-k);for(const g of grupos)for(let a=0;a<g.length;a++)for(let b=a+1;b<g.length;b++){const c=g[a]<g[b]?g[a]+'|'+g[b]:g[b]+'|'+g[a];w.set(c,(w.get(c)||0)+peso)}});
+  return w;
+}
+function custoGrupos(ordem,ids,w){
+  let c=0,rep=0;
+  for(let g=0;g<ordem.length;g+=4)for(let a=g;a<g+4;a++)for(let b=a+1;b<g+4;b++){
+    const x=ids[ordem[a]],y=ids[ordem[b]];if(!x||!y)continue;
+    const v=w.get(x<y?x+'|'+y:y+'|'+x);if(v){c+=v;rep++}
+  }
+  return {c,rep};
+}
+// Várias tentativas aleatórias + trocas entre grupos; fica com a de menor repetição.
+function melhorSorteio(ids,w){
+  const n=ids.length,emb=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+  let melhor=null;
+  for(let t=0;t<60;t++){
+    const o=emb([...Array(n).keys()]);let atual=custoGrupos(o,ids,w).c;
+    for(let melhorou=true;melhorou&&atual>0;){
+      melhorou=false;
+      for(const i of emb([...Array(n).keys()]))for(let j=0;j<n;j++){
+        if((i>>2)===(j>>2))continue;
+        [o[i],o[j]]=[o[j],o[i]];const c=custoGrupos(o,ids,w).c;
+        if(c<atual){atual=c;melhorou=true}else[o[i],o[j]]=[o[j],o[i]];
+      }
+    }
+    if(!melhor||atual<melhor.c)melhor={o:[...o],c:atual};
+    if(melhor.c===0)break;
+  }
+  // embaralha a ordem dos grupos e dentro de cada grupo (não muda quem está junto)
+  const grupos=emb(Array.from({length:n/4},(_,g)=>emb(melhor.o.slice(g*4,g*4+4))));
+  return grupos.flat();
+}
+async function shuffle(){
+  if(S.status!=='started'||S.drawn)return alert('Sorteio indisponível.');
+  if(ocupado)return;
+  if(!confirm('Confirmar sorteio único desta liga?\n\nO sorteio evita colocar no mesmo grupo atletas que já jogaram juntos no grupo nas ligas anteriores.'))return;
+  ocupado=true;
+  let hist=[];
+  try{hist=await historicoDeGrupos()}
+  catch(e){
+    if(!confirm('Não foi possível ler as ligas anteriores ('+traduzErro(e)+').\n\nSortear sem evitar repetições?')){ocupado=false;return}
+  }
+  ocupado=false;
+  if(S.status!=='started'||S.drawn)return;
+  const w=pesosDeRepeticao(hist);
+  const ordem=melhorSorteio(S.ids,w);
+  const {rep}=custoGrupos(ordem,S.ids,w);
+  S.names=ordem.map(i=>S.names[i]);S.ids=ordem.map(i=>S.ids[i]);
+  S.scores={};S.finals={};S.drawn=true;S.status='drawn';delete S.breaks;
+  const desc='Sorteio dos grupos realizado'+(hist.length?' — considerou '+hist.length+' liga(s) anterior(es); '+(rep?rep+' dupla(s) de atletas repetiram grupo (não havia como evitar)':'nenhum atleta repetiu grupo'):' — sem ligas anteriores para comparar');
+  persist([{tipo:'sorteio',descricao:desc}]);
+  render();
+  if(hist.length)alert(rep?'Sorteio feito. Não foi possível evitar tudo: '+rep+' dupla(s) de atletas repetiram grupo de ligas anteriores (as repetições mais antigas foram as escolhidas).':'Sorteio feito. Ninguém caiu no mesmo grupo de quem já tinha jogado junto nas últimas '+hist.length+' liga(s).');
 }
 function winner(m){return S.finals[m.id][0]>S.finals[m.id][1]?m.a:m.b}
 function loser(m){return S.finals[m.id][0]>S.finals[m.id][1]?m.b:m.a}
@@ -1095,7 +1700,7 @@ function heroActionHtml(){
   return '<button onclick="tab=\'Chave\';render()">VER CHAVE</button>';
 }
 function renderHome(){
-  return `<section><h2>Painel da Liga</h2><p class="muted">${progressSummary()}</p><div class="quick-box"><div class="quick-item"><div class="muted">Status</div><div class="v">${statusText()}</div></div><div class="quick-item"><div class="muted">Jogos dos grupos</div><div class="v">${totalGroupGames()} / ${groupGameCount()}</div></div><div class="quick-item"><div class="muted">Mata-mata</div><div class="v">${totalFinalGames()} / 8</div></div></div><div class="hero-actions">${heroActionHtml()}<button class="secondary" onclick="tab='Atletas';render()">ATLETAS</button><button class="secondary" onclick="tab='Classificação';render()">CLASSIFICAÇÃO</button></div></section><section><h2>Fluxo da competição</h2><div class="grid-4"><div class="kpi"><div class="muted">1</div><div class="name">Cadastre</div><div class="muted">Confira os ${capacity()} inscritos</div></div><div class="kpi"><div class="muted">2</div><div class="name">Inicie e sorteie</div><div class="muted">Sorteio único com trava</div></div><div class="kpi"><div class="muted">3</div><div class="name">Lance os grupos</div><div class="muted">${groupGameCount()} jogos + desempates</div></div><div class="kpi"><div class="muted">4</div><div class="name">Feche a chave</div><div class="muted">Quartas, semi, final e 3º</div></div></div></section><section><h2>Atletas inscritos</h2><div class="names-grid">${Array.from({length:Math.ceil(capacity()/8)},(_,i)=>i).map(col=>`<div class="list-card">${S.names.slice(col*8,(col+1)*8).map((n,i)=>`<div>${String(col*8+i+1).padStart(2,'0')} • <span class="name">${esc(n)}</span></div>`).join('')}</div>`).join('')}</div></section>`;
+  return `<section><h2>Painel da Liga</h2><p class="muted">${progressSummary()}</p><div class="quick-box"><div class="quick-item"><div class="muted">Status</div><div class="v">${statusText()}</div></div><div class="quick-item"><div class="muted">Jogos dos grupos</div><div class="v">${totalGroupGames()} / ${groupGameCount()}</div></div><div class="quick-item"><div class="muted">Mata-mata</div><div class="v">${totalFinalGames()} / 8</div></div></div><div class="hero-actions">${heroActionHtml()}<button class="secondary" onclick="tab='Atletas';render()">ATLETAS</button><button class="secondary" onclick="tab='Classificação';render()">CLASSIFICAÇÃO</button></div></section><section><h2>Fluxo da competição</h2><div class="grid-4"><div class="kpi"><div class="muted">1</div><div class="name">Cadastre</div><div class="muted">Confira os ${capacity()} inscritos</div></div><div class="kpi"><div class="muted">2</div><div class="name">Inicie e sorteie</div><div class="muted">Sorteio único com trava</div></div><div class="kpi"><div class="muted">3</div><div class="name">Lance os grupos</div><div class="muted">${groupGameCount()} jogos + desempates</div></div><div class="kpi"><div class="muted">4</div><div class="name">Feche a chave</div><div class="muted">Quartas, semi, final e 3º</div></div></div></section><section><h2>Atletas inscritos</h2><div class="list-card inscritos">${S.names.map((n,i)=>`<div>${String(i+1).padStart(2,'0')} • <span class="name">${esc(n)||'<span class="muted">(vago)</span>'}</span></div>`).join('')}</div></section>`;
 }
 function renderGroups(){
   let h=`<section><h2>Grupos</h2><p class="muted">Para evitar sorteios acidentais, o sistema só libera o sorteio após iniciar a liga. Depois de sortear, o sorteio fica travado.</p><div class="panel-actions"><button onclick="shuffle()" ${S.status!=='started'||S.drawn?'disabled':''}>${S.drawn?'Sorteio realizado — bloqueado':'Sortear grupos'}</button><button class="secondary" onclick="tab='Jogos';render()" ${!S.drawn?'disabled':''}>Ir para jogos</button></div><p class="muted" style="margin-top:10px">${S.drawn?'Sorteio concluído.':'Grupos ainda não sorteados: abaixo está a ordem atual dos atletas.'}</p></section>`;
@@ -1109,7 +1714,7 @@ function renderGroupGames(){
   return h;
 }
 function renderClassification(){
-  let h='<section><h2>Classificação individual</h2><p class="muted">V = vitórias • SG = saldo de games • GP = games pró. Quando houver empate absoluto, os atletas ficam destacados para você definir o desempate manualmente.</p></section>';
+  let h=`<section><h2>Classificação individual</h2><p class="muted">V = vitórias • SG = saldo de games • GP = games pró.${CONFRONTO_DIRETO?' Etapa de temporada: o 4º critério é o confronto direto (saldo de games nos jogos entre os empatados).':''} Quando houver empate absoluto, os atletas ficam destacados para você definir o desempate manualmente.</p></section>`;
   for(let g=0;g<groupIndexes().length;g++){
     let r=rank(g);
     h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><table><tr><th>Atleta</th><th>J</th><th>V</th><th>SG</th><th>GP</th></tr>${r.map((x,i)=>`<tr${groupDone(g)?tieRow('g'+g,r,x):''}><td>${i+1}. ${name(x.i)}</td><td>${x.j}</td><td>${x.w}</td><td>${x.s}</td><td>${x.f}</td></tr>`).join('')}</table>${groupDone(g)?tieUI('g'+g,r):'<p class="muted" style="margin-top:10px">Aguardando os 3 jogos deste grupo.</p>'}</section>`;
@@ -1162,14 +1767,15 @@ function renderLifecycle(){
   else if(S.status==='draft')acoes='<button onclick="startLeague()">INICIAR LIGA</button>';
   else if(S.status==='ended')acoes='<button class="secondary" onclick="corrigirResultados()">CORRIGIR RESULTADOS</button><button class="secondary" onclick="duplicarLiga(L.id)">DUPLICAR LIGA</button>';
   else acoes='<button class="secondary" onclick="endLeague()">ENCERRAR LIGA</button>';
-  $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost" onclick="voltarInicio()">← Minhas Ligas</button>
+  acoes+='<button class="secondary" onclick="abrirWhatsApp()">📤 WHATSAPP</button>';
+  $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost" onclick="voltarInicio()">${L.temporada_id?'← Temporada':'← Minhas Ligas'}</button>
    <h2 style="margin:12px 0 2px">${esc(L.nome)}</h2>
-   <p class="muted">${fmtData(L.data)} • ${capacity()} atletas • <span class="chip st-${st}">${STATUS_LABEL[st]}</span></p>
+   <p class="muted">${L.etapa_numero?'Etapa '+L.etapa_numero+' da temporada • ':''}${fmtData(L.data)} • ${capacity()} atletas • <span class="chip st-${st}">${STATUS_LABEL[st]}</span></p>
    <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px"><div><div class="status-chip">${statusText()}</div><p class="muted" style="margin-top:8px">${progressSummary()}</p></div><div class="row">${acoes}</div></div></section>`;
 }
 function render(){
   renderSync();
-  if(view!=='liga'){$('lifecycle').innerHTML='';$('nav').innerHTML='';$('nav').style.display='none'}
+  if(view!=='liga'&&view!=='temporada'){$('lifecycle').innerHTML='';$('nav').innerHTML='';$('nav').style.display='none'}
   let h='';
   if(view==='carregando')h='<section><p class="muted">Carregando…</p></section>';
   if(view==='erro')h='<section><h2>Não foi possível iniciar</h2><p class="muted">O app não conseguiu carregar os componentes necessários. Verifique a conexão e recarregue a página.</p><div class="panel-actions"><button onclick="location.reload()">Recarregar</button></div></section>';
@@ -1177,6 +1783,13 @@ function render(){
   if(view==='inicio')h=renderInicio();
   if(view==='nova')h=renderNova();
   if(view==='atletas')h=renderAtletas();
+  if(view==='nova-temporada')h=renderNovaTemporada();
+  if(view==='temporada'){
+    if(T){lsSet('lr6:taba:'+T.id,tTab);$('lifecycle').innerHTML=renderTemporadaCabecalho()}
+    $('nav').style.display='';
+    $('nav').innerHTML=tTabs.map(t=>`<button class="${t===tTab?'active':'secondary'}" onclick="tTab='${t}';render()">${t}</button>`).join('');
+    h=renderTemporada();
+  }
   if(view==='liga'){
     lsSet('lr6:aba:'+L.id,tab);
     renderLifecycle();
@@ -1195,7 +1808,7 @@ function render(){
   $('main').innerHTML=h;
   if(view==='nova'){const q=$('nlQtd');q.onchange=()=>{$('nlRegra').textContent=FORMATS[q.value].label}}
   if(view==='liga'){
-    if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="record"], #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
+    if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
   }
 }
 
@@ -1204,7 +1817,7 @@ async function iniciar(){
   if(!window.supabase||!window.supabase.createClient){view='erro';render();return}
   sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'lr6-auth'}});
   sb.auth.onAuthStateChange((ev,session)=>{
-    if(ev==='SIGNED_OUT'){usuario=null;if(view==='inicio'||view==='nova'||view==='atletas'){view='login';render()}}
+    if(ev==='SIGNED_OUT'){usuario=null;if(['inicio','nova','atletas','temporada','nova-temporada'].includes(view)){view='login';render()}}
     else if(session)usuario=session.user;
   });
   view='carregando';render();
