@@ -28,7 +28,7 @@ Confirmado pelo organizador: **sempre passam 16 atletas** para o mata-mata (com 
 ## Duplas e chave
 - Igual à Liga Relâmpago: melhores primeiros juntos, melhores segundos juntos etc.; posição ímpar
   completa com o melhor disponível da posição seguinte.
-- Quartas: D1×D8, D4×D5, D2×D7, D3×D6. Semis: V(Q1)×V(Q2), V(Q3)×V(Q4). Final e 3º lugar.
+- Quartas (ordem da planilha): Q1 = D1×D8 (1-2 × 15-16), Q2 = D3×D6 (5-6 × 11-12), Q3 = D4×D5 (7-8 × 9-10), Q4 = D2×D7 (3-4 × 13-14). Semis: V(Q1)×V(Q2), V(Q3)×V(Q4). Final e 3º lugar. Ligas que já tinham placar no mata-mata antes dessa mudança (v6.3.1) seguem a ordem antiga (D1×D8, D4×D5, D2×D7, D3×D6).
 - **Etapas especiais (padrão: 3 e 7)**: a partir da semifinal as duplas são sorteadas antes de
   cada partida, sem repetir o parceiro da partida anterior. O app oferece **sorteio automático**
   (com a trava) ou **preenchimento manual** (sorteio com o saco de bolas).

@@ -77,6 +77,32 @@ td:not(:first-child),th:not(:first-child){text-align:center}
 .placar-linha.venceu input{background:#f4c85a}
 .placar input:disabled{opacity:.85}
 .placar-status{font-size:12px;font-weight:700}
+#impressao{display:none}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  html:has(body.imprimindo),body.imprimindo{background:#fff!important;color:#000;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;max-width:none!important;width:auto!important}
+  body.imprimindo>*:not(#impressao){display:none!important}
+  body.imprimindo #impressao{display:block;color:#000;font:10pt/1.2 Arial,Helvetica,sans-serif}
+  #impressao *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .imp-pagina{break-after:page}
+  .imp-pagina:last-child{break-after:auto}
+  .imp-cab{display:flex;align-items:center;gap:12px;border-bottom:2px solid #2f5597;padding-bottom:4px;margin-bottom:5mm}
+  .imp-cab img{height:44px}
+  .imp-cab h1{font-size:15pt;margin:1px 0;color:#000}
+  .imp-cab p{margin:0;font-size:9pt}
+  .imp-liga{font-weight:700;font-size:8pt;letter-spacing:1px;color:#2f5597}
+  .imp-tit{margin-left:auto;background:#2f5597;color:#fff;font-weight:700;font-size:13pt;padding:2mm 6mm;border-radius:2mm;border-bottom:1.5mm solid #ffc000}
+  .imp-grade{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:5mm 8mm}
+  .imp-grupo{break-inside:avoid}
+  .imp-grupo h2{background:#2f5597;color:#fff;text-align:center;font-size:13pt;margin:0 0 1.5mm;padding:1mm 0}
+  .imp-jogo{display:grid;grid-template-columns:5mm 1fr 1fr 12mm 5mm 12mm 1fr 1fr;align-items:stretch;margin-top:1.8mm;height:7.5mm}
+  .imp-num{display:flex;align-items:center;justify-content:center;font-size:7pt;font-weight:700;color:#2f5597}
+  .imp-cel,.imp-box{display:flex;align-items:center;justify-content:center;border:1.2px solid #2f5597;margin-left:-1.2px;font-weight:700;font-size:8.5pt;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 1mm}
+  .imp-box{font-size:12pt}
+  .imp-x{display:flex;align-items:center;justify-content:center;background:#dae3f3;color:#2f5597;font-weight:700;border-top:1.2px solid #2f5597;border-bottom:1.2px solid #2f5597}
+  .imp-chave{width:100%;height:155mm;display:block}
+  .imp-nota{font-size:8pt;color:#444;margin:3mm 0 0}
+}
 .score input{width:68px;text-align:center;flex:0 0 68px}
 .match-card{padding:12px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);box-shadow:0 8px 20px rgba(0,0,0,.15)}
 .match-label{display:inline-flex;padding:5px 8px;border-radius:999px;background:rgba(244,200,90,.12);border:1px solid rgba(244,200,90,.2);font-size:12px;font-weight:800;color:#fde68a;margin-bottom:8px}
@@ -186,9 +212,10 @@ summary{cursor:pointer}
 <main id="main"></main>
 <div id="sync"></div>
 <div id="modal"></div>
+<div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.3.0';
+const APP_VERSION='6.3.1';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -247,13 +274,19 @@ function validarDados(x){
   d.drawn=d.status==='drawn'||(d.status==='ended'&&!!x.drawn);
   // ids: atleta do cadastro em cada posição (null = nome sem vínculo)
   d.ids=Array.isArray(x.ids)&&x.ids.length===d.names.length?x.ids.map(v=>typeof v==='string'&&v?v:null):d.names.map(()=>null);
+  // ordem dos cruzamentos das quartas ('antiga' = ligas que já tinham placar no mata-mata antes da troca)
+  if(x.ordemChave==='antiga'||x.ordemChave==='planilha')d.ordemChave=x.ordemChave;
   return d;
 }
 function comDados(d,fn){const old=S;S=d;try{return fn()}finally{S=old}}
 function etapaDe(d){return comDados(d,()=>{if(S.status==='draft')return 'cadastro';if(S.status==='started')return 'sorteio';if(S.status==='ended')return 'encerrada';return complete()?'mata_mata':'grupos'})}
 function statusDe(d){return d.status==='draft'?'preparacao':d.status==='ended'?'finalizada':'andamento'}
 function statusAtual(){const s=statusDe(S);return s==='finalizada'&&L&&L.status==='arquivada'?'arquivada':s}
-function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status}))}
+function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status,...(d.ordemChave?{ordemChave:d.ordemChave}:{})}))}
+// Cruzamentos das quartas (índices das duplas D1..D8). Ordem da planilha:
+// Q1 = 1-2 x 15-16, Q2 = 5-6 x 11-12, Q3 = 7-8 x 9-10, Q4 = 3-4 x 13-14; Semi 1 = Q1 x Q2, Semi 2 = Q3 x Q4.
+// Ligas que já tinham placar no mata-mata antes da mudança continuam na ordem antiga.
+function ordemQuartas(d=S){const o=d.ordemChave||(Object.keys(d.finals||{}).length?'antiga':'planilha');return o==='antiga'?[[0,7],[3,4],[1,6],[2,5]]:[[0,7],[2,5],[3,4],[1,6]]}
 function metaDe(r){return {id:r.id,nome:r.nome,data:r.data,participantes:r.participantes,status:r.status,etapa:r.etapa,versao:r.versao,atualizado_em:r.atualizado_em,temporada_id:r.temporada_id||null,etapa_numero:r.etapa_numero||null}}
 
 /* ---------- Erros ---------- */
@@ -808,7 +841,7 @@ function pontosDaEtapa(liga,R){
         const duos=Array.from({length:8},(_,i)=>q.slice(i*2,i*2+2).map(x=>x.i));
         const dar=(lado,pts,txt)=>lado.forEach(i=>{pos[i].mata+=pts;pos[i].mataTxt.push(txt)});
         const jogo=(id,a,b,[part,vit],nome)=>{dar(a,part,nome);dar(b,part,nome);const v=S.finals[id];if(!valid(v))return null;const w=v[0]>v[1]?a:b,l=v[0]>v[1]?b:a;dar(w,vit,'vitória '+nome);return {w,l}};
-        const qs=[[0,7],[3,4],[1,6],[2,5]].map((p,i)=>jogo('q'+(i+1),duos[p[0]],duos[p[1]],P.quartas,'quartas'));
+        const qs=ordemQuartas().map((p,i)=>jogo('q'+(i+1),duos[p[0]],duos[p[1]],P.quartas,'quartas'));
         const ss=[0,1].map(i=>qs[2*i]&&qs[2*i+1]?jogo('s'+(i+1),qs[2*i].w,qs[2*i+1].w,P.semi,'semifinal'):null);
         if(ss[0]&&ss[1]){const f=jogo('f',ss[0].w,ss[1].w,P.final,'final');const t=jogo('t',ss[0].l,ss[1].l,P.terceiro,'3º lugar');out.mataCompleto=!!(f&&t)}
       }
@@ -1101,7 +1134,7 @@ function chaveAtual(){
   const q=lists.flatMap((l,k)=>l.slice(0,counts[k]));
   if(q.length!==16)return null;
   const duos=Array.from({length:8},(_,i)=>q.slice(i*2,i*2+2).map(x=>x.i));
-  const qs=[[0,7],[3,4],[1,6],[2,5]].map((p,i)=>({id:'q'+(i+1),nome:'Quartas '+(i+1),a:duos[p[0]],b:duos[p[1]]}));
+  const qs=ordemQuartas().map((p,i)=>({id:'q'+(i+1),nome:'Quartas '+(i+1),a:duos[p[0]],b:duos[p[1]]}));
   const ss=[0,1].map(i=>{const x=qs[2*i],y=qs[2*i+1];return valid(S.finals[x.id])&&valid(S.finals[y.id])?{id:'s'+(i+1),nome:'Semifinal '+(i+1),a:winner(x),b:winner(y)}:null});
   let f=null,t=null;
   if(ss[0]&&ss[1]&&valid(S.finals.s1)&&valid(S.finals.s2)){f={id:'f',nome:'Final',a:winner(ss[0]),b:winner(ss[1])};t={id:'t',nome:'Disputa de 3º',a:loser(ss[0]),b:loser(ss[1])}}
@@ -1164,7 +1197,7 @@ function abrirWhatsApp(){
     ${[['jogos','Jogos dos grupos'],['classif','Classificação'],['mata','Mata-mata']].map(([k,t])=>`<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" ${wOp[k]?'checked':''} onchange="wOp.${k}=this.checked;$('wTexto').value=textoWhatsApp(wOp)" style="width:20px;height:20px">${t}</label>`).join('')}</div>`:''}
    <textarea id="wTexto" rows="14" style="margin-top:10px;font-size:13px">${esc(textoWhatsApp(wOp))}</textarea>
    <p class="muted" id="wMsg">Você pode editar o texto antes de enviar. Os vencedores aparecem em *negrito* no WhatsApp.</p>
-   <div class="panel-actions"><button onclick="compartilharTexto()">ENVIAR</button><button class="secondary" onclick="copiarTexto()">Copiar</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
+   <div class="panel-actions"><button onclick="compartilharTexto()">ENVIAR TEXTO</button><button class="secondary" onclick="copiarTexto()">Copiar</button>${S.drawn?'<button class="secondary" onclick="abrirImagemJogos()">🖼 Imagem / 🖨 PDF</button>':''}<button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
 }
 async function compartilharTexto(){
   const t=$('wTexto').value;
@@ -1188,6 +1221,134 @@ function abrirWhatsAppRanking(){
   $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Ranking no WhatsApp</h2>
    <textarea id="wTexto" rows="16" style="margin-top:10px;font-size:13px">${esc(textoRankingTemporada())}</textarea><p class="muted" id="wMsg">Você pode editar o texto antes de enviar.</p>
    <div class="panel-actions"><button onclick="compartilharTexto()">ENVIAR</button><button class="secondary" onclick="copiarTexto()">Copiar</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
+}
+
+/* ---------- Tabela de jogos: imagem e impressão (PDF) ---------- */
+let tabComPlacar=false;
+function logoDoApp(){return document.querySelector('.logo-wrap img')}
+// Desenha a tabela dos jogos (mesma ordem da aba Jogos) numa imagem
+function desenharTabelaJogos(comPlacar){
+  const nc=nomesCurtos(),G=groupIndexes(),W=1080,M=36,GAP=28,COLW=(W-2*M-GAP)/2;
+  const MATCH=2*44+6+30,GH=50+3*(MATCH+14)+10,CAB=150,ROD=60;
+  const linhas=Math.ceil(G.length/2),H=CAB+linhas*(GH+GAP)+ROD;
+  const c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d');
+  const font=(px,peso=800)=>x.font=`${peso} ${px}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
+  const corta=(t,max)=>{if(x.measureText(t).width<=max)return t;while(t.length>1&&x.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'};
+  const ret=(px,py,w,h,r,cor)=>{x.fillStyle=cor;x.beginPath();x.roundRect(px,py,w,h,r);x.fill()};
+  // fundo
+  const fundo=x.createLinearGradient(0,0,0,H);fundo.addColorStop(0,'#132746');fundo.addColorStop(1,'#050b14');x.fillStyle=fundo;x.fillRect(0,0,W,H);
+  // cabeçalho
+  const logo=logoDoApp();
+  if(logo&&logo.complete&&logo.naturalWidth){const h=104,w=h*logo.naturalWidth/logo.naturalHeight;x.drawImage(logo,M,24,w,h)}
+  x.fillStyle='#f4c85a';font(22);x.fillText('LIGA RESENHA',M+150,52);
+  x.fillStyle='#fff';font(38);x.fillText(corta(L.nome,W-M-150-M),M+150,96);
+  x.fillStyle='#cbd5e1';font(24,600);x.fillText(`${fmtData(L.data).replace(/&[^;]+;/g,'')} • ${capacity()} atletas • jogos dos grupos`,M+150,130);
+  G.forEach((g,k)=>{
+    const px=M+(k%2)*(COLW+GAP),py=CAB+Math.floor(k/2)*(GH+GAP);
+    ret(px,py,COLW,GH,18,'rgba(255,255,255,.06)');
+    x.fillStyle='#f4c85a';font(28);x.fillText('GRUPO '+'ABCDEFGH'[g],px+18,py+38);
+    games(g).forEach((m,j)=>{
+      const my=py+50+j*(MATCH+14),v=S.scores[m.id],lanc=comPlacar&&valid(v),venc=lanc?(v[0]>v[1]?0:1):-1;
+      x.fillStyle='#fde68a';font(18,700);x.fillText('JOGO '+(j+1),px+18,my+20);
+      [m.a,m.b].forEach((lado,s)=>{
+        const ry=my+30+s*50;
+        ret(px+14,ry,COLW-28,44,8,s?'#14388a':'#1e4fbf');
+        x.fillStyle=venc===s?'#fde68a':'#fff';font(21);
+        x.fillText(corta(lado.map(i=>nc[i]).join(' / ').toUpperCase(),COLW-28-90),px+28,ry+29);
+        ret(px+COLW-14-64,ry+4,58,36,6,venc===s?'#f4c85a':'#fff');
+        if(lanc){x.fillStyle='#0b1220';font(26,900);const t=String(v[s]);x.fillText(t,px+COLW-14-35-x.measureText(t).width/2,ry+32)}
+      });
+    });
+  });
+  x.fillStyle='#94a3b8';font(18,600);x.fillText('Liga Resenha • Londrina-PR',M,H-24);
+  return c;
+}
+function abrirImagemJogos(){
+  if(!S.drawn)return alert('Faça o sorteio dos grupos primeiro.');
+  const temPlacar=totalGroupGames()>0;
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Tabela dos jogos</h2>
+   <p class="muted">Grupos e jogos na mesma ordem da aba Jogos.</p>
+   ${temPlacar?`<label style="flex-direction:row;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" ${tabComPlacar?'checked':''} onchange="tabComPlacar=this.checked;atualizarPreviaJogos()" style="width:20px;height:20px"> Mostrar os placares já lançados</label>`:''}
+   <img id="tjPrevia" alt="Prévia da tabela" style="width:100%;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.12)">
+   <p class="muted" id="tjMsg"></p>
+   <p class="muted" style="margin-top:6px"><b>Para imprimir:</b></p><div class="row" style="gap:14px;flex-wrap:wrap"><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" ${impGrupos?'checked':''} onchange="impGrupos=this.checked" style="width:20px;height:20px"> Folha dos grupos</label><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" ${impChave?'checked':''} onchange="impChave=this.checked" style="width:20px;height:20px"> Folha do chaveamento</label></div>
+   <div class="panel-actions"><button onclick="compartilharImagemJogos()">🖼 COMPARTILHAR IMAGEM</button><button class="secondary" onclick="imprimirTabelaJogos()">🖨 Imprimir / PDF</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
+  atualizarPreviaJogos();
+}
+function atualizarPreviaJogos(){const i=$('tjPrevia');if(i)i.src=desenharTabelaJogos(tabComPlacar&&totalGroupGames()>0).toDataURL('image/png')}
+async function compartilharImagemJogos(){
+  const c=desenharTabelaJogos(tabComPlacar&&totalGroupGames()>0);
+  const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+  const nome=`jogos-${slug(L.nome)}.png`,arq=new File([blob],nome,{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[arq]})){
+    try{await navigator.share({files:[arq],title:L.nome});return}catch(e){if(e&&e.name==='AbortError')return}
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  const m=$('tjMsg');if(m)m.textContent='Imagem baixada. Envie pelo WhatsApp como foto.';
+}
+// Folhas A4 (paisagem) para imprimir ou salvar em PDF e preencher à mão
+let impGrupos=true,impChave=true;
+function cabecalhoFolha(titulo){
+  const logo=logoDoApp();
+  return `<div class="imp-cab">${logo?`<img src="${logo.src}" alt="">`:''}<div><div class="imp-liga">LIGA RESENHA</div><h1>${esc(L.nome)}</h1><p>${fmtData(L.data)} • ${capacity()} atletas${L.etapa_numero?' • Etapa '+L.etapa_numero:''}</p></div><div class="imp-tit">${titulo}</div></div>`;
+}
+function folhaGrupos(comPlacar){
+  const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),G=groupIndexes(),linhas=Math.ceil(G.length/2);
+  const cel=i=>`<span class="imp-cel">${esc(nc[i])}</span>`;
+  const grupos=G.map(g=>`<div class="imp-grupo"><h2>GRUPO ${'ABCDEFGH'[g]}</h2>${games(g).map((m,j)=>{const v=comPlacar&&valid(S.scores[m.id])?S.scores[m.id]:[];return `<div class="imp-jogo"><span class="imp-num">${j+1}</span>${cel(m.a[0])}${cel(m.a[1])}<span class="imp-box">${v[0]??''}</span><span class="imp-x">X</span><span class="imp-box">${v[1]??''}</span>${cel(m.b[0])}${cel(m.b[1])}</div>`}).join('')}</div>`).join('');
+  return `<div class="imp-pagina">${cabecalhoFolha('FASE DE GRUPOS')}<div class="imp-grade" style="grid-template-rows:repeat(${linhas},auto)">${grupos}</div></div>`;
+}
+function folhaChave(comPlacar){
+  const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),c=chaveAtual();
+  const dupla=p=>p?p.map(i=>nc[i]).join(' / '):'';
+  const med=document.createElement('canvas').getContext('2d');med.font='bold 34px Arial';
+  const T=(x,y,t,o='')=>`<text x="${x}" y="${y}" ${o}>${esc(String(t))}</text>`;
+  const caixa=(x,y,cor,claro,escuro,rotulo,linhas,id)=>{
+    const w=78,h=34,v=comPlacar&&valid(S.finals[id])?S.finals[id]:null;
+    let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff" stroke="#000" stroke-width=".35"/>`;
+    s+=`<rect x="${x}" y="${y}" width="8" height="${h}" fill="${cor}"/><rect x="${x+8}" y="${y}" width="10" height="${h}" fill="${claro}"/>`;
+    s+=T(x+5.3,y+h/2,rotulo,`transform="rotate(-90 ${x+5.3} ${y+h/2})" text-anchor="middle" font-size="3" font-weight="700" fill="${escuro}"`);
+    linhas.forEach(([s1,s2,nome],k)=>{
+      const ry=y+k*17;
+      s+=T(x+13,ry+7.4,s1,'text-anchor="middle" font-size="2.9" font-weight="700"')+T(x+13,ry+11.6,s2,'text-anchor="middle" font-size="2.9" font-weight="700"');
+      const max=w-20-19,larg=med.measureText(nome).width/10;
+      if(nome)s+=T(x+20,ry+10.6,nome,`font-size="3.4" font-weight="700"${larg>max?` textLength="${max}" lengthAdjust="spacingAndGlyphs"`:''}`);
+      s+=`<rect x="${x+w-17}" y="${ry}" width="14" height="17" fill="#e6e6e6"/>`;
+      if(v)s+=T(x+w-10,ry+11.5,v[k],'text-anchor="middle" font-size="5" font-weight="800"');
+    });
+    s+=`<line x1="${x+8}" y1="${y+17}" x2="${x+w}" y2="${y+17}" stroke="#000" stroke-width=".35"/><rect x="${x+w-3}" y="${y}" width="3" height="${h}" fill="${cor}"/>`;
+    return s;
+  };
+  const liga=(x1,y1,y2,x2)=>`<path d="M${x1} ${y1}H${(x1+x2)/2}V${y2}H${x2}" fill="none" stroke="#000" stroke-width=".4"/>`;
+  // mesma ordem de cruzamentos do app: D1×D8, D4×D5, D2×D7, D3×D6
+  const pares=ordemQuartas(),qy=[2,46,90,134],sy=[24,112],AZ='#2f5597';
+  let s='';
+  pares.forEach(([a,b],i)=>{
+    const ln=[a,b].map(d=>[2*d+1,2*d+2,c?dupla(c.duos[d]):'']);
+    s+=caixa(0,qy[i],'#c55a11','#fbe5d6','#fff',`QUARTAS 0${i+1}`,ln,'q'+(i+1));
+    s+=liga(78,qy[i]+17,sy[i>>1]+8.5+(i&1)*17,103);
+  });
+  [0,1].forEach(i=>{
+    const m=c&&c.ss[i];
+    s+=caixa(103,sy[i],AZ,'#dae3f3','#fff',`SEMI 0${i+1}`,[0,1].map(k=>['QF',`0${2*i+k+1}`,m?dupla(k?m.b:m.a):'']),'s'+(i+1));
+    s+=liga(181,sy[i]+17,76.5+i*17,203);
+  });
+  s+=caixa(203,68,'#ffc000','#fff2cc','#000','FINAL',[0,1].map(k=>['VSF',`0${k+1}`,c&&c.f?dupla(k?c.f.b:c.f.a):'']),'f');
+  s+=caixa(203,130,'#70ad47','#e2f0d9','#fff','3º LUGAR',[0,1].map(k=>['PSF',`0${k+1}`,c&&c.t?dupla(k?c.t.b:c.t.a):'']),'t');
+  const nota=c?'':'<p class="imp-nota">Números = posição na classificação geral dos 16 classificados (1 e 2 formam a dupla 1, 3 e 4 a dupla 2, e assim por diante).</p>';
+  return `<div class="imp-pagina">${cabecalhoFolha('CHAVEAMENTO')}<svg class="imp-chave" viewBox="0 0 281 168" font-family="Arial,Helvetica,sans-serif">${s}</svg>${nota}</div>`;
+}
+function imprimirTabelaJogos(){
+  if(!S.drawn)return alert('Faça o sorteio dos grupos primeiro.');
+  if(!impGrupos&&!impChave)return alert('Marque ao menos uma folha para imprimir.');
+  const comPlacar=tabComPlacar;
+  $('impressao').innerHTML=(impGrupos?folhaGrupos(comPlacar&&totalGroupGames()>0):'')+(impChave?folhaChave(comPlacar):'');
+  fecharModal();
+  document.body.classList.add('imprimindo');
+  const fim=()=>{document.body.classList.remove('imprimindo');window.removeEventListener('afterprint',fim)};
+  window.addEventListener('afterprint',fim);
+  setTimeout(()=>window.print(),150);
 }
 
 /* ---------- Nova liga ---------- */
@@ -1570,6 +1731,7 @@ function aplicarPlacar(id,k,novo){
   if(S.status!=='drawn'){alert('Lançamentos bloqueados.');return false}
   const antes=S[k][id];
   if(JSON.stringify(antes??null)===JSON.stringify(novo))return false;
+  if(k==='finals'&&!S.ordemChave)S.ordemChave=Object.keys(S.finals).length?'antiga':'planilha';
   if(k==='scores'&&Object.keys(S.finals).length){if(!confirm('Alterar a fase de grupos apagará o mata-mata. Continuar?'))return false;S.finals={}}
   if(k==='finals'&&id.startsWith('q')){delete S.finals[['q1','q2'].includes(id)?'s1':'s2'];delete S.finals.f;delete S.finals.t}
   if(k==='finals'&&id.startsWith('s')){delete S.finals.f;delete S.finals.t}
@@ -1709,7 +1871,7 @@ function renderGroups(){
 }
 function renderGroupGames(){
   if(!S.drawn)return `<section><h2>Jogos</h2><p class="muted">Realize o sorteio na aba Grupos antes de lançar os placares.</p><div class="panel-actions"><button onclick="tab='Grupos';render()">Ir para grupos</button></div></section>`;
-  let h=`<section><h2>Jogos de grupos</h2><p class="muted">${totalGroupGames()}/${groupGameCount()} jogos concluídos. Informe dois placares inteiros diferentes. Não existe empate no jogo.</p></section>`;
+  let h=`<section><h2>Jogos de grupos</h2><p class="muted">${totalGroupGames()}/${groupGameCount()} jogos concluídos. Informe dois placares inteiros diferentes. Não existe empate no jogo.</p><div class="panel-actions"><button class="secondary" onclick="abrirImagemJogos()">🖼 Imagem / 🖨 Imprimir tabela</button></div></section>`;
   for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><div class="round-stack" style="margin-top:10px">${games(g).map((m,i)=>scorecard(m,'scores','') ).join('')}</div></section>`;
   return h;
 }
@@ -1742,7 +1904,7 @@ function renderKnockout(bracketOnly=false){
   if(qualified.length!==16||new Set(qualified.map(x=>x.i)).size!==16)return h+'<section><p class="tag">Revise a classificação dos 16 atletas.</p></section>';
   let duos=Array.from({length:8},(_,i)=>qualified.slice(i*2,i*2+2).map(x=>x.i));
   if(!bracketOnly)h+=duoCards(duos);
-  let qs=[[0,7],[3,4],[1,6],[2,5]].map((p,i)=>({id:'q'+(i+1),a:duos[p[0]],b:duos[p[1]]}));
+  let qs=ordemQuartas().map((p,i)=>({id:'q'+(i+1),a:duos[p[0]],b:duos[p[1]]}));
   let ss=[];
   for(let i=0;i<2;i++){
     let x=qs[2*i],y=qs[2*i+1];
