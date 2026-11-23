@@ -31,8 +31,11 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    - Senha do banco: gere uma senha forte e guarde-a no seu gerenciador de senhas
      (ela não vai para o app).
    - Região: *South America (São Paulo)*.
-2. **Aplicar a migration**: abra *SQL Editor* → *New query*, cole todo o conteúdo de
-   `supabase/migrations/20261122000001_ligas_relampago.sql` e clique em *Run*.
+2. **Aplicar as migrations, em ordem**: abra *SQL Editor* → *New query*, cole todo o
+   conteúdo de cada arquivo e clique em *Run* (um de cada vez):
+   1. `supabase/migrations/20261122000001_ligas_relampago.sql`
+   2. `supabase/migrations/20261122000002_keepalive.sql`
+   3. `supabase/migrations/20261123000001_atletas.sql` (cadastro único de atletas)
    O resultado esperado é "Success. No rows returned".
 3. **Bloquear cadastros públicos**: em *Authentication* → *Sign In / Providers*,
    desligue *Allow new users to sign up* e salve.
