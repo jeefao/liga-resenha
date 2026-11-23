@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Instalar pg_dump 17
         run: |
@@ -31,17 +31,28 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          if [ -z "$DATABASE_URL" ]; then
-            echo "Falta o secret SUPABASE_DB_URL (Settings > Secrets and variables > Actions)."
-            exit 1
-          fi
+          erro() { echo "::error::$1"; exit 1; }
+          [ -n "$DATABASE_URL" ] || erro "Falta o secret SUPABASE_DB_URL (Settings > Secrets and variables > Actions)."
+          case "$DATABASE_URL" in
+            postgresql://*|postgres://*) ;;
+            *) erro "O secret SUPABASE_DB_URL deve começar com postgresql:// — copie de novo do Supabase (Connect > Session pooler)." ;;
+          esac
+          case "$DATABASE_URL" in *YOUR-PASSWORD*) erro "Troque [YOUR-PASSWORD] (com os colchetes) pela senha do banco no secret SUPABASE_DB_URL." ;; esac
+          case "$DATABASE_URL" in *pooler.supabase.com*) ;; *) erro "Use o endereço do Session pooler (contém pooler.supabase.com), não o Direct connection." ;; esac
           mkdir -p backups
           arquivo="backups/liga-resenha-v6-$(date -u +%Y-%m-%d).sql"
-          /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" \
-            --schema=public --no-owner --no-privileges --file="$arquivo"
+          if ! /usr/lib/postgresql/17/bin/pg_dump "$DATABASE_URL" \
+              --schema=public --no-owner --no-privileges --file="$arquivo" 2>erro.txt; then
+            msg=$(tr '\n' ' ' < erro.txt | sed 's#postgresql://[^ ]*#[endereço oculto]#g')
+            case "$msg" in
+              *"password authentication failed"*) erro "Senha do banco incorreta no secret SUPABASE_DB_URL. ($msg)" ;;
+              *"Tenant or user not found"*) erro "Usuário do endereço incorreto: use o endereço completo do Session pooler (postgres.frioxrtyffuotmmdmtxu). ($msg)" ;;
+              *) erro "pg_dump falhou: $msg" ;;
+            esac
+          fi
           # Confere se o backup tem as tabelas principais antes de guardar
-          grep -q "CREATE TABLE public.ligas " "$arquivo"
-          grep -q "CREATE TABLE public.ligas_versoes " "$arquivo"
+          grep -q "CREATE TABLE public.ligas " "$arquivo" || erro "Backup sem a tabela ligas — conferir."
+          grep -q "CREATE TABLE public.ligas_versoes " "$arquivo" || erro "Backup sem a tabela ligas_versoes — conferir."
           echo "Tamanho: $(du -h "$arquivo" | cut -f1)"
           gzip -f "$arquivo"
           # Mantém só os 26 mais recentes
