@@ -86,26 +86,7 @@ td:not(:first-child),th:not(:first-child){text-align:center}
   #impressao *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .imp-pagina{break-after:page;height:192mm;overflow:hidden}
   .imp-pagina:last-child{break-after:auto}
-  .imp-cab{display:flex;align-items:center;gap:12px;border-bottom:2px solid #1f3864;padding-bottom:4px;margin-bottom:4mm}
-  .imp-cab img{height:44px}
-  .imp-cab h1{font-size:15pt;margin:1px 0;color:#1f3864}
-  .imp-cab p{margin:0;font-size:9pt;color:#333}
-  .imp-liga{font-weight:700;font-size:8pt;letter-spacing:1.5px;color:#b8860b}
-  .imp-tit{margin-left:auto;background:#1f3864;color:#fff;font-weight:700;font-size:13pt;letter-spacing:1px;padding:2mm 6mm;border-radius:2mm;border-bottom:1.5mm solid #ffc000}
-  .imp-grade{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:4mm 7mm}
-  .imp-grupo{border:1px solid #c5cfe3;border-radius:3mm;overflow:hidden;break-inside:avoid}
-  .imp-grupo h2{display:flex;align-items:center;gap:2.5mm;background:#1f3864;color:#fff;font-size:10.5pt;letter-spacing:1.5px;margin:0;padding:1.2mm 3mm;border-bottom:1mm solid #ffc000}
-  .imp-grupo h2 b{background:#ffc000;color:#1f3864;border-radius:50%;width:6.5mm;height:6.5mm;display:inline-flex;align-items:center;justify-content:center;font-size:11pt;letter-spacing:0}
-  .imp-jogos{padding:.6mm 2.5mm 1.6mm}
-  .imp-jogo{display:grid;grid-template-columns:5mm minmax(0,1fr) 11mm 4mm 11mm minmax(0,1fr);align-items:center;column-gap:1.8mm;height:7.4mm;margin-top:1mm;padding:0 1.5mm;border-radius:1.5mm}
-  .imp-jogo:nth-child(even){background:#eef2f9}
-  .imp-num{width:5mm;height:5mm;border-radius:50%;background:#dae3f3;color:#1f3864;font-size:7pt;font-weight:700;display:flex;align-items:center;justify-content:center}
-  .imp-dupla{font-weight:700;font-size:8.5pt;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .imp-dupla.a{text-align:right}
-  .imp-box{height:6.2mm;border:1.4px solid #1f3864;border-radius:1.5mm;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12pt}
-  .imp-x{text-align:center;font-weight:700;color:#8a96ad;font-size:8pt}
-  .imp-chave{width:100%;height:160mm;display:block}
-  .imp-nota{font-size:8pt;color:#444;margin:3mm 0 0}
+  .imp-pagina svg{display:block}
 }
 .score input{width:68px;text-align:center;flex:0 0 68px}
 .match-card{padding:12px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);box-shadow:0 8px 20px rgba(0,0,0,.15)}
@@ -219,7 +200,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.3.2';
+const APP_VERSION='6.3.3';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -998,12 +979,32 @@ function renderTemporadaCabecalho(){
   let acoes='';
   if(T.status==='andamento')acoes=`<button class="secondary" onclick="mudarStatusTemporada('encerrada')">Encerrar temporada</button>`;
   else if(T.status==='encerrada')acoes=`<button class="secondary" onclick="mudarStatusTemporada('andamento')">Reabrir</button><button class="secondary" onclick="mudarStatusTemporada('arquivada')">Arquivar</button>`;
-  else acoes=`<button class="secondary" onclick="mudarStatusTemporada('encerrada')">Desarquivar</button>`;
+  else acoes=`<button class="secondary" onclick="mudarStatusTemporada('encerrada')">Desarquivar</button><button class="danger" onclick="apagarTemporada()">🗑 Apagar de vez</button>`;
   return `<section class="header-card"><button class="ghost" onclick="sairDaTemporada()">← Início</button>
    <h2 style="margin:12px 0 2px">${esc(T.nome)}</h2>
    <p class="muted">${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}${enc} etapa(s) encerrada(s) • ${criadas} de ${R.etapas} criadas • <span class="chip st-${T.status==='andamento'?'andamento':T.status==='encerrada'?'finalizada':'arquivada'}">${T_STATUS[T.status]||esc(T.status)}</span></p>
    ${tInfo.origem==='cache'?`<p class="warn" style="margin-top:6px">Sem conexão: mostrando a cópia guardada em ${fmtDataHora(tInfo.em)}.</p>`:''}
    <div class="panel-actions">${acoes}</div></section>`;
+}
+// Apaga de vez uma temporada arquivada (com todas as etapas). Baixa um backup antes; sem backup, nada é apagado.
+async function apagarTemporada(){
+  if(!T||T.status!=='arquivada'||ocupado)return;
+  const nE=TE.length;
+  const r=prompt('Apagar DE VEZ a temporada "'+T.nome+'"'+(nE?' e as '+nE+' etapa(s) dela':'')+'?\n\nIsso não tem volta: temporada, etapas, resultados e histórico somem do servidor. Um arquivo de backup será baixado antes.\nPara confirmar, digite APAGAR:');
+  if(r===null)return;
+  if(r.trim().toUpperCase()!=='APAGAR')return alert('Nada foi apagado (a palavra digitada não foi APAGAR).');
+  ocupado=true;
+  try{
+    const {data:t,error:e1}=await sb.from('temporadas').select('*').eq('id',T.id).single();if(e1)throw e1;
+    const {data:ls,error:e2}=await sb.from('ligas').select('*').eq('temporada_id',T.id);if(e2)throw e2;
+    baixarJSON(`backup-temporada-antes-de-apagar-${hoje()}-${Date.now()}.json`,{app:'liga-resenha-v6',tipo:'temporada',observacao:'Temporada apagada definitivamente',exportado_em:new Date().toISOString(),temporada:t,ligas:(ls||[]).map(x=>({liga:metaDe(x),dados:x.dados}))});
+    const {data,error}=await sb.rpc('excluir_temporada',{p_id:T.id});if(error)throw error;
+    try{for(const x of ls||[]){localStorage.removeItem(cacheKey(x.id));localStorage.removeItem('lr6:aba:'+x.id)}localStorage.removeItem('lr6:temporada:'+T.id);localStorage.removeItem('lr6:taba:'+T.id)}catch{}
+    temporadas=temporadas.filter(x=>x.id!==T.id);
+    alert('Temporada "'+data.nome+'" apagada de vez'+(data.etapas?' ('+data.etapas+' etapa(s))':'')+'.');
+    ocupado=false;sairDaTemporada();
+  }catch(e){alert('Nada foi apagado: '+traduzErro(e))}
+  finally{ocupado=false}
 }
 function sairDaTemporada(){T=null;TE=[];view='inicio';render();carregarLista()}
 async function mudarStatusTemporada(st){
@@ -1227,137 +1228,143 @@ function abrirWhatsAppRanking(){
    <div class="panel-actions"><button onclick="compartilharTexto()">ENVIAR</button><button class="secondary" onclick="copiarTexto()">Copiar</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
 }
 
-/* ---------- Tabela de jogos: imagem e impressão (PDF) ---------- */
-let tabComPlacar=false;
+/* ---------- Folhas dos grupos e do chaveamento: imagem (WhatsApp) e impressão (PDF) ---------- */
+// As duas folhas são desenhadas em SVG (A4 deitado, medidas em mm). A mesma folha vira
+// a imagem PNG compartilhada e a página impressa, então as duas saem iguais.
+let impSel='grupos',impPlacar=false;
+const F_AZ='#1f3864',F_AZ2='#2f5597',F_OURO='#ffc000',F_VERDE='#4e8f2f',F_W=281,F_H=192;
 function logoDoApp(){return document.querySelector('.logo-wrap img')}
-// Desenha a tabela dos jogos (mesma ordem da aba Jogos) numa imagem
-function desenharTabelaJogos(comPlacar){
-  const nc=nomesCurtos(),G=groupIndexes(),W=1080,M=36,GAP=28,COLW=(W-2*M-GAP)/2;
-  const MATCH=2*44+6+30,GH=50+3*(MATCH+14)+10,CAB=150,ROD=60;
-  const linhas=Math.ceil(G.length/2),H=CAB+linhas*(GH+GAP)+ROD;
-  const c=document.createElement('canvas');c.width=W;c.height=H;
-  const x=c.getContext('2d');
-  const font=(px,peso=800)=>x.font=`${peso} ${px}px system-ui,-apple-system,Segoe UI,Roboto,sans-serif`;
-  const corta=(t,max)=>{if(x.measureText(t).width<=max)return t;while(t.length>1&&x.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'};
-  const ret=(px,py,w,h,r,cor)=>{x.fillStyle=cor;x.beginPath();x.roundRect(px,py,w,h,r);x.fill()};
-  // fundo
-  const fundo=x.createLinearGradient(0,0,0,H);fundo.addColorStop(0,'#132746');fundo.addColorStop(1,'#050b14');x.fillStyle=fundo;x.fillRect(0,0,W,H);
-  // cabeçalho
-  const logo=logoDoApp();
-  if(logo&&logo.complete&&logo.naturalWidth){const h=104,w=h*logo.naturalWidth/logo.naturalHeight;x.drawImage(logo,M,24,w,h)}
-  x.fillStyle='#f4c85a';font(22);x.fillText('LIGA RESENHA',M+150,52);
-  x.fillStyle='#fff';font(38);x.fillText(corta(L.nome,W-M-150-M),M+150,96);
-  x.fillStyle='#cbd5e1';font(24,600);x.fillText(`${fmtData(L.data).replace(/&[^;]+;/g,'')} • ${capacity()} atletas • jogos dos grupos`,M+150,130);
+let fMed=null;
+function fLarg(t,tam){if(!fMed){fMed=document.createElement('canvas').getContext('2d');fMed.font='bold 100px Arial'}return fMed.measureText(String(t)).width*tam/100}
+// Texto SVG; se passar da largura máxima, é comprimido para caber
+function fT(x,y,t,tam,o='',max=0){const lg=max&&fLarg(t,tam)>max?` textLength="${max}" lengthAdjust="spacingAndGlyphs"`:'';return `<text x="${x}" y="${y}" font-size="${tam}"${/font-weight/.test(o)?'':' font-weight="700"'} ${o}${lg}>${esc(String(t))}</text>`}
+function fLogo(x,y,w,h){const l=logoDoApp();return l&&l.src?`<image x="${x}" y="${y}" width="${w}" height="${h}" href="${l.src}" xlink:href="${l.src}" preserveAspectRatio="xMidYMid meet"/>`:''}
+function fCabecalho(titulo){
+  const sub=`${fmtData(L.data).replace(/&[^;]+;/g,'')} • ${capacity()} atletas${L.etapa_numero?' • Etapa '+L.etapa_numero:''}`;
+  const pw=fLarg(titulo,4.4)+14,px=F_W-pw;
+  return fLogo(0,.5,19,19)
+    +fT(23,6,'LIGA RESENHA',2.8,'fill="#b8860b" letter-spacing=".5"')
+    +fT(23,12.6,L.nome,5.4,`fill="${F_AZ}"`,px-28)
+    +fT(23,17.6,sub,3.1,'font-weight="400" fill="#333"')
+    +`<rect x="${px}" y="3" width="${pw}" height="10.5" rx="2" fill="${F_AZ}"/><rect x="${px}" y="12.3" width="${pw}" height="1.7" rx=".8" fill="${F_OURO}"/>`
+    +fT(px+pw/2,10.2,titulo,4.4,'fill="#fff" text-anchor="middle" letter-spacing=".4"')
+    +`<line x1="0" y1="21.5" x2="${F_W}" y2="21.5" stroke="${F_AZ}" stroke-width=".7"/>`;
+}
+// m = margem branca em volta (usada na imagem; na impressão a margem é a da página)
+function fSvg(corpo,w,h,m=0){return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="${-m} ${-m} ${F_W+2*m} ${F_H+2*m}" width="${w}" height="${h}" font-family="Arial,Helvetica,sans-serif"><rect x="${-m}" y="${-m}" width="${F_W+2*m}" height="${F_H+2*m}" fill="#fff"/>${corpo}</svg>`}
+const F_M=7;
+function nomesFolha(){return nomesCurtos().map(n=>(n||'').toUpperCase())}
+// Folha dos grupos: só os grupos que existem, jogos na ordem da aba Jogos
+function corpoGrupos(comPlacar){
+  const nc=nomesFolha(),G=groupIndexes(),lin=Math.ceil(G.length/2),CW=137,CH=36.2,GAP=4;
+  let s=fCabecalho('FASE DE GRUPOS');
   G.forEach((g,k)=>{
-    const px=M+(k%2)*(COLW+GAP),py=CAB+Math.floor(k/2)*(GH+GAP);
-    ret(px,py,COLW,GH,18,'rgba(255,255,255,.06)');
-    x.fillStyle='#f4c85a';font(28);x.fillText('GRUPO '+'ABCDEFGH'[g],px+18,py+38);
+    const col=k<lin?0:1,x=col*(CW+7),y=25+(k%lin)*(CH+GAP),L_='ABCDEFGH'[g];
+    s+=`<rect x="${x}" y="${y}" width="${CW}" height="${CH}" rx="3" fill="#fff" stroke="#c5cfe3" stroke-width=".3"/>`;
+    s+=`<path d="M${x} ${y+3}a3 3 0 0 1 3 -3h${CW-6}a3 3 0 0 1 3 3v5h-${CW}z" fill="${F_AZ}"/><rect x="${x}" y="${y+8}" width="${CW}" height="1" fill="${F_OURO}"/>`;
+    s+=`<circle cx="${x+6}" cy="${y+4}" r="3" fill="${F_OURO}"/>`+fT(x+6,y+5.35,L_,3.8,`fill="${F_AZ}" text-anchor="middle"`)+fT(x+11,y+5.5,'GRUPO '+L_,3.7,'fill="#fff" letter-spacing=".5"');
     games(g).forEach((m,j)=>{
-      const my=py+50+j*(MATCH+14),v=S.scores[m.id],lanc=comPlacar&&valid(v),venc=lanc?(v[0]>v[1]?0:1):-1;
-      x.fillStyle='#fde68a';font(18,700);x.fillText('JOGO '+(j+1),px+18,my+20);
-      [m.a,m.b].forEach((lado,s)=>{
-        const ry=my+30+s*50;
-        ret(px+14,ry,COLW-28,44,8,s?'#14388a':'#1e4fbf');
-        x.fillStyle=venc===s?'#fde68a':'#fff';font(21);
-        x.fillText(corta(lado.map(i=>nc[i]).join(' / ').toUpperCase(),COLW-28-90),px+28,ry+29);
-        ret(px+COLW-14-64,ry+4,58,36,6,venc===s?'#f4c85a':'#fff');
-        if(lanc){x.fillStyle='#0b1220';font(26,900);const t=String(v[s]);x.fillText(t,px+COLW-14-35-x.measureText(t).width/2,ry+32)}
-      });
+      const ry=y+10.6+j*8.4,v=comPlacar&&valid(S.scores[m.id])?S.scores[m.id]:null;
+      if(j%2)s+=`<rect x="${x+2.5}" y="${ry}" width="${CW-5}" height="7.4" rx="1.5" fill="#eef2f9"/>`;
+      s+=`<circle cx="${x+6}" cy="${ry+3.7}" r="2.4" fill="#dae3f3"/>`+fT(x+6,ry+4.55,j+1,2.4,`fill="${F_AZ}" text-anchor="middle"`);
+      const c0=x+10.3,c1=x+CW-4,mid=(c0+c1)/2;
+      [mid-13,mid+2].forEach((bx,k2)=>{s+=`<rect x="${bx}" y="${ry+.6}" width="11" height="6.2" rx="1.5" fill="#fff" stroke="${F_AZ}" stroke-width=".45"/>`;if(v)s+=fT(bx+5.5,ry+5.2,v[k2],4.2,'fill="#111" text-anchor="middle"')});
+      s+=fT(mid,ry+4.6,'X',2.6,'fill="#8a96ad" text-anchor="middle"');
+      s+=fT(mid-14.8,ry+4.75,m.a.map(i=>nc[i]).join(' / '),3,'fill="#111" text-anchor="end"',mid-14.8-c0);
+      s+=fT(mid+14.8,ry+4.75,m.b.map(i=>nc[i]).join(' / '),3,'fill="#111"',c1-mid-14.8);
     });
   });
-  x.fillStyle='#94a3b8';font(18,600);x.fillText('Liga Resenha • Londrina-PR',M,H-24);
-  return c;
+  return s;
 }
-function abrirImagemJogos(){
+// Chave espelhada: quartas 1-2 e semi 1 à esquerda, quartas 3-4 e semi 2 à direita, final no centro
+function corpoChave(comPlacar){
+  const nc=nomesFolha(),c=chaveAtual();
+  const caixa=(x,y,w,cor,claro,txtCor,rotulo,linhas,id,esp=false,destaque=false)=>{
+    const h=34,v=comPlacar&&valid(S.finals[id])?S.finals[id]:null;
+    const xs=esp?x+w-6:x,xseed=esp?x+w-14:x+6,xsc=esp?x+2:x+w-13,xn=esp?x+15:x+16,maxN=w-31;
+    let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.6" fill="#fff" stroke="${destaque?F_OURO:F_AZ}" stroke-width="${destaque?.9:.35}"/>`;
+    s+=`<rect x="${xs}" y="${y}" width="6" height="${h}" fill="${cor}"/><rect x="${xseed}" y="${y}" width="8" height="${h}" fill="${claro}"/>`;
+    s+=fT(xs+4,y+h/2,rotulo,2.6,`transform="rotate(-90 ${xs+4} ${y+h/2})" text-anchor="middle" letter-spacing=".3" fill="${txtCor}"`);
+    linhas.forEach(([s1,s2,p],k)=>{
+      const ry=y+k*17;
+      s+=fT(xseed+4,ry+7.4,s1,2.7,`text-anchor="middle" fill="${F_AZ}"`)+fT(xseed+4,ry+11.6,s2,2.7,`text-anchor="middle" fill="${F_AZ}"`);
+      if(p)p.forEach((i,n)=>{s+=fT(xn,ry+7.6+n*4.6,nc[i]||'',3,'fill="#111"',maxN)});
+      s+=`<rect x="${xsc}" y="${ry+2}" width="11" height="13" rx="1" fill="#eef2f9" stroke="#9fb0cf" stroke-width=".3"/>`;
+      if(v)s+=fT(xsc+5.5,ry+11.2,v[k],5,'text-anchor="middle" fill="#111"');
+    });
+    return s+`<line x1="${esp?x:x+6}" y1="${y+17}" x2="${esp?x+w-6:x+w}" y2="${y+17}" stroke="#9fb0cf" stroke-width=".3"/>`;
+  };
+  const liga=(x1,y1,x2,y2)=>`<path d="M${x1} ${y1}H${(x1+x2)/2}V${y2}H${x2}" fill="none" stroke="${F_AZ}" stroke-width=".45"/>`;
+  const ord=ordemQuartas(),QW=54,SW=48,FW=51,qy=[16,108],sy=62,fy=60;
+  const qx=[0,0,281-QW,281-QW],qyy=[qy[0],qy[1],qy[0],qy[1]],sx=[61,281-61-SW],fx=(281-FW)/2;
+  let s='';
+  [[QW/2,'QUARTAS'],[61+SW/2,'SEMIFINAL'],[281-61-SW/2,'SEMIFINAL'],[281-QW/2,'QUARTAS']].forEach(([x,t])=>s+=fT(x,8,t,3.2,`text-anchor="middle" letter-spacing=".8" fill="${F_AZ2}"`));
+  ord.forEach(([a,b],i)=>{
+    const esp=i>=2;
+    s+=caixa(qx[i],qyy[i],QW,F_AZ,'#dae3f3','#fff',`QUARTAS ${i+1}`,[a,b].map(d=>[2*d+1,2*d+2,c?c.duos[d]:null]),'q'+(i+1),esp);
+    const alvo=sy+8.5+(i&1)*17;
+    s+=esp?liga(qx[i],qyy[i]+17,sx[1]+SW,alvo):liga(QW,qyy[i]+17,sx[0],alvo);
+  });
+  [0,1].forEach(i=>{const m=c&&c.ss[i];s+=caixa(sx[i],sy,SW,F_AZ2,'#dae3f3','#fff',`SEMI ${i+1}`,[0,1].map(k=>['QF',String(2*i+k+1),m?(k?m.b:m.a):null]),'s'+(i+1),i===1)});
+  s+=liga(sx[0]+SW,sy+17,fx,fy+8.5)+liga(sx[1],sy+17,fx+FW,fy+25.5);
+  s+=fLogo(fx+FW/2-20,4,40,40);
+  s+=fT(140.5,55,'FINAL',4.2,`text-anchor="middle" letter-spacing="1.5" fill="${F_AZ}"`);
+  s+=caixa(fx,fy,FW,F_OURO,'#fff2cc',F_AZ,'FINAL',[0,1].map(k=>['SF',String(k+1),c&&c.f?(k?c.f.b:c.f.a):null]),'f',false,true);
+  s+=fT(140.5,103,'CAMPEÕES',3.4,'text-anchor="middle" letter-spacing="1.2" fill="#b8860b"');
+  s+=`<line x1="${fx}" y1="113" x2="${fx+FW}" y2="113" stroke="${F_AZ}" stroke-width=".35"/>`;
+  s+=fT(140.5,124,'3º LUGAR',3.4,`text-anchor="middle" letter-spacing="1.2" fill="${F_VERDE}"`);
+  s+=caixa(fx,127,FW,F_VERDE,'#e2f0d9','#fff','3º LUGAR',[0,1].map(k=>['SF',String(k+1),c&&c.t?(k?c.t.b:c.t.a):null]),'t');
+  if(!c)s+=fT(140.5,168,'Números = posição na classificação geral dos 16 classificados (1 e 2 formam a dupla 1, 3 e 4 a dupla 2...).',2.6,'font-weight="400" text-anchor="middle" fill="#555"');
+  return fCabecalho('CHAVEAMENTO')+`<g transform="translate(4.2 23.5) scale(.97)">${s}</g>`;
+}
+const F_TIPOS={grupos:{nome:'Grupos',arquivo:'jogos-grupos',corpo:corpoGrupos},chave:{nome:'Chaveamento',arquivo:'chaveamento',corpo:corpoChave}};
+function tiposEscolhidos(){return impSel==='ambas'?['grupos','chave']:[impSel]}
+function folhaSvg(tipo,w,h,m=0){return fSvg(F_TIPOS[tipo].corpo(impPlacar),w,h,m)}
+// Converte a folha em PNG (2480 px de largura, boa para WhatsApp e impressão)
+function folhaPng(tipo){
+  const W=2480,H=Math.round(W*(F_H+2*F_M)/(F_W+2*F_M));
+  return new Promise((ok,falha)=>{
+    const img=new Image();
+    img.onload=()=>{try{const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.drawImage(img,0,0,W,H);c.toBlob(b=>b?ok(b):falha(new Error('não foi possível gerar a imagem')),'image/png')}catch(e){falha(e)}};
+    img.onerror=()=>falha(new Error('não foi possível gerar a imagem'));
+    img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(folhaSvg(tipo,W,H,F_M));
+  });
+}
+function abrirImagemJogos(sel){
   if(!S.drawn)return alert('Faça o sorteio dos grupos primeiro.');
-  const temPlacar=totalGroupGames()>0;
-  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Tabela dos jogos</h2>
-   <p class="muted">Grupos e jogos na mesma ordem da aba Jogos.</p>
-   ${temPlacar?`<label style="flex-direction:row;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" ${tabComPlacar?'checked':''} onchange="tabComPlacar=this.checked;atualizarPreviaJogos()" style="width:20px;height:20px"> Mostrar os placares já lançados</label>`:''}
-   <img id="tjPrevia" alt="Prévia da tabela" style="width:100%;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.12)">
+  impSel=sel||(chaveAtual()?'chave':'grupos');
+  const temPlacar=totalGroupGames()>0||Object.keys(S.finals||{}).length>0;
+  if(!temPlacar)impPlacar=false;
+  const op=(v,t)=>`<label style="flex-direction:row;align-items:center;gap:6px"><input type="radio" name="impSel" value="${v}" ${impSel===v?'checked':''} onchange="impSel=this.value;atualizarPreviaJogos()" style="width:20px;height:20px"> ${t}</label>`;
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Imagens e impressão</h2>
+   <p class="muted">Escolha a folha. A imagem para o WhatsApp e o PDF saem iguais.</p>
+   <div class="row" style="gap:14px;flex-wrap:wrap;margin-top:8px">${op('grupos','Grupos')}${op('chave','Chaveamento')}${op('ambas','Os dois')}</div>
+   ${temPlacar?`<label style="flex-direction:row;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" ${impPlacar?'checked':''} onchange="impPlacar=this.checked;atualizarPreviaJogos()" style="width:20px;height:20px"> Mostrar os placares já lançados</label>`:''}
+   <div id="tjPrevia" style="margin-top:10px;display:grid;gap:8px"></div>
    <p class="muted" id="tjMsg"></p>
-   <p class="muted" style="margin-top:6px"><b>Para imprimir:</b></p><div class="row" style="gap:14px;flex-wrap:wrap"><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" ${impGrupos?'checked':''} onchange="impGrupos=this.checked" style="width:20px;height:20px"> Folha dos grupos</label><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" ${impChave?'checked':''} onchange="impChave=this.checked" style="width:20px;height:20px"> Folha do chaveamento</label></div>
    <div class="panel-actions"><button onclick="compartilharImagemJogos()">🖼 COMPARTILHAR IMAGEM</button><button class="secondary" onclick="imprimirTabelaJogos()">🖨 Imprimir / PDF</button><button class="secondary" onclick="fecharModal()">Fechar</button></div></div></div>`;
   atualizarPreviaJogos();
 }
-function atualizarPreviaJogos(){const i=$('tjPrevia');if(i)i.src=desenharTabelaJogos(tabComPlacar&&totalGroupGames()>0).toDataURL('image/png')}
+function atualizarPreviaJogos(){
+  const d=$('tjPrevia');if(!d)return;
+  d.innerHTML=tiposEscolhidos().map(t=>`<div style="background:#fff;border-radius:8px;overflow:hidden;aspect-ratio:${F_W+2*F_M}/${F_H+2*F_M}">${folhaSvg(t,'100%','100%',F_M)}</div>`).join('');
+}
 async function compartilharImagemJogos(){
-  const c=desenharTabelaJogos(tabComPlacar&&totalGroupGames()>0);
-  const blob=await new Promise(r=>c.toBlob(r,'image/png'));
-  const nome=`jogos-${slug(L.nome)}.png`,arq=new File([blob],nome,{type:'image/png'});
-  if(navigator.canShare&&navigator.canShare({files:[arq]})){
-    try{await navigator.share({files:[arq],title:L.nome});return}catch(e){if(e&&e.name==='AbortError')return}
+  const m=$('tjMsg');if(m)m.textContent='Gerando imagem…';
+  let arqs;
+  try{arqs=await Promise.all(tiposEscolhidos().map(async t=>new File([await folhaPng(t)],`${F_TIPOS[t].arquivo}-${slug(L.nome)}.png`,{type:'image/png'})))}
+  catch(e){if(m)m.textContent='Não foi possível gerar a imagem: '+traduzErro(e);return}
+  if(m)m.textContent='';
+  if(navigator.canShare&&navigator.canShare({files:arqs})){
+    try{await navigator.share({files:arqs,title:L.nome});return}catch(e){if(e&&e.name==='AbortError')return}
   }
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  const m=$('tjMsg');if(m)m.textContent='Imagem baixada. Envie pelo WhatsApp como foto.';
+  for(const f of arqs){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+  if(m)m.textContent=arqs.length>1?'Imagens baixadas. Envie pelo WhatsApp como foto.':'Imagem baixada. Envie pelo WhatsApp como foto.';
 }
-// Folhas A4 (paisagem) para imprimir ou salvar em PDF e preencher à mão
-let impGrupos=true,impChave=true;
-function cabecalhoFolha(titulo){
-  const logo=logoDoApp();
-  return `<div class="imp-cab">${logo?`<img src="${logo.src}" alt="">`:''}<div><div class="imp-liga">LIGA RESENHA</div><h1>${esc(L.nome)}</h1><p>${fmtData(L.data)} • ${capacity()} atletas${L.etapa_numero?' • Etapa '+L.etapa_numero:''}</p></div><div class="imp-tit">${titulo}</div></div>`;
-}
-function folhaGrupos(comPlacar){
-  const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),G=groupIndexes(),linhas=Math.ceil(G.length/2);
-  const dupla=(p,c)=>`<span class="imp-dupla ${c}">${esc(p.map(i=>nc[i]).join(' / '))}</span>`;
-  const grupos=G.map(g=>`<div class="imp-grupo"><h2><b>${'ABCDEFGH'[g]}</b>GRUPO ${'ABCDEFGH'[g]}</h2><div class="imp-jogos">${games(g).map((m,j)=>{const v=comPlacar&&valid(S.scores[m.id])?S.scores[m.id]:[];return `<div class="imp-jogo"><span class="imp-num">${j+1}</span>${dupla(m.a,'a')}<span class="imp-box">${v[0]??''}</span><span class="imp-x">X</span><span class="imp-box">${v[1]??''}</span>${dupla(m.b,'b')}</div>`}).join('')}</div></div>`).join('');
-  return `<div class="imp-pagina">${cabecalhoFolha('FASE DE GRUPOS')}<div class="imp-grade" style="grid-template-rows:repeat(${linhas},auto)">${grupos}</div></div>`;
-}
-// Chave espelhada: quartas 1-2 e semi 1 à esquerda, quartas 3-4 e semi 2 à direita, final no centro
-function folhaChave(comPlacar){
-  const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),c=chaveAtual(),logo=logoDoApp();
-  const med=document.createElement('canvas').getContext('2d');med.font='bold 30px Arial';
-  const T=(x,y,t,o='')=>`<text x="${x}" y="${y}" ${o}>${esc(String(t))}</text>`;
-  const AZ='#1f3864',AZ2='#2f5597',OURO='#ffc000',VERDE='#4e8f2f';
-  // linhas: [posição 1, posição 2, dupla (índices) ou null]
-  const caixa=(x,y,w,cor,claro,txtCor,rotulo,linhas,id,esp=false,destaque=false)=>{
-    const h=34,v=comPlacar&&valid(S.finals[id])?S.finals[id]:null;
-    const xs=esp?x+w-6:x,xseed=esp?x+w-14:x+6,xsc=esp?x+2:x+w-13,xn=esp?x+15:x+16,maxN=w-6-8-11-2-4;
-    let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.6" fill="#fff" stroke="${destaque?OURO:AZ}" stroke-width="${destaque?.9:.35}"/>`;
-    s+=`<rect x="${xs}" y="${y}" width="6" height="${h}" fill="${cor}"/><rect x="${xseed}" y="${y}" width="8" height="${h}" fill="${claro}"/>`;
-    s+=T(xs+4,y+h/2,rotulo,`transform="rotate(-90 ${xs+4} ${y+h/2})" text-anchor="middle" font-size="2.6" font-weight="700" letter-spacing=".3" fill="${txtCor}"`);
-    linhas.forEach(([s1,s2,p],k)=>{
-      const ry=y+k*17;
-      s+=T(xseed+4,ry+7.4,s1,`text-anchor="middle" font-size="2.7" font-weight="700" fill="${AZ}"`)+T(xseed+4,ry+11.6,s2,`text-anchor="middle" font-size="2.7" font-weight="700" fill="${AZ}"`);
-      if(p)p.forEach((i,n)=>{const t=nc[i]||'',lg=med.measureText(t).width/10;s+=T(xn,ry+7.6+n*4.6,t,`font-size="3" font-weight="700" fill="#111"${lg>maxN?` textLength="${maxN}" lengthAdjust="spacingAndGlyphs"`:''}`)});
-      s+=`<rect x="${xsc}" y="${ry+2}" width="11" height="13" rx="1" fill="#eef2f9" stroke="#9fb0cf" stroke-width=".3"/>`;
-      if(v)s+=T(xsc+5.5,ry+11.2,v[k],'text-anchor="middle" font-size="5" font-weight="800" fill="#111"');
-    });
-    s+=`<line x1="${esp?x:x+6}" y1="${y+17}" x2="${esp?x+w-6:x+w}" y2="${y+17}" stroke="#9fb0cf" stroke-width=".3"/>`;
-    return s;
-  };
-  const liga=(x1,y1,x2,y2)=>`<path d="M${x1} ${y1}H${(x1+x2)/2}V${y2}H${x2}" fill="none" stroke="${AZ}" stroke-width=".45"/>`;
-  const ord=ordemQuartas(),QW=54,SW=48,FW=51,qy=[16,108],sy=62,fy=60;
-  const qx=[0,0,281-QW,281-QW],qyy=[qy[0],qy[1],qy[0],qy[1]],sx=[61,281-61-SW];
-  let s='';
-  [[QW/2,'QUARTAS'],[61+SW/2,'SEMIFINAL'],[281-61-SW/2,'SEMIFINAL'],[281-QW/2,'QUARTAS']].forEach(([x,t])=>s+=T(x,8,t,`text-anchor="middle" font-size="3.2" font-weight="700" letter-spacing=".8" fill="${AZ2}"`));
-  ord.forEach(([a,b],i)=>{
-    const esp=i>=2,ln=[a,b].map(d=>[2*d+1,2*d+2,c?c.duos[d]:null]);
-    s+=caixa(qx[i],qyy[i],QW,AZ,'#dae3f3','#fff',`QUARTAS ${i+1}`,ln,'q'+(i+1),esp);
-    const sxx=sx[i>>1],alvo=sy+8.5+(i&1)*17;
-    s+=esp?liga(qx[i],qyy[i]+17,sxx+SW,alvo):liga(QW,qyy[i]+17,sxx,alvo);
-  });
-  [0,1].forEach(i=>{
-    const m=c&&c.ss[i];
-    s+=caixa(sx[i],sy,SW,AZ2,'#dae3f3','#fff',`SEMI ${i+1}`,[0,1].map(k=>['QF',String(2*i+k+1),m?(k?m.b:m.a):null]),'s'+(i+1),i===1);
-  });
-  const fx=(281-FW)/2;
-  s+=liga(sx[0]+SW,sy+17,fx,fy+8.5)+liga(sx[1],sy+17,fx+FW,fy+25.5);
-  if(logo&&logo.src)s+=`<image href="${logo.src}" x="${fx+FW/2-20}" y="4" width="40" height="40" preserveAspectRatio="xMidYMid meet"/>`;
-  s+=T(140.5,55,'FINAL',`text-anchor="middle" font-size="4.2" font-weight="800" letter-spacing="1.5" fill="${AZ}"`);
-  s+=caixa(fx,fy,FW,OURO,'#fff2cc',AZ,'FINAL',[0,1].map(k=>['SF',String(k+1),c&&c.f?(k?c.f.b:c.f.a):null]),'f',false,true);
-  s+=T(140.5,103,'CAMPEÕES',`text-anchor="middle" font-size="3.4" font-weight="800" letter-spacing="1.2" fill="#b8860b"`);
-  s+=`<line x1="${fx}" y1="113" x2="${fx+FW}" y2="113" stroke="${AZ}" stroke-width=".35"/>`;
-  s+=T(140.5,124,'3º LUGAR',`text-anchor="middle" font-size="3.4" font-weight="800" letter-spacing="1.2" fill="${VERDE}"`);
-  s+=caixa(fx,127,FW,VERDE,'#e2f0d9','#fff','3º LUGAR',[0,1].map(k=>['SF',String(k+1),c&&c.t?(k?c.t.b:c.t.a):null]),'t');
-  if(!c)s+=T(140.5,168,'Números = posição na classificação geral dos 16 classificados (1 e 2 formam a dupla 1, 3 e 4 a dupla 2...).','text-anchor="middle" font-size="2.6" fill="#555"');
-  return `<div class="imp-pagina">${cabecalhoFolha('CHAVEAMENTO')}<svg class="imp-chave" viewBox="0 0 281 170" font-family="Arial,Helvetica,sans-serif">${s}</svg></div>`;
-}
+// Folhas A4 deitadas para imprimir ou salvar em PDF e preencher à mão
 function imprimirTabelaJogos(){
   if(!S.drawn)return alert('Faça o sorteio dos grupos primeiro.');
-  if(!impGrupos&&!impChave)return alert('Marque ao menos uma folha para imprimir.');
-  const comPlacar=tabComPlacar;
-  $('impressao').innerHTML=(impGrupos?folhaGrupos(comPlacar&&totalGroupGames()>0):'')+(impChave?folhaChave(comPlacar):'');
+  $('impressao').innerHTML=tiposEscolhidos().map(t=>`<div class="imp-pagina">${folhaSvg(t,'281mm','192mm')}</div>`).join('');
   fecharModal();
   document.body.classList.add('imprimindo');
   const fim=()=>{document.body.classList.remove('imprimindo');window.removeEventListener('afterprint',fim)};
@@ -1885,7 +1892,7 @@ function renderGroups(){
 }
 function renderGroupGames(){
   if(!S.drawn)return `<section><h2>Jogos</h2><p class="muted">Realize o sorteio na aba Grupos antes de lançar os placares.</p><div class="panel-actions"><button onclick="tab='Grupos';render()">Ir para grupos</button></div></section>`;
-  let h=`<section><h2>Jogos de grupos</h2><p class="muted">${totalGroupGames()}/${groupGameCount()} jogos concluídos. Informe dois placares inteiros diferentes. Não existe empate no jogo.</p><div class="panel-actions"><button class="secondary" onclick="abrirImagemJogos()">🖼 Imagem / 🖨 Imprimir tabela</button></div></section>`;
+  let h=`<section><h2>Jogos de grupos</h2><p class="muted">${totalGroupGames()}/${groupGameCount()} jogos concluídos. Informe dois placares inteiros diferentes. Não existe empate no jogo.</p><div class="panel-actions"><button class="secondary" onclick="abrirImagemJogos('grupos')">🖼 Imagem / 🖨 Imprimir</button></div></section>`;
   for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><div class="round-stack" style="margin-top:10px">${games(g).map((m,i)=>scorecard(m,'scores','') ).join('')}</div></section>`;
   return h;
 }
@@ -1900,7 +1907,7 @@ function renderClassification(){
 function duoCards(duos){return `<section><h2>Duplas formadas</h2><div class="duos">${duos.map((p,i)=>`<div class="duo-card"><div class="match-label">D${i+1}</div><div class="name">${pair(p)}</div></div>`).join('')}</div></section>`}
 function renderBracket(qs,ss,f,t){
  const box=(m,label,placeholder)=>`<div class="br-match"><div class="br-label">${label}</div>${m?[m.a,m.b].map((p,k)=>`<div class="br-team ${valid(S.finals[m.id])&&S.finals[m.id][k]>S.finals[m.id][1-k]?'br-win':''}"><span>${pair(p)}</span><strong>${S.finals[m.id]?.[k]??'–'}</strong></div>`).join(''):`<div class="br-team br-empty">${placeholder[0]}</div><div class="br-team br-empty">${placeholder[1]}</div>`}</div>`;
- return `<section><h2>Chave da competição</h2><p class="muted">Deslize horizontalmente para acompanhar os cruzamentos. Os placares são lançados na aba Mata-mata.</p><div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button></div></section><div class="br-scroll"><div class="br-grid"><div class="br-head" style="grid-column:1;grid-row:1">Quartas</div><div class="br-head" style="grid-column:2;grid-row:1">Semifinais</div><div class="br-head" style="grid-column:3;grid-row:1">Final</div><svg class="br-lines" viewBox="0 0 960 600" preserveAspectRatio="none"><path d="M260 75 H300 V150 H340 M260 225 H300 V150 M260 375 H300 V450 H340 M260 525 H300 V450 M600 150 H640 V300 H680 M600 450 H640 V300"/></svg>${qs.map((m,i)=>`<div class="br-node" style="grid-column:1;grid-row:${2+i*2}/span 2">${box(m,'Q'+(i+1),[])}</div>`).join('')}<div class="br-node" style="grid-column:2;grid-row:3/span 2">${box(ss[0],'S1',['Vencedor Q1','Vencedor Q2'])}</div><div class="br-node" style="grid-column:2;grid-row:7/span 2">${box(ss[1],'S2',['Vencedor Q3','Vencedor Q4'])}</div><div class="br-node" style="grid-column:3;grid-row:5/span 2">${box(f,'Final',['Vencedor S1','Vencedor S2'])}</div></div></div><section><h2>Terceiro lugar</h2><p class="muted">Perdedores das semifinais</p>${box(t,'Disputa de 3º',['Perdedor S1','Perdedor S2'])}</section>`;
+ return `<section><h2>Chave da competição</h2><p class="muted">Deslize horizontalmente para acompanhar os cruzamentos. Os placares são lançados na aba Mata-mata.</p><div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button><button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button></div></section><div class="br-scroll"><div class="br-grid"><div class="br-head" style="grid-column:1;grid-row:1">Quartas</div><div class="br-head" style="grid-column:2;grid-row:1">Semifinais</div><div class="br-head" style="grid-column:3;grid-row:1">Final</div><svg class="br-lines" viewBox="0 0 960 600" preserveAspectRatio="none"><path d="M260 75 H300 V150 H340 M260 225 H300 V150 M260 375 H300 V450 H340 M260 525 H300 V450 M600 150 H640 V300 H680 M600 450 H640 V300"/></svg>${qs.map((m,i)=>`<div class="br-node" style="grid-column:1;grid-row:${2+i*2}/span 2">${box(m,'Q'+(i+1),[])}</div>`).join('')}<div class="br-node" style="grid-column:2;grid-row:3/span 2">${box(ss[0],'S1',['Vencedor Q1','Vencedor Q2'])}</div><div class="br-node" style="grid-column:2;grid-row:7/span 2">${box(ss[1],'S2',['Vencedor Q3','Vencedor Q4'])}</div><div class="br-node" style="grid-column:3;grid-row:5/span 2">${box(f,'Final',['Vencedor S1','Vencedor S2'])}</div></div></div><section><h2>Terceiro lugar</h2><p class="muted">Perdedores das semifinais</p>${box(t,'Disputa de 3º',['Perdedor S1','Perdedor S2'])}</section>`;
 }
 function renderKnockout(bracketOnly=false){
   let h=`<section><h2>Mata-mata</h2><p class="muted">A chave é liberada após os ${groupGameCount()} jogos e os desempates necessários.</p><p style="margin-top:8px"><b>Classificação:</b> ${formatRule()}</p></section>`;
