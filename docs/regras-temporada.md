@@ -18,9 +18,7 @@ própria cópia e pode ajustá-la.
 | 28 | 2 primeiros de cada grupo + 2 melhores 3º |
 | 32 | 2 primeiros de cada grupo |
 
-> Observação (confirmar na tela de configuração): no item 1 das respostas, "16 atletas = 12
-> classificados" foi marcado como certo, mas também foi dito que "passam 16 para o mata-mata".
-> O padrão adotado é o da Liga Relâmpago (16 avançam). A regra ficará ajustável por temporada.
+Confirmado pelo organizador: **sempre passam 16 atletas** para o mata-mata (com 16 inscritos, todos avançam).
 
 ## Desempate (individual)
 1. Vitórias; 2. Saldo de games; 3. Games pró;
