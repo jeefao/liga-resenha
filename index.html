@@ -84,23 +84,27 @@ td:not(:first-child),th:not(:first-child){text-align:center}
   body.imprimindo>*:not(#impressao){display:none!important}
   body.imprimindo #impressao{display:block;color:#000;font:10pt/1.2 Arial,Helvetica,sans-serif}
   #impressao *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .imp-pagina{break-after:page}
+  .imp-pagina{break-after:page;height:192mm;overflow:hidden}
   .imp-pagina:last-child{break-after:auto}
-  .imp-cab{display:flex;align-items:center;gap:12px;border-bottom:2px solid #2f5597;padding-bottom:4px;margin-bottom:5mm}
+  .imp-cab{display:flex;align-items:center;gap:12px;border-bottom:2px solid #1f3864;padding-bottom:4px;margin-bottom:4mm}
   .imp-cab img{height:44px}
-  .imp-cab h1{font-size:15pt;margin:1px 0;color:#000}
-  .imp-cab p{margin:0;font-size:9pt}
-  .imp-liga{font-weight:700;font-size:8pt;letter-spacing:1px;color:#2f5597}
-  .imp-tit{margin-left:auto;background:#2f5597;color:#fff;font-weight:700;font-size:13pt;padding:2mm 6mm;border-radius:2mm;border-bottom:1.5mm solid #ffc000}
-  .imp-grade{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:5mm 8mm}
-  .imp-grupo{break-inside:avoid}
-  .imp-grupo h2{background:#2f5597;color:#fff;text-align:center;font-size:13pt;margin:0 0 1.5mm;padding:1mm 0}
-  .imp-jogo{display:grid;grid-template-columns:5mm 1fr 1fr 12mm 5mm 12mm 1fr 1fr;align-items:stretch;margin-top:1.8mm;height:7.5mm}
-  .imp-num{display:flex;align-items:center;justify-content:center;font-size:7pt;font-weight:700;color:#2f5597}
-  .imp-cel,.imp-box{display:flex;align-items:center;justify-content:center;border:1.2px solid #2f5597;margin-left:-1.2px;font-weight:700;font-size:8.5pt;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 1mm}
-  .imp-box{font-size:12pt}
-  .imp-x{display:flex;align-items:center;justify-content:center;background:#dae3f3;color:#2f5597;font-weight:700;border-top:1.2px solid #2f5597;border-bottom:1.2px solid #2f5597}
-  .imp-chave{width:100%;height:155mm;display:block}
+  .imp-cab h1{font-size:15pt;margin:1px 0;color:#1f3864}
+  .imp-cab p{margin:0;font-size:9pt;color:#333}
+  .imp-liga{font-weight:700;font-size:8pt;letter-spacing:1.5px;color:#b8860b}
+  .imp-tit{margin-left:auto;background:#1f3864;color:#fff;font-weight:700;font-size:13pt;letter-spacing:1px;padding:2mm 6mm;border-radius:2mm;border-bottom:1.5mm solid #ffc000}
+  .imp-grade{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;gap:4mm 7mm}
+  .imp-grupo{border:1px solid #c5cfe3;border-radius:3mm;overflow:hidden;break-inside:avoid}
+  .imp-grupo h2{display:flex;align-items:center;gap:2.5mm;background:#1f3864;color:#fff;font-size:10.5pt;letter-spacing:1.5px;margin:0;padding:1.2mm 3mm;border-bottom:1mm solid #ffc000}
+  .imp-grupo h2 b{background:#ffc000;color:#1f3864;border-radius:50%;width:6.5mm;height:6.5mm;display:inline-flex;align-items:center;justify-content:center;font-size:11pt;letter-spacing:0}
+  .imp-jogos{padding:.6mm 2.5mm 1.6mm}
+  .imp-jogo{display:grid;grid-template-columns:5mm minmax(0,1fr) 11mm 4mm 11mm minmax(0,1fr);align-items:center;column-gap:1.8mm;height:7.4mm;margin-top:1mm;padding:0 1.5mm;border-radius:1.5mm}
+  .imp-jogo:nth-child(even){background:#eef2f9}
+  .imp-num{width:5mm;height:5mm;border-radius:50%;background:#dae3f3;color:#1f3864;font-size:7pt;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .imp-dupla{font-weight:700;font-size:8.5pt;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .imp-dupla.a{text-align:right}
+  .imp-box{height:6.2mm;border:1.4px solid #1f3864;border-radius:1.5mm;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12pt}
+  .imp-x{text-align:center;font-weight:700;color:#8a96ad;font-size:8pt}
+  .imp-chave{width:100%;height:160mm;display:block}
   .imp-nota{font-size:8pt;color:#444;margin:3mm 0 0}
 }
 .score input{width:68px;text-align:center;flex:0 0 68px}
@@ -215,7 +219,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.3.1';
+const APP_VERSION='6.3.2';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -1295,49 +1299,59 @@ function cabecalhoFolha(titulo){
 }
 function folhaGrupos(comPlacar){
   const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),G=groupIndexes(),linhas=Math.ceil(G.length/2);
-  const cel=i=>`<span class="imp-cel">${esc(nc[i])}</span>`;
-  const grupos=G.map(g=>`<div class="imp-grupo"><h2>GRUPO ${'ABCDEFGH'[g]}</h2>${games(g).map((m,j)=>{const v=comPlacar&&valid(S.scores[m.id])?S.scores[m.id]:[];return `<div class="imp-jogo"><span class="imp-num">${j+1}</span>${cel(m.a[0])}${cel(m.a[1])}<span class="imp-box">${v[0]??''}</span><span class="imp-x">X</span><span class="imp-box">${v[1]??''}</span>${cel(m.b[0])}${cel(m.b[1])}</div>`}).join('')}</div>`).join('');
+  const dupla=(p,c)=>`<span class="imp-dupla ${c}">${esc(p.map(i=>nc[i]).join(' / '))}</span>`;
+  const grupos=G.map(g=>`<div class="imp-grupo"><h2><b>${'ABCDEFGH'[g]}</b>GRUPO ${'ABCDEFGH'[g]}</h2><div class="imp-jogos">${games(g).map((m,j)=>{const v=comPlacar&&valid(S.scores[m.id])?S.scores[m.id]:[];return `<div class="imp-jogo"><span class="imp-num">${j+1}</span>${dupla(m.a,'a')}<span class="imp-box">${v[0]??''}</span><span class="imp-x">X</span><span class="imp-box">${v[1]??''}</span>${dupla(m.b,'b')}</div>`}).join('')}</div></div>`).join('');
   return `<div class="imp-pagina">${cabecalhoFolha('FASE DE GRUPOS')}<div class="imp-grade" style="grid-template-rows:repeat(${linhas},auto)">${grupos}</div></div>`;
 }
+// Chave espelhada: quartas 1-2 e semi 1 à esquerda, quartas 3-4 e semi 2 à direita, final no centro
 function folhaChave(comPlacar){
-  const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),c=chaveAtual();
-  const dupla=p=>p?p.map(i=>nc[i]).join(' / '):'';
-  const med=document.createElement('canvas').getContext('2d');med.font='bold 34px Arial';
+  const nc=nomesCurtos().map(n=>(n||'').toUpperCase()),c=chaveAtual(),logo=logoDoApp();
+  const med=document.createElement('canvas').getContext('2d');med.font='bold 30px Arial';
   const T=(x,y,t,o='')=>`<text x="${x}" y="${y}" ${o}>${esc(String(t))}</text>`;
-  const caixa=(x,y,cor,claro,escuro,rotulo,linhas,id)=>{
-    const w=78,h=34,v=comPlacar&&valid(S.finals[id])?S.finals[id]:null;
-    let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff" stroke="#000" stroke-width=".35"/>`;
-    s+=`<rect x="${x}" y="${y}" width="8" height="${h}" fill="${cor}"/><rect x="${x+8}" y="${y}" width="10" height="${h}" fill="${claro}"/>`;
-    s+=T(x+5.3,y+h/2,rotulo,`transform="rotate(-90 ${x+5.3} ${y+h/2})" text-anchor="middle" font-size="3" font-weight="700" fill="${escuro}"`);
-    linhas.forEach(([s1,s2,nome],k)=>{
+  const AZ='#1f3864',AZ2='#2f5597',OURO='#ffc000',VERDE='#4e8f2f';
+  // linhas: [posição 1, posição 2, dupla (índices) ou null]
+  const caixa=(x,y,w,cor,claro,txtCor,rotulo,linhas,id,esp=false,destaque=false)=>{
+    const h=34,v=comPlacar&&valid(S.finals[id])?S.finals[id]:null;
+    const xs=esp?x+w-6:x,xseed=esp?x+w-14:x+6,xsc=esp?x+2:x+w-13,xn=esp?x+15:x+16,maxN=w-6-8-11-2-4;
+    let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.6" fill="#fff" stroke="${destaque?OURO:AZ}" stroke-width="${destaque?.9:.35}"/>`;
+    s+=`<rect x="${xs}" y="${y}" width="6" height="${h}" fill="${cor}"/><rect x="${xseed}" y="${y}" width="8" height="${h}" fill="${claro}"/>`;
+    s+=T(xs+4,y+h/2,rotulo,`transform="rotate(-90 ${xs+4} ${y+h/2})" text-anchor="middle" font-size="2.6" font-weight="700" letter-spacing=".3" fill="${txtCor}"`);
+    linhas.forEach(([s1,s2,p],k)=>{
       const ry=y+k*17;
-      s+=T(x+13,ry+7.4,s1,'text-anchor="middle" font-size="2.9" font-weight="700"')+T(x+13,ry+11.6,s2,'text-anchor="middle" font-size="2.9" font-weight="700"');
-      const max=w-20-19,larg=med.measureText(nome).width/10;
-      if(nome)s+=T(x+20,ry+10.6,nome,`font-size="3.4" font-weight="700"${larg>max?` textLength="${max}" lengthAdjust="spacingAndGlyphs"`:''}`);
-      s+=`<rect x="${x+w-17}" y="${ry}" width="14" height="17" fill="#e6e6e6"/>`;
-      if(v)s+=T(x+w-10,ry+11.5,v[k],'text-anchor="middle" font-size="5" font-weight="800"');
+      s+=T(xseed+4,ry+7.4,s1,`text-anchor="middle" font-size="2.7" font-weight="700" fill="${AZ}"`)+T(xseed+4,ry+11.6,s2,`text-anchor="middle" font-size="2.7" font-weight="700" fill="${AZ}"`);
+      if(p)p.forEach((i,n)=>{const t=nc[i]||'',lg=med.measureText(t).width/10;s+=T(xn,ry+7.6+n*4.6,t,`font-size="3" font-weight="700" fill="#111"${lg>maxN?` textLength="${maxN}" lengthAdjust="spacingAndGlyphs"`:''}`)});
+      s+=`<rect x="${xsc}" y="${ry+2}" width="11" height="13" rx="1" fill="#eef2f9" stroke="#9fb0cf" stroke-width=".3"/>`;
+      if(v)s+=T(xsc+5.5,ry+11.2,v[k],'text-anchor="middle" font-size="5" font-weight="800" fill="#111"');
     });
-    s+=`<line x1="${x+8}" y1="${y+17}" x2="${x+w}" y2="${y+17}" stroke="#000" stroke-width=".35"/><rect x="${x+w-3}" y="${y}" width="3" height="${h}" fill="${cor}"/>`;
+    s+=`<line x1="${esp?x:x+6}" y1="${y+17}" x2="${esp?x+w-6:x+w}" y2="${y+17}" stroke="#9fb0cf" stroke-width=".3"/>`;
     return s;
   };
-  const liga=(x1,y1,y2,x2)=>`<path d="M${x1} ${y1}H${(x1+x2)/2}V${y2}H${x2}" fill="none" stroke="#000" stroke-width=".4"/>`;
-  // mesma ordem de cruzamentos do app: D1×D8, D4×D5, D2×D7, D3×D6
-  const pares=ordemQuartas(),qy=[2,46,90,134],sy=[24,112],AZ='#2f5597';
+  const liga=(x1,y1,x2,y2)=>`<path d="M${x1} ${y1}H${(x1+x2)/2}V${y2}H${x2}" fill="none" stroke="${AZ}" stroke-width=".45"/>`;
+  const ord=ordemQuartas(),QW=54,SW=48,FW=51,qy=[16,108],sy=62,fy=60;
+  const qx=[0,0,281-QW,281-QW],qyy=[qy[0],qy[1],qy[0],qy[1]],sx=[61,281-61-SW];
   let s='';
-  pares.forEach(([a,b],i)=>{
-    const ln=[a,b].map(d=>[2*d+1,2*d+2,c?dupla(c.duos[d]):'']);
-    s+=caixa(0,qy[i],'#c55a11','#fbe5d6','#fff',`QUARTAS 0${i+1}`,ln,'q'+(i+1));
-    s+=liga(78,qy[i]+17,sy[i>>1]+8.5+(i&1)*17,103);
+  [[QW/2,'QUARTAS'],[61+SW/2,'SEMIFINAL'],[281-61-SW/2,'SEMIFINAL'],[281-QW/2,'QUARTAS']].forEach(([x,t])=>s+=T(x,8,t,`text-anchor="middle" font-size="3.2" font-weight="700" letter-spacing=".8" fill="${AZ2}"`));
+  ord.forEach(([a,b],i)=>{
+    const esp=i>=2,ln=[a,b].map(d=>[2*d+1,2*d+2,c?c.duos[d]:null]);
+    s+=caixa(qx[i],qyy[i],QW,AZ,'#dae3f3','#fff',`QUARTAS ${i+1}`,ln,'q'+(i+1),esp);
+    const sxx=sx[i>>1],alvo=sy+8.5+(i&1)*17;
+    s+=esp?liga(qx[i],qyy[i]+17,sxx+SW,alvo):liga(QW,qyy[i]+17,sxx,alvo);
   });
   [0,1].forEach(i=>{
     const m=c&&c.ss[i];
-    s+=caixa(103,sy[i],AZ,'#dae3f3','#fff',`SEMI 0${i+1}`,[0,1].map(k=>['QF',`0${2*i+k+1}`,m?dupla(k?m.b:m.a):'']),'s'+(i+1));
-    s+=liga(181,sy[i]+17,76.5+i*17,203);
+    s+=caixa(sx[i],sy,SW,AZ2,'#dae3f3','#fff',`SEMI ${i+1}`,[0,1].map(k=>['QF',String(2*i+k+1),m?(k?m.b:m.a):null]),'s'+(i+1),i===1);
   });
-  s+=caixa(203,68,'#ffc000','#fff2cc','#000','FINAL',[0,1].map(k=>['VSF',`0${k+1}`,c&&c.f?dupla(k?c.f.b:c.f.a):'']),'f');
-  s+=caixa(203,130,'#70ad47','#e2f0d9','#fff','3º LUGAR',[0,1].map(k=>['PSF',`0${k+1}`,c&&c.t?dupla(k?c.t.b:c.t.a):'']),'t');
-  const nota=c?'':'<p class="imp-nota">Números = posição na classificação geral dos 16 classificados (1 e 2 formam a dupla 1, 3 e 4 a dupla 2, e assim por diante).</p>';
-  return `<div class="imp-pagina">${cabecalhoFolha('CHAVEAMENTO')}<svg class="imp-chave" viewBox="0 0 281 168" font-family="Arial,Helvetica,sans-serif">${s}</svg>${nota}</div>`;
+  const fx=(281-FW)/2;
+  s+=liga(sx[0]+SW,sy+17,fx,fy+8.5)+liga(sx[1],sy+17,fx+FW,fy+25.5);
+  if(logo&&logo.src)s+=`<image href="${logo.src}" x="${fx+FW/2-20}" y="4" width="40" height="40" preserveAspectRatio="xMidYMid meet"/>`;
+  s+=T(140.5,55,'FINAL',`text-anchor="middle" font-size="4.2" font-weight="800" letter-spacing="1.5" fill="${AZ}"`);
+  s+=caixa(fx,fy,FW,OURO,'#fff2cc',AZ,'FINAL',[0,1].map(k=>['SF',String(k+1),c&&c.f?(k?c.f.b:c.f.a):null]),'f',false,true);
+  s+=T(140.5,103,'CAMPEÕES',`text-anchor="middle" font-size="3.4" font-weight="800" letter-spacing="1.2" fill="#b8860b"`);
+  s+=`<line x1="${fx}" y1="113" x2="${fx+FW}" y2="113" stroke="${AZ}" stroke-width=".35"/>`;
+  s+=T(140.5,124,'3º LUGAR',`text-anchor="middle" font-size="3.4" font-weight="800" letter-spacing="1.2" fill="${VERDE}"`);
+  s+=caixa(fx,127,FW,VERDE,'#e2f0d9','#fff','3º LUGAR',[0,1].map(k=>['SF',String(k+1),c&&c.t?(k?c.t.b:c.t.a):null]),'t');
+  if(!c)s+=T(140.5,168,'Números = posição na classificação geral dos 16 classificados (1 e 2 formam a dupla 1, 3 e 4 a dupla 2...).','text-anchor="middle" font-size="2.6" fill="#555"');
+  return `<div class="imp-pagina">${cabecalhoFolha('CHAVEAMENTO')}<svg class="imp-chave" viewBox="0 0 281 170" font-family="Arial,Helvetica,sans-serif">${s}</svg></div>`;
 }
 function imprimirTabelaJogos(){
   if(!S.drawn)return alert('Faça o sorteio dos grupos primeiro.');
