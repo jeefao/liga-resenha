@@ -36,6 +36,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    1. `supabase/migrations/20261122000001_ligas_relampago.sql`
    2. `supabase/migrations/20261122000002_keepalive.sql`
    3. `supabase/migrations/20261123000001_atletas.sql` (cadastro único de atletas)
+   4. `supabase/migrations/20261124000001_lixeira_exclusao.sql` (apagar de vez da lixeira)
    O resultado esperado é "Success. No rows returned".
 3. **Bloquear cadastros públicos**: em *Authentication* → *Sign In / Providers*,
    desligue *Allow new users to sign up* e salve.

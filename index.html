@@ -35,6 +35,7 @@ button,input,select,textarea{font:inherit}
 button{border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,var(--gold) 0%,var(--gold-2) 100%);color:#1a1a1a;font-weight:800;border-radius:12px;padding:11px 14px;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.22)}
 button.secondary{background:linear-gradient(180deg,#233149 0%,#162237 100%);color:#f8fafc;border-color:#364152}
 button.ghost{background:transparent;border-color:#46556a;color:#e2e8f0;box-shadow:none}
+button.danger{background:linear-gradient(180deg,#7f1d1d 0%,#5b1414 100%);color:#fecdd3;border-color:#9f1239}
 button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
 input,textarea,select{width:100%;background:#091220;color:#fff;border:1px solid #334155;border-radius:12px;padding:11px 12px}
 textarea{min-height:280px;resize:vertical}
@@ -168,7 +169,7 @@ summary{cursor:pointer}
 <div id="modal"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.2.0';
+const APP_VERSION='6.2.1';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -247,6 +248,10 @@ function traduzErro(e){
   if(/liga_na_lixeira/.test(m))return 'a liga está na lixeira';
   if(/liga_nao_encontrada|PGRST116/.test(m))return 'liga não encontrada';
   if(/atleta_ja_existe/.test(m))return 'já existe um atleta com esse nome no cadastro';
+  if(/atleta_em_uso/.test(m))return 'este atleta aparece em alguma liga (inclusive na lixeira) e não pode ser apagado';
+  if(/atleta_ativo/.test(m))return 'marque o atleta como inativo antes de apagar';
+  if(/liga_fora_da_lixeira/.test(m))return 'só é possível apagar ligas que estão na lixeira';
+  if(/excluir_definitivamente|esvaziar_lixeira|excluir_atleta/.test(m)&&/not find|PGRST202|does not exist/.test(m))return 'a exclusão definitiva ainda não foi instalada no servidor';
   if(/atletas.*does not exist|garantir_atletas|salvar_atleta|PGRST202|PGRST205/.test(m))return 'o cadastro de atletas ainda não foi instalado no servidor';
   return m;
 }
@@ -491,7 +496,7 @@ function renderInicio(){
   if(arquivadas.length)h+=`<section><details><summary><b>Arquivadas (${arquivadas.length})</b></summary><div class="ligas-list" style="margin-top:10px">${arquivadas.map(ligaCard).join('')}</div></details></section>`;
   h+=`<section><h3>Backups</h3><p class="muted" style="margin-top:6px">Exporte todas as ligas num arquivo. A importação sempre cria ligas novas e nunca altera as existentes.</p>
    <div class="panel-actions"><button class="secondary" onclick="exportarTodas()">Exportar todas as ligas</button><button class="secondary" onclick="$('imp').click()">Importar backup</button><input id="imp" type="file" accept=".json,application/json" hidden onchange="importarArquivo(event)"></div></section>`;
-  h+=`<section><details ${mostrarLixeira?'open':''} ontoggle="mostrarLixeira=this.open"><summary><b>Lixeira (${lixeira.length})</b></summary>${lixeira.length?lixeira.map(x=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(x.nome)}</h3><p class="muted">${fmtData(x.data)} • ${x.participantes} atletas • na lixeira desde ${fmtDataHora(x.excluida_em)}</p><div class="panel-actions"><button class="secondary" onclick="retirarDaLixeira('${x.id}')">Retirar da lixeira</button></div></div>`).join(''):'<p class="muted" style="margin-top:8px">Vazia.</p>'}</details></section>`;
+  h+=`<section><details ${mostrarLixeira?'open':''} ontoggle="mostrarLixeira=this.open"><summary><b>Lixeira (${lixeira.length})</b></summary>${lixeira.length?lixeira.map(x=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(x.nome)}</h3><p class="muted">${fmtData(x.data)} • ${x.participantes} atletas • na lixeira desde ${fmtDataHora(x.excluida_em)}</p><div class="panel-actions"><button class="secondary" onclick="retirarDaLixeira('${x.id}')">Retirar da lixeira</button><button class="danger" onclick="apagarDeVez('${x.id}')">Apagar de vez</button></div></div>`).join('')+`<div class="panel-actions" style="margin-top:14px"><button class="danger" onclick="esvaziarLixeira()">ESVAZIAR LIXEIRA (${lixeira.length})</button></div><p class="muted" style="margin-top:6px">Apagar de vez não tem volta. Antes, o app baixa um arquivo de backup das ligas apagadas.</p>`:'<p class="muted" style="margin-top:8px">Vazia.</p>'}</details></section>`;
   h+=`<p class="muted" style="text-align:center;margin-top:14px">${usuario&&usuario.email?'Conectado como '+esc(usuario.email)+' • ':''}<a href="#" onclick="sair();return false">Sair</a></p>`;
   return h;
 }
@@ -542,7 +547,7 @@ function listaAtletasHtml(){
    <div style="flex:1;min-width:0"><b>${esc(a.nome)}</b>${a.apelido?` <span class="muted">(${esc(a.apelido)})</span>`:''}
     <div class="muted"><span class="chip at-${a.situacao}">${SITUACAO_LABEL[a.situacao]||esc(a.situacao)}</span>${participacoes?` ${participacoes[a.id]||0} liga(s)`:''}</div>
     ${a.observacoes?`<div class="muted" style="margin-top:4px">${esc(a.observacoes)}</div>`:''}</div>
-   <button class="secondary" onclick="abrirAtletaForm('${a.id}')">Editar</button></div>`).join('')+'</div>';
+   <div class="row" style="gap:6px;flex-wrap:nowrap">${a.situacao==='inativo'&&participacoes&&!participacoes[a.id]?`<button class="danger" onclick="apagarAtleta('${a.id}')">Apagar</button>`:''}<button class="secondary" onclick="abrirAtletaForm('${a.id}')">Editar</button></div></div>`).join('')+'</div>';
 }
 function renderAtletas(){
   const ativos=atletas.filter(a=>a.situacao!=='inativo').length;
@@ -556,6 +561,17 @@ function renderAtletas(){
    <label>Mostrar<select onchange="atlFiltro.situacao=this.value;$('atlLista').innerHTML=listaAtletasHtml()">${[['ativos','Ativos (membros e convidados)'],['membro','Membros'],['convidado','Convidados'],['inativo','Inativos'],['todos','Todos']].map(([v,t])=>`<option value="${v}" ${atlFiltro.situacao===v?'selected':''}>${t}</option>`).join('')}</select></label>
    </div><div id="atlLista" style="margin-top:12px">${listaAtletasHtml()}</div></section>`;
   return h;
+}
+async function apagarAtleta(id){
+  const a=atletaPorId(id);if(!a||ocupado)return;
+  if(!confirm('Apagar DE VEZ o atleta "'+a.nome+'"?\n\nSó é possível para atletas inativos que não aparecem em nenhuma liga, nem na lixeira. Isso não tem volta.'))return;
+  ocupado=true;
+  try{
+    const {error}=await sb.rpc('excluir_atleta',{p_id:id});if(error)throw error;
+    atletas=atletas.filter(x=>x.id!==id);guardarAtletas();
+  }catch(e){alert('Nada foi apagado: '+traduzErro(e))}
+  finally{ocupado=false}
+  render();
 }
 let atlDepoisDeSalvar=null;
 function abrirAtletaForm(id,nomeInicial='',depois=null){
@@ -772,6 +788,41 @@ async function moverParaLixeira(){
 async function retirarDaLixeira(id){
   try{const {error}=await sb.rpc('retirar_da_lixeira',{p_id:id});if(error)throw error}
   catch(e){alert('Não foi possível: '+traduzErro(e))}
+  carregarLista();
+}
+// Baixa um backup das ligas antes de apagar. Se não conseguir, nada é apagado.
+async function backupAntesDeApagar(ids){
+  const {data,error}=await sb.from('ligas').select('*').in('id',ids);
+  if(error)throw error;
+  if(!data||data.length!==ids.length)throw new Error('não foi possível ler todas as ligas para o backup');
+  baixarJSON(`backup-antes-de-apagar-${hoje()}-${Date.now()}.json`,{app:'liga-resenha-v6',tipo:'ligas',observacao:'Ligas apagadas definitivamente da lixeira',exportado_em:new Date().toISOString(),ligas:data.map(r=>({liga:metaDe(r),dados:r.dados}))});
+}
+async function apagarDeVez(id){
+  const x=lixeira.find(y=>y.id===id);if(!x||ocupado)return;
+  if(!confirm('Apagar DE VEZ a liga "'+x.nome+'" ('+fmtData(x.data)+')?\n\nIsso não tem volta: a liga, os resultados e o histórico dela somem do servidor. Um arquivo de backup será baixado antes.'))return;
+  ocupado=true;
+  try{
+    await backupAntesDeApagar([id]);
+    const {error}=await sb.rpc('excluir_definitivamente',{p_id:id});if(error)throw error;
+    try{localStorage.removeItem(cacheKey(id));localStorage.removeItem('lr6:aba:'+id)}catch{}
+  }catch(e){alert('Nada foi apagado: '+traduzErro(e))}
+  finally{ocupado=false}
+  carregarLista();
+}
+async function esvaziarLixeira(){
+  if(!lixeira.length||ocupado)return;
+  const r=prompt('Apagar DE VEZ as '+lixeira.length+' liga(s) da lixeira?\n\n'+lixeira.map(x=>'• '+x.nome).join('\n')+'\n\nIsso não tem volta. Um arquivo de backup será baixado antes.\nPara confirmar, digite APAGAR:');
+  if(r===null)return;
+  if(r.trim().toUpperCase()!=='APAGAR')return alert('Nada foi apagado (a palavra digitada não foi APAGAR).');
+  ocupado=true;
+  try{
+    const ids=lixeira.map(x=>x.id);
+    await backupAntesDeApagar(ids);
+    const {data,error}=await sb.rpc('esvaziar_lixeira');if(error)throw error;
+    for(const id of ids)try{localStorage.removeItem(cacheKey(id));localStorage.removeItem('lr6:aba:'+id)}catch{}
+    alert(data.apagadas+' liga(s) apagada(s) de vez.');
+  }catch(e){alert('Nada foi apagado: '+traduzErro(e))}
+  finally{ocupado=false}
   carregarLista();
 }
 
