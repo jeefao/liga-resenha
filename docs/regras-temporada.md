@@ -29,6 +29,16 @@ Confirmado pelo organizador: **sempre passam 16 atletas** para o mata-mata (com 
 - Igual à Liga Relâmpago: melhores primeiros juntos, melhores segundos juntos etc.; posição ímpar
   completa com o melhor disponível da posição seguinte.
 - Quartas (ordem da planilha): Q1 = D1×D8 (1-2 × 15-16), Q2 = D3×D6 (5-6 × 11-12), Q3 = D4×D5 (7-8 × 9-10), Q4 = D2×D7 (3-4 × 13-14). Semis: V(Q1)×V(Q2), V(Q3)×V(Q4). Final e 3º lugar. Ligas que já tinham placar no mata-mata antes dessa mudança (v6.3.1) seguem a ordem antiga (D1×D8, D4×D5, D2×D7, D3×D6).
+- **Atleta machucado (substituição, v6.4.0)**: se um classificado não puder jogar o mata-mata, entra
+  o **melhor eliminado** da classificação geral (mesmos critérios V, SG, GP), no mesmo lugar e com o
+  mesmo parceiro. Sem eliminado disponível (liga de 16) ou por escolha do organizador, pode entrar
+  qualquer atleta ativo do cadastro. A troca só vale **antes de a dupla jogar** no mata-mata; depois
+  disso, a dupla perde o próximo jogo por **W.O.** (6×0). Os jogos dos grupos nunca mudam; alterar
+  placar ou desempate dos grupos apaga o mata-mata, as trocas e os W.O. A troca pode ser desfeita e
+  fica no histórico.
+  - Pontos: quem saiu fica com os pontos dos grupos (e posição); o substituto soma os seus pontos
+    dos grupos com os do mata-mata que conquistar; atleta de fora da liga recebe só os pontos do
+    mata-mata; o parceiro não perde nada.
 - **Etapas especiais (padrão: 3 e 7)**: a partir da semifinal as duplas são sorteadas antes de
   cada partida, sem repetir o parceiro da partida anterior. O app oferece **sorteio automático**
   (com a trava) ou **preenchimento manual** (sorteio com o saco de bolas).
