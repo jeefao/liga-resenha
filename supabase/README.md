@@ -49,6 +49,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    14. `supabase/migrations/20261129000002_corrige_ajustes_financas.sql` (o Supabase recusa UPDATE sem WHERE: corrige o Salvar dos Ajustes do Finanças)
    15. `supabase/migrations/20261129000003_historico_app.sql` (histórico do app, situação do atleta na próxima liga e atletas que são administradores)
    16. `supabase/migrations/20261129000004_financeiro_baixa.sql` (Finanças: despesa/entrada paga ou pendente, com baixa)
+   17. `supabase/migrations/20261129000005_financeiro_liga_apagada.sql` (Finanças: a cobrança da rodada some quando a liga é apagada de vez e não tem dinheiro ligado)
    O resultado esperado é "Success. No rows returned".
 3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
    deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.
@@ -102,3 +103,6 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
   à parte, em "A receber".
 - As inscrições marcadas como pagas aparecem nos lançamentos como uma linha automática por rodada ("Inscrições —
   N pago(s)"). Ela é calculada na tela a partir das inscrições, então não precisa ser lançada e não conta em dobro.
+- Liga apagada de vez: a cobrança da rodada some junto se não houver inscrição paga, lançamento ativo nem prêmio
+  (gatilho `fin_liga_apagada`); com dinheiro, continua como "liga apagada". O "De onde é" não oferece ligas apagadas
+  nem na lixeira.

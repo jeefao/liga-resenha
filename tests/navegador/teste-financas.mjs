@@ -101,6 +101,12 @@ try {
   await clica('Salvar', '#modal button');
   check('valor inválido: nada gravado', (await ev(() => Object.keys(__db.fin.lancamentos).length)) === antes);
   await ev(() => fecharModal());
+  // liga na lixeira não aparece no "De onde é" de um lançamento novo
+  await ev(async () => { __db.ligas.lf.excluida_em = new Date().toISOString(); await carregarFin(); });
+  await clica('+ Despesa');
+  const opcoes = await ev(() => [...document.querySelectorAll('#fin-l-vinc option')].map((o) => o.textContent).join(' | '));
+  check('"De onde é" sem a liga que está na lixeira', !opcoes.includes('Relâmpago Finanças'), opcoes);
+  await ev(() => { fecharModal(); __db.ligas.lf.excluida_em = null; }); await ev(() => carregarFin());
 
   // membro só com "Financeiro: ver": vê os números, não grava
   const estado = await ev(() => JSON.stringify(__db.fin));

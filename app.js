@@ -1,4 +1,4 @@
-const APP_VERSION='7.7.0';
+const APP_VERSION='7.7.1';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -2742,7 +2742,8 @@ function finAbrirLanc(id,tipo,liga,temporada){
   tipo=x?x.tipo:tipo||'saida';liga=x?x.liga_id:liga||null;temporada=x?x.temporada_id:temporada||null;
   const cats=tipo==='saida'?FIN_CAT_SAIDA:FIN_CAT_ENTRADA,vinc=liga?'l:'+liga:temporada?'t:'+temporada:'';
   // todas as ligas (com ou sem cobrança de inscrição): relâmpago e etapas das temporadas
-  const ligasFin=[...fin.rodadas.map(r=>({...r,id:r.liga_id})),...fin.ligas_sem_cobranca].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))),
+  // ligas apagadas ou na lixeira só aparecem se o lançamento já for delas
+  const ligasFin=[...fin.rodadas.filter(r=>!(r.apagada||r.na_lixeira)||r.liga_id===liga).map(r=>({...r,id:r.liga_id,nome:r.nome+(r.apagada?' (apagada)':r.na_lixeira?' (na lixeira)':'')})),...fin.ligas_sem_cobranca].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))),
     nomeL=l=>l.nome+(l.data?' — '+fmtData(l.data):''),
     grupos=[['Temporadas',fin.temporadas.map(t=>['t:'+t.id,'Temporada '+t.nome])],
       ['Ligas relâmpago',ligasFin.filter(l=>!l.temporada_nome).map(l=>['l:'+l.id,nomeL(l)])],
