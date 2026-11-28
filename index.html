@@ -200,7 +200,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.6.0';
+const APP_VERSION='6.6.1';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -270,6 +270,8 @@ function validarDados(x){
   if(x.wo&&typeof x.wo==='object'&&!Array.isArray(x.wo)){d.wo={};for(const [k,v] of Object.entries(x.wo))if(v===0||v===1)d.wo[k]=v}
   return d;
 }
+// etapa especial: está nas regras da temporada ou a liga já tem sorteio de duplas gravado
+function ehEspecial(liga,R,d){return !!(liga&&liga.temporada_id&&R&&R.especiais.includes(liga.etapa_numero))||!!(d&&d.sorteioMata&&Object.keys(d.sorteioMata).length)}
 function comDados(d,fn){const old=S;S=d;try{return fn()}finally{S=old}}
 function etapaDe(d){return comDados(d,()=>{if(S.status==='draft')return 'cadastro';if(S.status==='started')return 'sorteio';if(S.status==='ended')return 'encerrada';return complete()?'mata_mata':'grupos'})}
 function statusDe(d){return d.status==='draft'?'preparacao':d.status==='ended'?'finalizada':'andamento'}
@@ -453,8 +455,7 @@ function entrarNaLiga(){
   view='liga';carregarAtletas();
   CONFRONTO_DIRETO=false;ESPECIAL=false;
   if(L.temporada_id){const t=(T&&T.id===L.temporada_id)?T:temporadas.find(x=>x.id===L.temporada_id);CONFRONTO_DIRETO=t?regrasCompletas(t.regras).confronto_direto:true;
-    // sem as regras carregadas, uma liga que já tem sorteio de duplas continua como especial
-    ESPECIAL=t?regrasCompletas(t.regras).especiais.includes(L.etapa_numero):!!(S.sorteioMata&&Object.keys(S.sorteioMata).length)}
+    ESPECIAL=ehEspecial(L,t&&regrasCompletas(t.regras),S)}
   const salva=lsGet('lr6:aba:'+L.id);
   tab=tabs.includes(salva)?salva:(ABA_DA_ETAPA[L.etapa]||'Painel');
   render();
@@ -821,7 +822,7 @@ function pontosDaEtapa(liga,R){
   const out={porId:new Map(),semVinculo:[],gruposCompletos:false,mataCompleto:false,iniciada:!!d.drawn};
   if(!d.drawn){pontosCache.set(chave,out);return out}
   const P=R.pontos,velho=CONFRONTO_DIRETO,velhoEsp=ESPECIAL;CONFRONTO_DIRETO=R.confronto_direto;
-  ESPECIAL=!!(liga.temporada_id&&R.especiais&&R.especiais.includes(liga.etapa_numero))||!!(d.sorteioMata&&Object.keys(d.sorteioMata).length);
+  ESPECIAL=ehEspecial(liga,R,d);
   // v = vitórias nos grupos; vt/sg/gp = vitórias, saldo e games pró em todos os jogos (desempate do ranking)
   const novo=()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[],vt:0,sg:0,gp:0});
   const somarJogo=(x,v,k)=>{x.sg+=v[k]-v[1-k];x.gp+=v[k];if(v[k]>v[1-k])x.vt++};
@@ -1195,8 +1196,7 @@ function proximoVirtual(){return Math.max(capacity()-1,...(S.subs||[]).map(s=>s.
 // Nome de qualquer posição: atleta da liga ou atleta de fora que entrou no mata-mata
 function nomeCompleto(i){if(i<capacity())return S.names[i]||'';const s=subDe(i);return s?s.atleta.nome:''}
 function idDe(i){if(i<capacity())return (S.ids||[])[i]||null;const s=subDe(i);return s?s.atleta.id||null:null}
-function chaveAtual(){
-  const c=classificadosGerais();
+function chaveAtual(c=classificadosGerais()){
   if(!c)return null;
   const duos=c.duos;
   const qs=ordemQuartas().map((p,i)=>({id:'q'+(i+1),nome:'Quartas '+(i+1),a:duos[p[0]],b:duos[p[1]]}));
@@ -1240,8 +1240,8 @@ function sortearDuplas(id){
   const op=ops[rnd(ops.length)];
   return gravarSorteio(id,rnd(2)?[op[1],op[0]]:op,'sorteio automático');
 }
-function definirDuplas(id,pares){
-  const g=jogoParaSortear(id);if(typeof g==='string')return g;
+function definirDuplas(id,pares,g=jogoParaSortear(id)){
+  if(typeof g==='string')return g;
   if(!Array.isArray(pares)||pares.length!==2||pares.some(p=>!Array.isArray(p)||p.length!==2))return 'Escolha as duas duplas.';
   const todos=pares.flat();
   if(new Set(todos).size!==4||!todos.every(i=>g.jogadores.includes(i)))return 'As duplas têm que ser formadas pelos 4 atletas deste jogo.';
@@ -1261,7 +1261,7 @@ function abrirDuplasManual(id){
 function confirmarDuplasManual(id){
   const g=jogoParaSortear(id),r=document.querySelector('input[name=dmParceiro]:checked');if(typeof g==='string'||!r)return;
   const a=g.jogadores[0],p=+r.value,outros=g.jogadores.filter(i=>i!==a&&i!==p);
-  const e=definirDuplas(id,[[a,p],outros]);if(e)return alert(e);
+  const e=definirDuplas(id,[[a,p],outros],g);if(e)return alert(e);
   fecharModal();render();
 }
 function cartaoSorteio(x){
@@ -1781,6 +1781,8 @@ function linhasGrupo(g,quem){
 function name(i){return esc(nomeCompleto(i))}
 function rawName(i){return nomeCompleto(i)}
 function pair(a){return a.map(name).join(' + ')}
+// placar que pode ser lançado: o vencedor precisa ter 6 games ou mais (3x5 não vale)
+function placarLancavel(v){return Math.max(...v)>=6}
 function valid(v){return Array.isArray(v)&&v.length===2&&v.every(x=>Number.isInteger(x)&&x>=0&&x<=9)&&v[0]!==v[1]}
 function rank(g){
   let r=linhasGrupo(g,membrosDoGrupo(g));
@@ -1822,10 +1824,14 @@ function tieUI(scope,list,limit=list.length){
   }).join('')
 }
 function escopoTexto(k){return k.startsWith('g')?'Grupo '+'ABCDEFGH'[+k.slice(1,k.indexOf(':'))]:'Ranking dos '+(+k.slice(1,k.indexOf(':'))+1)+'º colocados'}
+// W.O. do mata-mata: ids sem '-' (q1, s1, f, t); os dos grupos têm '-' (0-1)
+function woMataIds(){return Object.keys(S.wo||{}).filter(x=>!x.includes('-'))}
+function limparMata(){S.finals={};S.subs=[];S.sorteioMata={};woMataIds().forEach(x=>delete S.wo[x])}
+const DEPENDENTES={q1:['s1','f','t'],q2:['s1','f','t'],q3:['s2','f','t'],q4:['s2','f','t'],s1:['f','t'],s2:['f','t']};
 function changeTie(k){
   if(S.status!=='drawn')return false;
   if((Object.keys(S.finals).length||(S.subs||[]).length)&&!confirm('Alterar desempate apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;
-  S.finals={}; S.subs=[]; S.sorteioMata={}; Object.keys(S.wo||{}).filter(x=>!x.includes('-')).forEach(x=>delete S.wo[x]); S.breaks=S.breaks||{};
+  limparMata(); S.breaks=S.breaks||{};
   if(k.startsWith('g'))for(let x of Object.keys(S.breaks))if(x.startsWith('r'))delete S.breaks[x];
   return true;
 }
@@ -1866,7 +1872,7 @@ function digitarPlacar(el,id,k,lado){
   const st=$('st'+id),a=$('a'+id).value,b=$('b'+id).value;
   if(st){
     if(a!==''&&b!==''&&a===b){st.textContent='não existe empate';st.className='placar-status warn';return}
-    if(a!==''&&b!==''&&Math.max(+a,+b)<6){st.textContent='o vencedor precisa ter 6 games';st.className='placar-status warn';return}
+    if(a!==''&&b!==''&&!placarLancavel([+a,+b])){st.textContent='o vencedor precisa ter 6 games';st.className='placar-status warn';return}
     if((a==='')!==(b==='')){st.textContent='complete o placar';st.className='placar-status muted';return}
   }
   placarTimers[id]=setTimeout(()=>salvarPlacar(id,k,lado===1),a!==''&&b!==''?250:700);
@@ -1892,18 +1898,12 @@ function salvarPlacar(id,k,avancar){
 }
 function aplicarPlacar(id,k,novo,wo){
   if(S.status!=='drawn'){alert('Lançamentos bloqueados.');return false}
-  // regra do placar: o vencedor precisa ter 6 games ou mais (3x5 não vale)
-  if(novo&&Math.max(...novo)<6){alert('Placar inválido: o vencedor precisa ter 6 games ou mais.');return false}
+  if(novo&&!placarLancavel(novo)){alert('Placar inválido: o vencedor precisa ter 6 games ou mais.');return false}
   const antes=S[k][id];
   if(JSON.stringify(antes??null)===JSON.stringify(novo)&&(S.wo||{})[id]===wo)return false;
   if(k==='finals'&&!S.ordemChave)S.ordemChave=Object.keys(S.finals).length?'antiga':'planilha';
-  // W.O. do mata-mata: ids sem '-' (q1, s1, f, t); os dos grupos têm '-' (0-1)
-  const woMata=Object.keys(S.wo||{}).filter(x=>!x.includes('-'));
-  if(k==='scores'&&(Object.keys(S.finals).length||(S.subs||[]).length||woMata.length)){if(!confirm('Alterar a fase de grupos apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;S.finals={};S.subs=[];woMata.forEach(x=>delete S.wo[x])}
-  if(k==='scores'&&!Object.keys(S.finals).length)S.sorteioMata={};
-  const apagar=x=>{delete S.finals[x];if(S.wo)delete S.wo[x];if(S.sorteioMata)delete S.sorteioMata[x]};
-  if(k==='finals'&&id.startsWith('q')){apagar(['q1','q2'].includes(id)?'s1':'s2');apagar('f');apagar('t')}
-  if(k==='finals'&&id.startsWith('s')){apagar('f');apagar('t')}
+  if(k==='scores'){if((Object.keys(S.finals).length||(S.subs||[]).length||woMataIds().length)&&!confirm('Alterar a fase de grupos apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;limparMata()}
+  if(k==='finals')(DEPENDENTES[id]||[]).forEach(x=>{delete S.finals[x];if(S.wo)delete S.wo[x];if(S.sorteioMata)delete S.sorteioMata[x]});
   if(k==='scores'){for(let x of Object.keys(S.breaks||{}))if(x.startsWith('r')||x.startsWith('g'+id.split('-')[0]+':'))delete S.breaks[x];}
   if(novo)S[k][id]=novo;else delete S[k][id];
   S.wo=S.wo||{};if(novo&&(wo===0||wo===1))S.wo[id]=wo;else delete S.wo[id];
@@ -2244,7 +2244,7 @@ function renderKnockout(bracketOnly=false){
   if(!cg)return h+'<section><p class="tag">Revise a classificação dos 16 atletas.</p></section>';
   let duos=cg.duos;
   if(!bracketOnly)h+=duoCards(duos);
-  const c=chaveAtual(),{qs,ss,f,t}=c,esp=id=>c.aguardando.find(x=>x.id===id);
+  const c=chaveAtual(cg),{qs,ss,f,t}=c,esp=id=>c.aguardando.find(x=>x.id===id);
   if(bracketOnly)return renderBracket(qs,ss,f,t);
   const jogo=(m,id,txt)=>m?scorecard(m,'finals'):esp(id)?cartaoSorteio(esp(id)):placeholderCard(id.toUpperCase(),txt);
   h+=(ESPECIAL?'<section><p class="tag">Etapa especial: da semifinal em diante as duplas são sorteadas antes de cada jogo.</p></section>':'')+'<section><h2>Quartas de final</h2>'+qs.map(m=>scorecard(m,'finals')).join('')+'</section><section><h2>Semifinais</h2>'+ss.map((m,i)=>jogo(m,'s'+(i+1),'Aguardando as quartas')).join('')+'</section><section><h2>Final e terceiro lugar</h2>'+(f||t||esp('f')||esp('t')?jogo(f,'f','')+jogo(t,'t',''):placeholderCard('FINAL / 3º','Aguardando as semifinais'))+'</section>';
