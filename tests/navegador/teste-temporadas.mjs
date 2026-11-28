@@ -13,7 +13,7 @@ const srv = http.createServer((req, res) => {
   if (p === '/') p = '/index.html';
   if (p === '/sw.js' || p.startsWith('/vendor/')) { res.writeHead(200, { 'Content-Type': 'text/javascript' }); return res.end(''); }
   let c; try { c = readFileSync(join(RAIZ, p)); } catch { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { 'Content-Type': extname(p) === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream' }); res.end(c);
+  res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png' })[extname(p)] || 'application/octet-stream' }); res.end(c);
 });
 await new Promise((r) => srv.listen(PORTA, '127.0.0.1', r));
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, userDataDir: mkdtempSync(join(tmpdir(), 'lr6-tp-')) });
@@ -27,7 +27,7 @@ try {
   page.on('dialog', async (d) => { dialogos.push(d.message()); await (d.type() === 'prompt' ? d.accept('Teste de regra') : d.accept()); });
   const errosJs = []; page.on('pageerror', (e) => errosJs.push(e.message));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(500);
+  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(500);
   const ev = (f, ...a) => page.evaluate(f, ...a);
   const txt = () => ev(() => document.body.innerText);
 
@@ -157,7 +157,7 @@ try {
   const errosPub = []; pub.on('pageerror', (e) => errosPub.push(e.message));
   await pub.evaluateOnNewDocument(MOCK);
   await pub.evaluateOnNewDocument((b) => { const d = JSON.parse(b); for (const k of Object.keys(d)) window.__db[k] = d[k]; }, banco);
-  await pub.goto(`http://127.0.0.1:${PORTA}/index.html?consulta`); await espera(600);
+  await pub.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(600);
   const evP = (f, ...a) => pub.evaluate(f, ...a), txtP = () => evP(() => document.body.innerText);
   const semEdicao = () => evP(() => [...document.querySelectorAll('#main button')].every((b) => b.classList.contains('pub')) && [...document.querySelectorAll('#main input,#main select')].every((e) => e.disabled));
   check('consulta abre no Início com os 4 botões', (await evP(() => view + '/' + pSec)) === 'publica/inicio' && (await evP(() => ['Início', 'Rodada atual', 'Temporadas', 'Relâmpagos'].every((x) => [...document.querySelectorAll('#lifecycle button')].some((b) => b.textContent === x)))));

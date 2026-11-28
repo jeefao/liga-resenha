@@ -7,7 +7,7 @@ import puppeteer from 'puppeteer-core';
 
 const RAIZ = process.argv[2];
 const PORTA = 8791;
-const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png' };
+const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
 const srv = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (p === '/') p = '/index.html';
@@ -100,7 +100,7 @@ try {
   const errosJs = [];
   page.on('pageerror', (e) => errosJs.push(e.message));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/index.html`);
+  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`);
   await espera(400);
   const txt = () => page.evaluate(() => document.body.innerText);
   const ev = (f, ...a) => page.evaluate(f, ...a);

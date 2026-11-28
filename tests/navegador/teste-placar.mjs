@@ -9,7 +9,7 @@ const srv = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p === '/') p = '/index.html';
   if (p === '/sw.js' || p.startsWith('/vendor/')) { res.writeHead(200); return res.end(''); }
   let c; try { c = readFileSync(join(RAIZ, p)); } catch { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { 'Content-Type': extname(p) === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream' }); res.end(c);
+  res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png' })[extname(p)] || 'application/octet-stream' }); res.end(c);
 });
 await new Promise((r) => srv.listen(PORTA, '127.0.0.1', r));
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, userDataDir: mkdtempSync(join(tmpdir(), 'lr6-pl-')) });
@@ -20,7 +20,7 @@ try {
   const dialogos = []; page.on('dialog', async (d) => { dialogos.push(d.message()); await d.accept(); });
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
   const ev = (f, ...a) => page.evaluate(f, ...a);
   const nomes = ['Marcos Pereira', 'Paulo Santos', 'Renato Gomes', 'Fabio Lopes', 'Rodrigo Mendes', 'Elton Prado', 'Sergio Moura', 'Davi Pinheiro', 'Vitor Fontes', 'Rogerio Campos', 'Jonas Peixoto', 'Heitor Klein', 'Andre Ferraz', 'Andre Alves', 'Andre Freire', 'Tadeu'];
   const id = await ev((nomes) => { const id = crypto.randomUUID(); __db.ligas[id] = { id, nome: 'Teste placar', data: '2026-11-23', participantes: 16, status: 'andamento', etapa: 'grupos', versao: 1, temporada_id: null, etapa_numero: null, excluida_em: null, atualizado_em: new Date().toISOString(), dados: { names: nomes, ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {}, drawn: true, status: 'drawn' } }; return id; }, nomes);

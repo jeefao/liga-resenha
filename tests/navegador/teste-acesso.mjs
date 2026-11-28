@@ -10,13 +10,13 @@ const srv = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p === '/') p = '/index.html';
   if (p === '/sw.js' || p.startsWith('/vendor/')) { res.writeHead(200); return res.end(''); }
   let c; try { c = readFileSync(join(RAIZ, p)); } catch { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { 'Content-Type': extname(p) === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream' }); res.end(c);
+  res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png' })[extname(p)] || 'application/octet-stream' }); res.end(c);
 });
 await new Promise((r) => srv.listen(PORTA, '127.0.0.1', r));
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, userDataDir: mkdtempSync(join(tmpdir(), 'lr6-ac-')) });
 const ok = [], falhas = []; const check = (n, c, e = '') => (c ? ok : falhas).push(n + (c ? '' : ' → ' + e));
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
-const URL0 = `http://127.0.0.1:${PORTA}/index.html`;
+const URL0 = `http://127.0.0.1:${PORTA}/adm/index.html`, URLC = `http://127.0.0.1:${PORTA}/index.html`;
 try {
   const page = await browser.newPage(); await page.setViewport({ width: 420, height: 900 });
   const erros = []; page.on('pageerror', (e) => erros.push(e.message)); page.on('dialog', (d) => d.accept(d.type() === 'prompt' ? 'prov123' : undefined));
@@ -26,7 +26,7 @@ try {
   const digita = async (id, v) => { await page.$eval('#' + id, (e) => (e.value = '')); await page.type('#' + id, v); };
 
   // sem login: tela de entrar
-  await page.goto(URL0 + '?consulta'); await ev(() => localStorage.setItem('mock:sessao', 'nenhuma')); await page.reload(); await espera(300);
+  await page.goto(URLC); await ev(() => localStorage.setItem('mock:sessao', 'nenhuma')); await page.reload(); await espera(300);
   check('sem login a consulta pede para entrar', (await ev(() => view)) === 'acesso' && (await txt()).includes('Criar conta') && !(await txt()).includes('Rodada atual'));
   check('campos de login habilitados', await ev(() => !$('email').disabled && !$('senha').disabled));
   await page.screenshot({ path: SAIDA + '/acesso-entrar.png' });
@@ -68,7 +68,7 @@ try {
 
   // atleta aprovado entra com a senha provisória e vê "Bem-vindo"
   await ev(() => localStorage.setItem('mock:sessao', 'nenhuma'));
-  await page.goto(URL0 + '?consulta'); await espera(300);
+  await page.goto(URLC); await espera(300);
   await ev((e) => { const x = JSON.parse(e); Object.assign(__db.acessos, x.acessos); Object.assign(__db.atletas, x.atletas); Object.assign(__db.contas, x.contas); }, estado);
   await digita('email', 'bia@teste'); await digita('senha', '123456'); await page.click('#btnEntrar'); await espera(300);
   check('senha antiga não entra mais', (await ev(() => $('loginMsg').textContent)).includes('incorretos'));
@@ -85,7 +85,7 @@ try {
   // conta de atleta no endereço do administrador vai para a consulta
   await ev(() => localStorage.setItem('mock:sessao', 'outro@teste'));
   await page.goto(URL0); await espera(500);
-  check('atleta no endereço do administrador é levado à consulta', page.url().includes('?consulta'), page.url());
+  check('atleta no endereço do administrador é levado à consulta', !page.url().includes('/adm/'), page.url());
   check('sem erros de script', !erros.length, erros.join(' | '));
 } catch (e) { falhas.push('erro: ' + e.message); }
 finally { await browser.close(); srv.close(); }

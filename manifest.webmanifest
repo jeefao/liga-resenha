@@ -27,5 +27,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "description": "Consulta da Liga Resenha: rodada atual, temporadas, ranking e chaves."
 }

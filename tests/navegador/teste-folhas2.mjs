@@ -9,7 +9,7 @@ const srv = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, 'http://x').pathname); if (p === '/') p = '/index.html';
   if (p === '/sw.js' || p.startsWith('/vendor/')) { res.writeHead(200); return res.end(''); }
   let c; try { c = readFileSync(join(RAIZ, p)); } catch { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { 'Content-Type': extname(p) === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream' }); res.end(c);
+  res.writeHead(200, { 'Content-Type': ({ '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png' })[extname(p)] || 'application/octet-stream' }); res.end(c);
 });
 await new Promise((r) => srv.listen(PORTA, '127.0.0.1', r));
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, userDataDir: mkdtempSync(join(tmpdir(), 'lr6-f2-')) });
@@ -21,7 +21,7 @@ try {
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept('APAGAR') : d.accept()));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
   // ---- folhas ----
   const nomes = [...base, ...Array.from({ length: 12 }, (_, i) => 'Atleta Extra ' + (i + 1))];
   const r = await page.evaluate(async (nomes) => {
