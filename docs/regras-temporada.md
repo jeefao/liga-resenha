@@ -33,12 +33,21 @@ Confirmado pelo organizador: **sempre passam 16 atletas** para o mata-mata (com 
   o **melhor eliminado** da classificação geral (mesmos critérios V, SG, GP), no mesmo lugar e com o
   mesmo parceiro. Sem eliminado disponível (liga de 16) ou por escolha do organizador, pode entrar
   qualquer atleta ativo do cadastro. A troca só vale **antes de a dupla jogar** no mata-mata; depois
-  disso, a dupla perde o próximo jogo por **W.O.** (6×0). Os jogos dos grupos nunca mudam; alterar
-  placar ou desempate dos grupos apaga o mata-mata, as trocas e os W.O. A troca pode ser desfeita e
-  fica no histórico.
+  disso, a dupla perde o próximo jogo por **W.O.** Os jogos dos grupos nunca mudam; alterar
+  placar ou desempate dos grupos apaga o mata-mata, as trocas e os W.O. do mata-mata. A troca pode
+  ser desfeita e fica no histórico.
   - Pontos: quem saiu fica com os pontos dos grupos (e posição); o substituto soma os seus pontos
     dos grupos com os do mata-mata que conquistar; atleta de fora da liga recebe só os pontos do
     mata-mata; o parceiro não perde nada.
+- **W.O. (v6.5.0), em qualquer fase**: lesão durante o jogo é W.O. A dupla de quem saiu fica com os
+  games que tinha e o adversário fica com 6 (2×4 → 2×6; 5×1 → 5×6); na final e no 3º lugar, se a dupla
+  tinha 6, o adversário fica com 7. Dupla que nem entrou em quadra: 0×6. O parceiro também perde o jogo.
+- **Lesão na fase de grupos (v6.5.0)**: nos jogos seguintes de quem se machucou entra um substituto.
+  - Da liga (de outro grupo): joga, mas não pontua e não soma no grupo; o jogo conta para os outros.
+  - De fora (cadastrado no app): soma os jogos que fizer e pode classificar, pelos mesmos critérios.
+  - Quem se machucou fica com os jogos e pontos que fez, aparece como lesionado, não recebe pontos de
+    posição e não ocupa vaga no mata-mata (a vaga vai para o próximo). Se não houver próximo (ex.: liga
+    de 16 com substituto da liga), ele segura a vaga e o organizador usa o Substituir no mata-mata.
 - **Etapas especiais (padrão: 3 e 7)**: a partir da semifinal as duplas são sorteadas antes de
   cada partida, sem repetir o parceiro da partida anterior. O app oferece **sorteio automático**
   (com a trava) ou **preenchimento manual** (sorteio com o saco de bolas).

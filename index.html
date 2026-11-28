@@ -200,7 +200,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.4.0';
+const APP_VERSION='6.5.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -263,6 +263,8 @@ function validarDados(x){
   if(x.ordemChave==='antiga'||x.ordemChave==='planilha')d.ordemChave=x.ordemChave;
   // substituições no mata-mata (lesão) e W.O.
   if(Array.isArray(x.subs))d.subs=x.subs.filter(s=>s&&Number.isInteger(s.sai)&&Number.isInteger(s.entra)).map(s=>({sai:s.sai,entra:s.entra,atleta:s.atleta&&s.atleta.nome?{id:typeof s.atleta.id==='string'&&s.atleta.id?s.atleta.id:null,nome:String(s.atleta.nome)}:null,motivo:String(s.motivo||'lesão'),em:String(s.em||'')}));
+  // substitutos na fase de grupos: a partir do jogo 'jogo' do grupo, quem joga na posição 'pos' é 'entra'
+  if(Array.isArray(x.gsubs))d.gsubs=x.gsubs.filter(s=>s&&Number.isInteger(s.pos)&&Number.isInteger(s.jogo)&&Number.isInteger(s.entra)).map(s=>({pos:s.pos,jogo:s.jogo,entra:s.entra,atleta:s.atleta&&s.atleta.nome?{id:typeof s.atleta.id==='string'&&s.atleta.id?s.atleta.id:null,nome:String(s.atleta.nome)}:null,motivo:String(s.motivo||'lesão'),em:String(s.em||'')}));
   if(x.wo&&typeof x.wo==='object'&&!Array.isArray(x.wo)){d.wo={};for(const [k,v] of Object.entries(x.wo))if(v===0||v===1)d.wo[k]=v}
   return d;
 }
@@ -270,7 +272,7 @@ function comDados(d,fn){const old=S;S=d;try{return fn()}finally{S=old}}
 function etapaDe(d){return comDados(d,()=>{if(S.status==='draft')return 'cadastro';if(S.status==='started')return 'sorteio';if(S.status==='ended')return 'encerrada';return complete()?'mata_mata':'grupos'})}
 function statusDe(d){return d.status==='draft'?'preparacao':d.status==='ended'?'finalizada':'andamento'}
 function statusAtual(){const s=statusDe(S);return s==='finalizada'&&L&&L.status==='arquivada'?'arquivada':s}
-function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status,...(d.ordemChave?{ordemChave:d.ordemChave}:{}),...(d.subs&&d.subs.length?{subs:d.subs}:{}),...(d.wo&&Object.keys(d.wo).length?{wo:d.wo}:{})}))}
+function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status,...(d.ordemChave?{ordemChave:d.ordemChave}:{}),...(d.subs&&d.subs.length?{subs:d.subs}:{}),...(d.gsubs&&d.gsubs.length?{gsubs:d.gsubs}:{}),...(d.wo&&Object.keys(d.wo).length?{wo:d.wo}:{})}))}
 // Cruzamentos das quartas (índices das duplas D1..D8). Ordem da planilha:
 // Q1 = 1-2 x 15-16, Q2 = 5-6 x 11-12, Q3 = 7-8 x 9-10, Q4 = 3-4 x 13-14; Semi 1 = Q1 x Q2, Semi 2 = Q3 x Q4.
 // Ligas que já tinham placar no mata-mata antes da mudança continuam na ordem antiga.
@@ -684,13 +686,20 @@ function toggleAtleta(id){
   if(k>=0){sel.splice(k,1);definirSelecao(sel,[{tipo:'cadastro',descricao:a.nome+' retirado da liga'}])}
   else if(incluirNaSelecao(sel,a)==='cheia')alert('A liga já tem '+capacity()+' atletas. Retire alguém ou aumente a quantidade.');
   else definirSelecao(sel,[{tipo:'cadastro',descricao:a.nome+' incluído na liga'}]);
-  render();
+  renderMantendoLista();
 }
 function removerPosicao(i){
   if(S.status!=='draft')return;
   const nome=S.names[i];
   definirSelecao(selecionados().filter(x=>x.i!==i),[{tipo:'cadastro',descricao:nome+' retirado da liga'}]);
+  renderMantendoLista();
+}
+// Redesenha sem a lista de atletas voltar para o topo nem a tela pular
+function renderMantendoLista(){
+  const el=document.querySelector('.sel-list'),st=el?el.scrollTop:0,topo=el?el.getBoundingClientRect().top:null;
   render();
+  const n=document.querySelector('.sel-list');
+  if(n){n.scrollTop=st;if(topo!==null)window.scrollBy(0,n.getBoundingClientRect().top-topo)}
 }
 function novoAtletaNaLiga(nome=''){
   abrirAtletaForm(null,String(nome||'').trim(),a=>{
@@ -811,8 +820,12 @@ function pontosDaEtapa(liga,R){
   try{comDados(d,()=>{
     const pos=S.names.map(()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[]}));
     for(const g of groupIndexes()){
+      // pontua no grupo quem é do grupo (inclusive o lesionado, pelos jogos que fez) e o atleta de fora que entrou;
+      // substituto vindo de outro grupo da liga não pontua
+      const contam=[...group(g),...externosDoGrupo(g)];
+      externosDoGrupo(g).forEach(i=>{if(!pos[i])pos[i]={grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[]}});
       for(const m of games(g)){const v=S.scores[m.id];if(!valid(v))continue;
-        [m.a,m.b].forEach((lado,k)=>lado.forEach(i=>{const x=pos[i];
+        [m.a,m.b].forEach((lado,k)=>lado.forEach(i=>{if(!contam.includes(i))return;const x=pos[i];
           if(v[k]>v[1-k]){x.v++;x.grupo+=P.vitoria}
           if(v[k]===6&&v[1-k]===0){x.b++;x.grupo+=P.bonus_6x0}
           if(v[k]===0&&v[1-k]===6){x.dz++;x.grupo+=P.derrota_0x6}
@@ -853,7 +866,7 @@ function calcularRanking(){
   for(const l of porNum.values()){
     (Array.isArray(l.dados&&l.dados.ids)?l.dados.ids:[]).forEach(id=>id&&ids.add(id));
     // atleta de fora da liga que entrou no mata-mata por substituição
-    (Array.isArray(l.dados&&l.dados.subs)?l.dados.subs:[]).forEach(s=>s&&s.atleta&&typeof s.atleta.id==='string'&&s.atleta.id&&ids.add(s.atleta.id));
+    [...(Array.isArray(l.dados&&l.dados.subs)?l.dados.subs:[]),...(Array.isArray(l.dados&&l.dados.gsubs)?l.dados.gsubs:[])].forEach(s=>s&&s.atleta&&typeof s.atleta.id==='string'&&s.atleta.id&&ids.add(s.atleta.id));
   }
   const ajustes=(T.dados&&Array.isArray(T.dados.ajustes)?T.dados.ajustes:[]);
   ajustes.forEach(a=>a.atleta_id&&ids.add(a.atleta_id));
@@ -1147,8 +1160,12 @@ function classificadosGerais(){
   const lists=listsGeneral(),counts=FORMATS[capacity()].counts;
   if(lists.some((l,k)=>counts[k]>0&&pending('r'+k,l,counts[k])))return null;
   const q=lists.flatMap((l,k)=>l.slice(0,counts[k])).map(x=>x.i);
-  if(q.length!==16||new Set(q).size!==16)return null;
   let fora=lists.flatMap((l,k)=>l.slice(counts[k])).map(x=>x.i);
+  // lesão nos grupos: faltando gente, a vaga vai para o melhor que sobrou; sem ninguém, o lesionado segura a vaga
+  while(q.length<16&&fora.length)q.push(fora.shift());
+  const les=groupIndexes().flatMap(lesionadosDoGrupo);
+  while(q.length<16&&les.length)q.push(les.shift());
+  if(q.length!==16||new Set(q).size!==16)return null;
   const duos=Array.from({length:8},(_,i)=>q.slice(i*2,i*2+2));
   for(const s of (S.subs||[])){
     for(const p of duos){const k=p.indexOf(s.sai);if(k>=0)p[k]=s.entra}
@@ -1159,7 +1176,9 @@ function classificadosGerais(){
 function melhorEliminado(){const c=classificadosGerais();return c&&c.fora.length?c.fora[0]:null}
 // A dupla d (0..7) já tem placar nas quartas?
 function duplaTemPlacar(d){const k=ordemQuartas().findIndex(p=>p.includes(d));return k>=0&&valid(S.finals['q'+(k+1)])}
-function subDe(i){return (S.subs||[]).find(s=>s.entra===i&&s.atleta)}
+function subDe(i){return [...(S.subs||[]),...(S.gsubs||[])].find(s=>s.entra===i&&s.atleta)}
+// próxima posição virtual livre (atleta de fora da liga)
+function proximoVirtual(){return Math.max(capacity()-1,...(S.subs||[]).map(s=>s.entra),...(S.gsubs||[]).map(s=>s.entra))+1}
 // Nome de qualquer posição: atleta da liga ou atleta de fora que entrou no mata-mata
 function nomeCompleto(i){if(i<capacity())return S.names[i]||'';const s=subDe(i);return s?s.atleta.nome:''}
 function idDe(i){if(i<capacity())return (S.ids||[])[i]||null;const s=subDe(i);return s?s.atleta.id||null:null}
@@ -1179,7 +1198,7 @@ function wJogo(m,k){
   const v=S[k][m.id];
   if(!valid(v))return `${wDupla(m.a)}  x  ${wDupla(m.b)}`;
   const [ga,gb]=v,venceuA=ga>gb;
-  const wo=k==='finals'?(S.wo||{})[m.id]:undefined;
+  const wo=(S.wo||{})[m.id];
   return `${venceuA?'*'+wDupla(m.a)+'*':wDupla(m.a)}  ${ga} x ${gb}  ${venceuA?wDupla(m.b):'*'+wDupla(m.b)+'*'}${wo===0||wo===1?' (W.O.)':''}`;
 }
 function textoWhatsApp(op){
@@ -1663,24 +1682,32 @@ ${SIZES.map(n=>`<option value="${n}" ${n===capacity()?'selected':''}>${n} atleta
 }
 function group(g){return [0,1,2,3].map(i=>g*4+i)}
 const patterns=[[0,1,2,3],[0,2,1,3],[0,3,1,2]];
-function games(g){return patterns.map((p,i)=>({id:g+'-'+i,a:p.slice(0,2).map(j=>g*4+j),b:p.slice(2).map(j=>g*4+j)}))}
+// Jogos do grupo já com quem realmente jogou (substituto no lugar do lesionado a partir do jogo marcado)
+function games(g){
+  const gs=(S.gsubs||[]);
+  const quem=(pos,j)=>{const s=gs.find(x=>x.pos===pos&&x.jogo<=j);return s?s.entra:pos};
+  return patterns.map((p,i)=>({id:g+'-'+i,a:p.slice(0,2).map(j=>quem(g*4+j,i)),b:p.slice(2).map(j=>quem(g*4+j,i))}));
+}
+function grupoDe(i){if(i<capacity())return Math.floor(i/4);const s=(S.gsubs||[]).find(x=>x.entra===i);return s?Math.floor(s.pos/4):-1}
+function lesionadosDoGrupo(g){return (S.gsubs||[]).filter(s=>Math.floor(s.pos/4)===g).map(s=>s.pos).sort((a,b)=>a-b)}
+// Atletas de fora que entraram no grupo (contam e podem classificar)
+function externosDoGrupo(g){return (S.gsubs||[]).filter(s=>Math.floor(s.pos/4)===g&&s.entra>=capacity()).map(s=>s.entra)}
+// Quem disputa a classificação do grupo: membros não lesionados + atletas de fora daquele grupo
+function membrosDoGrupo(g){const les=lesionadosDoGrupo(g);return [...group(g).filter(i=>!les.includes(i)),...externosDoGrupo(g)]}
+function linhasGrupo(g,quem){
+  const r=quem.map(i=>({i,w:0,s:0,f:0,j:0}));
+  for(const m of games(g)){
+    const v=S.scores[m.id];if(!valid(v))continue;
+    [m.a,m.b].forEach((p,k)=>p.forEach(i=>{const t=r.find(x=>x.i===i);if(!t)return;t.j++;t.w+=+(v[k]>v[1-k]);t.s+=v[k]-v[1-k];t.f+=v[k]}));
+  }
+  return r;
+}
 function name(i){return esc(nomeCompleto(i))}
 function rawName(i){return nomeCompleto(i)}
 function pair(a){return a.map(name).join(' + ')}
 function valid(v){return Array.isArray(v)&&v.length===2&&v.every(x=>Number.isInteger(x)&&x>=0&&x<=9)&&v[0]!==v[1]}
 function rank(g){
-  let r=group(g).map(i=>({i,w:0,s:0,f:0,j:0}));
-  for(let m of games(g)){
-    let v=S.scores[m.id];
-    if(!valid(v))continue;
-    [m.a,m.b].forEach((p,k)=>p.forEach(i=>{
-      let t=r.find(x=>x.i===i);
-      t.j++;
-      t.w+=+(v[k]>v[1-k]);
-      t.s+=v[k]-v[1-k];
-      t.f+=v[k];
-    }))
-  }
+  let r=linhasGrupo(g,membrosDoGrupo(g));
   return sorted('g'+g,r);
 }
 function cmp(a,b){return b.w-a.w||b.s-a.s||b.f-a.f}
@@ -1689,7 +1716,7 @@ function blocks(list){let out=[];for(let x of list){let last=out[out.length-1];i
 // 4º critério nas etapas de temporada: saldo de games nos jogos em que os empatados se enfrentaram
 let CONFRONTO_DIRETO=false;
 function saldoConfronto(i,bloco){
-  let s=0;const g=Math.floor(i/4);
+  let s=0;const g=grupoDe(i);
   for(const m of games(g)){const v=S.scores[m.id];if(!valid(v))continue;
     const k=m.a.includes(i)?0:m.b.includes(i)?1:-1;if(k<0)continue;
     if((k?m.a:m.b).some(y=>y!==i&&bloco.includes(y)))s+=v[k]-v[1-k];}
@@ -1709,7 +1736,7 @@ function sorted(scope,list){return blocks(list.sort(cmp)).flatMap(b=>{let o=orde
 function pending(scope,list,limit=list.length){return blocks(list).some(b=>list.indexOf(b[0])<limit&&b.length>1&&order(scope,b).length<b.length-1)}
 function groupDone(g){return games(g).every(m=>valid(S.scores[m.id]))}
 function groupPending(){return groupIndexes().some(g=>pending('g'+g,rank(g)))}
-function listsGeneral(){let r=groupIndexes().map(rank);return [0,1,2,3].map(k=>sorted('r'+k,r.map(x=>x[k])))}
+function listsGeneral(){let r=groupIndexes().map(rank);return [0,1,2,3].map(k=>sorted('r'+k,r.map(x=>x[k]).filter(Boolean)))}
 function tieUI(scope,list,limit=list.length){
   return blocks(list).filter(b=>b.length>1&&list.indexOf(b[0])<limit).map(b=>{
     let o=order(scope,b),left=b.filter(x=>!o.includes(x.i)),done=left.length<=1,k=key(scope,b);
@@ -1733,7 +1760,7 @@ function complete(){return groupIndexes().every(g=>games(g).every(m=>valid(S.sco
 function nomesCurtos(){
   const curto=n=>{const p=String(n||'').trim().split(/\s+/);return p.length>1?p[0]+' '+p[p.length-1][0]+'.':p[0]||'?'};
   const longo=n=>{const p=String(n||'').trim().split(/\s+/);return p.length>1?p[0]+' '+p[p.length-1]:p[0]||'?'};
-  const todos=[...S.names];(S.subs||[]).forEach(s=>{if(s.atleta&&s.entra>=S.names.length)todos[s.entra]=s.atleta.nome});
+  const todos=[...S.names];[...(S.subs||[]),...(S.gsubs||[])].forEach(s=>{if(s.atleta&&s.entra>=S.names.length)todos[s.entra]=s.atleta.nome});
   for(let i=0;i<todos.length;i++)if(todos[i]===undefined)todos[i]='';
   const c=todos.map(curto),cont={};c.forEach(x=>cont[x.toLowerCase()]=(cont[x.toLowerCase()]||0)+1);
   return c.map((x,i)=>cont[x.toLowerCase()]>1?longo(todos[i]):x);
@@ -1742,10 +1769,10 @@ function scorecard(m,kind='scores',extraClass=''){
   const v=S[kind][m.id]||[],nc=nomesCurtos(),lancado=valid(v),venc=lancado?(v[0]>v[1]?0:1):-1;
   const dupla=p=>p.map(i=>esc(nc[i])).join(' / ');
   const linha=(lado,k,next)=>`<div class="placar-linha${venc===k?' venceu':''}"><div class="placar-nome" title="${esc(lado.map(rawName).join(' / '))}">${dupla(lado)}</div><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="off" id="${k?'b':'a'}${m.id}" value="${v[k]??''}" oninput="digitarPlacar(this,'${m.id}','${kind}',${k})" onfocus="this.select()" aria-label="Games de ${esc(lado.map(rawName).join(' e '))}"></div>`;
-  const wo=kind==='finals'?(S.wo||{})[m.id]:undefined,ehWO=lancado&&(wo===0||wo===1);
+  const wo=(S.wo||{})[m.id],ehWO=lancado&&(wo===0||wo===1);
   let extra='';
-  if(kind==='finals'&&ehWO)extra=`<p class="muted" style="margin-top:6px">W.O.: ${dupla(wo?m.b:m.a)} não jogou.</p>`;
-  else if(kind==='finals'&&!lancado&&podeMexerNoMata())extra=`<details class="wo-box" style="margin-top:8px"><summary class="muted" style="cursor:pointer">W.O. (uma dupla não pode jogar)</summary><div class="row" style="margin-top:6px;flex-wrap:wrap">${[0,1].map(k=>`<button class="secondary" onclick="marcarWO('${m.id}',${k})">${dupla(k?m.b:m.a)} não joga</button>`).join('')}</div></details>`;
+  if(ehWO)extra=`<p class="muted" style="margin-top:6px">W.O.: ${dupla(wo?m.b:m.a)} não ${kind==='scores'?'terminou o jogo':'jogou'}.</p>`;
+  else if(!lancado&&(kind==='scores'?podeLancarGrupo():podeMexerNoMata()))extra=`<div class="row" style="margin-top:8px"><button class="ghost" style="padding:6px 10px;font-size:13px;min-height:0" data-wo="${m.id}" onclick="abrirWO('${m.id}')">🚑 Lesão / W.O.</button></div>`;
   return `<div class="match-card ${extraClass}"><div class="row" style="justify-content:space-between;align-items:center"><div class="match-label">${esc(jogoTexto(m.id,kind))}</div><span class="placar-status ${lancado?'ok':'muted'}" id="st${m.id}">${lancado?(ehWO?'✓ W.O.':'✓ salvo'):'sem placar'}</span></div>
    <div class="placar">${linha(m.a,0)}${linha(m.b,1)}</div>${extra}</div>`;
 }
@@ -1787,16 +1814,18 @@ function salvarPlacar(id,k,avancar){
 function aplicarPlacar(id,k,novo,wo){
   if(S.status!=='drawn'){alert('Lançamentos bloqueados.');return false}
   const antes=S[k][id];
-  if(JSON.stringify(antes??null)===JSON.stringify(novo)&&(k!=='finals'||(S.wo||{})[id]===wo))return false;
+  if(JSON.stringify(antes??null)===JSON.stringify(novo)&&(S.wo||{})[id]===wo)return false;
   if(k==='finals'&&!S.ordemChave)S.ordemChave=Object.keys(S.finals).length?'antiga':'planilha';
-  if(k==='scores'&&(Object.keys(S.finals).length||(S.subs||[]).length||Object.keys(S.wo||{}).length)){if(!confirm('Alterar a fase de grupos apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;S.finals={};S.subs=[];S.wo={}}
+  // W.O. do mata-mata: ids sem '-' (q1, s1, f, t); os dos grupos têm '-' (0-1)
+  const woMata=Object.keys(S.wo||{}).filter(x=>!x.includes('-'));
+  if(k==='scores'&&(Object.keys(S.finals).length||(S.subs||[]).length||woMata.length)){if(!confirm('Alterar a fase de grupos apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;S.finals={};S.subs=[];woMata.forEach(x=>delete S.wo[x])}
   const apagar=x=>{delete S.finals[x];if(S.wo)delete S.wo[x]};
   if(k==='finals'&&id.startsWith('q')){apagar(['q1','q2'].includes(id)?'s1':'s2');apagar('f');apagar('t')}
   if(k==='finals'&&id.startsWith('s')){apagar('f');apagar('t')}
   if(k==='scores'){for(let x of Object.keys(S.breaks||{}))if(x.startsWith('r')||x.startsWith('g'+id.split('-')[0]+':'))delete S.breaks[x];}
   if(novo)S[k][id]=novo;else delete S[k][id];
-  if(k==='finals'){S.wo=S.wo||{};if(novo&&(wo===0||wo===1))S.wo[id]=wo;else delete S.wo[id]}
-  persist([{tipo:'placar',descricao:jogoTexto(id,k)+': '+(novo?novo[0]+'×'+novo[1]:'placar apagado')+(k==='finals'&&novo&&(wo===0||wo===1)?' (W.O.)':'')+(valid(antes)?' (antes '+antes[0]+'×'+antes[1]+')':'')}]);
+  S.wo=S.wo||{};if(novo&&(wo===0||wo===1))S.wo[id]=wo;else delete S.wo[id];
+  persist([{tipo:'placar',descricao:jogoTexto(id,k)+': '+(novo?novo[0]+'×'+novo[1]:'placar apagado')+(novo&&(wo===0||wo===1)?' (W.O.)':'')+(valid(antes)?' (antes '+antes[0]+'×'+antes[1]+')':'')}]);
   return true;
 }
 /* ---------- Sorteio dos grupos sem repetir quem já caiu junto ---------- */
@@ -1928,17 +1957,24 @@ function renderGroups(){
   for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><div class="group-list" style="margin-top:8px">${group(g).map((i,pos)=>`<div>${pos+1}. <span class="name">${name(i)}</span></div>`).join('')}</div></section>`;
   return h;
 }
+// Avisos de substituto no grupo, com Desfazer enquanto os jogos dele não têm placar
+function avisosSubGrupo(g){
+  return (S.gsubs||[]).map((s,k)=>({s,k})).filter(({s})=>grupoDe(s.pos)===g).map(({s,k})=>{
+    const livre=podeLancarGrupo()&&![0,1,2].some(j=>j>=s.jogo&&valid(S.scores[g+'-'+j]));
+    return `<p class="muted" style="margin-top:8px;font-size:13px">↺ ${esc(rawName(s.entra))} joga no lugar de ${esc(rawName(s.pos))} (${esc(s.motivo)}) a partir do jogo ${s.jogo+1}${s.atleta?'':' — da liga, não pontua'}${livre?` <button class="ghost" style="padding:4px 10px;font-size:13px;min-height:0" data-desfazer-grupo="${k}" onclick="desfazerGrupoTela(${k})">Desfazer</button>`:''}</p>`;
+  }).join('');
+}
 function renderGroupGames(){
   if(!S.drawn)return `<section><h2>Jogos</h2><p class="muted">Realize o sorteio na aba Grupos antes de lançar os placares.</p><div class="panel-actions"><button onclick="tab='Grupos';render()">Ir para grupos</button></div></section>`;
   let h=`<section><h2>Jogos de grupos</h2><p class="muted">${totalGroupGames()}/${groupGameCount()} jogos concluídos. Informe dois placares inteiros diferentes. Não existe empate no jogo.</p><div class="panel-actions"><button class="secondary" onclick="abrirImagemJogos('grupos')">🖼 Imagem / 🖨 Imprimir</button></div></section>`;
-  for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><div class="round-stack" style="margin-top:10px">${games(g).map((m,i)=>scorecard(m,'scores','') ).join('')}</div></section>`;
+  for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3>${avisosSubGrupo(g)}<div class="round-stack" style="margin-top:10px">${games(g).map((m,i)=>scorecard(m,'scores','') ).join('')}</div></section>`;
   return h;
 }
 function renderClassification(){
   let h=`<section><h2>Classificação individual</h2><p class="muted">V = vitórias • SG = saldo de games • GP = games pró.${CONFRONTO_DIRETO?' Etapa de temporada: o 4º critério é o confronto direto (saldo de games nos jogos entre os empatados).':''} Quando houver empate absoluto, os atletas ficam destacados para você definir o desempate manualmente.</p></section>`;
   for(let g=0;g<groupIndexes().length;g++){
     let r=rank(g);
-    h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><table><tr><th>Atleta</th><th>J</th><th>V</th><th>SG</th><th>GP</th></tr>${r.map((x,i)=>`<tr${groupDone(g)?tieRow('g'+g,r,x):''}><td>${i+1}. ${name(x.i)}</td><td>${x.j}</td><td>${x.w}</td><td>${x.s}</td><td>${x.f}</td></tr>`).join('')}</table>${groupDone(g)?tieUI('g'+g,r):'<p class="muted" style="margin-top:10px">Aguardando os 3 jogos deste grupo.</p>'}</section>`;
+    h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><table><tr><th>Atleta</th><th>J</th><th>V</th><th>SG</th><th>GP</th></tr>${r.map((x,i)=>`<tr${groupDone(g)?tieRow('g'+g,r,x):''}><td>${i+1}. ${name(x.i)}</td><td>${x.j}</td><td>${x.w}</td><td>${x.s}</td><td>${x.f}</td></tr>`).join('')}${linhasGrupo(g,lesionadosDoGrupo(g)).map(x=>`<tr class="muted"><td>🚑 ${name(x.i)} <small>(lesionado — não classifica)</small></td><td>${x.j}</td><td>${x.w}</td><td>${x.s}</td><td>${x.f}</td></tr>`).join('')}</table>${groupDone(g)?tieUI('g'+g,r):'<p class="muted" style="margin-top:10px">Aguardando os 3 jogos deste grupo.</p>'}</section>`;
   }
   return h;
 }
@@ -2011,12 +2047,100 @@ function desfazerSubstituicao(k){
   S.subs=S.subs.filter((_,i)=>i!==k);
   persist([{tipo:'substituicao',descricao:desc}]);render();
 }
-// W.O.: o lado que não pode jogar perde por 6 x 0
-function marcarWO(id,lado){
-  if(!podeMexerNoMata())return;
-  const c=chaveAtual(),m=c&&[...c.qs,...c.ss,c.f,c.t].find(x=>x&&x.id===id);if(!m)return;
-  if(!confirm(`W.O.: ${wDupla(lado?m.b:m.a)} não vai jogar.\n${wDupla(lado?m.a:m.b)} vence por 6 x 0. Confirmar?`))return;
-  if(aplicarPlacar(id,'finals',lado?[6,0]:[0,6],lado))render();
+/* ---------- W.O. (lesão durante o jogo ou dupla que não pode jogar) ---------- */
+// Quem saiu fica com os games que tinha; o adversário fica com 6 (7 na final/3º se quem saiu tinha 6).
+function podeLancarGrupo(){return S.status==='drawn'&&!(L&&L.status==='arquivada')}
+function maxGamesWO(id){return id==='f'||id==='t'?6:5}
+function jogoPorId(id){
+  if(id.includes('-')){const [g,j]=id.split('-').map(Number);return games(g)[j]||null}
+  const c=chaveAtual();return c&&[...c.qs,...c.ss,c.f,c.t].find(x=>x&&x.id===id)||null;
+}
+function marcarWO(id,lado,gm=0){
+  const kind=id.includes('-')?'scores':'finals';
+  if(kind==='scores'?!podeLancarGrupo():!podeMexerNoMata())return false;
+  if(!jogoPorId(id)||(lado!==0&&lado!==1))return false;
+  gm=Number(gm);if(!Number.isInteger(gm)||gm<0||gm>maxGamesWO(id))return false;
+  const alvo=gm===6?7:6;
+  return aplicarPlacar(id,kind,lado?[alvo,gm]:[gm,alvo],lado);
+}
+// Atletas que podem entrar nos próximos jogos de quem se machucou no grupo g
+function opcoesGrupo(g){
+  const usados=new Set([...(S.ids||[]).filter(Boolean),...[...(S.subs||[]),...(S.gsubs||[])].map(s=>s.atleta&&s.atleta.id).filter(Boolean)]);
+  const cadastro=atletas.filter(a=>a.situacao!=='inativo'&&!usados.has(a.id)).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  const les=(S.gsubs||[]).map(s=>s.pos);
+  const liga=S.names.map((_,i)=>i).filter(i=>grupoDe(i)!==g&&!les.includes(i)).sort((a,b)=>rawName(a).localeCompare(rawName(b),'pt-BR'));
+  return {cadastro,liga};
+}
+function substituirNoGrupo(pos,jogo,sel,motivo){
+  if(!podeLancarGrupo())return 'Lançamentos bloqueados.';
+  if(!Number.isInteger(pos)||pos<0||pos>=capacity())return 'Posição inválida.';
+  if(!Number.isInteger(jogo)||jogo<0||jogo>2)return 'Era o último jogo dele no grupo: não precisa de substituto.';
+  const g=grupoDe(pos);
+  if((S.gsubs||[]).some(s=>s.pos===pos))return 'Este atleta já tem substituto no grupo.';
+  for(let j=jogo;j<3;j++)if(valid(S.scores[g+'-'+j]))return 'Os próximos jogos dele já têm placar. Apague o placar antes.';
+  const op=opcoesGrupo(g);let entra,atleta=null;
+  if(/^i:\d+$/.test(sel||'')){entra=+sel.slice(2);if(entra===pos||grupoDe(entra)===g)return 'O substituto da liga tem que ser de outro grupo.';if(!op.liga.includes(entra))return 'Este atleta não pode entrar.'}
+  else if(/^a:./.test(sel||'')){const a=op.cadastro.find(x=>x.id===sel.slice(2));if(!a)return 'Este atleta não pode entrar: já está na liga.';entra=proximoVirtual();atleta={id:a.id,nome:a.nome}}
+  else return 'Escolha quem entra.';
+  const m=String(motivo||'').trim().slice(0,60)||'lesão',nomeSai=rawName(pos);
+  S.gsubs=[...(S.gsubs||[]),{pos,jogo,entra,atleta,motivo:m,em:new Date().toISOString()}];
+  persist([{tipo:'substituicao',descricao:`Substituição no Grupo ${'ABCDEFGH'[g]}: Sai ${nomeSai} (${m}) → Entra ${rawName(entra)}${atleta?'':' (da liga, não pontua)'} a partir do jogo ${jogo+1}`}]);
+  return null;
+}
+function desfazerGrupo(k){
+  const s=(S.gsubs||[])[k];if(!s||!podeLancarGrupo())return 'Lançamentos bloqueados.';
+  const g=grupoDe(s.pos);
+  for(let j=s.jogo;j<3;j++)if(valid(S.scores[g+'-'+j]))return 'Os jogos com o substituto já têm placar. Apague esses placares antes de desfazer.';
+  const desc=`Substituição desfeita no Grupo ${'ABCDEFGH'[g]}: ${rawName(s.pos)} volta no lugar de ${rawName(s.entra)}`;
+  S.gsubs=S.gsubs.filter((_,i)=>i!==k);
+  persist([{tipo:'substituicao',descricao:desc}]);
+  return null;
+}
+function desfazerGrupoTela(k){
+  const s=(S.gsubs||[])[k];if(!s)return;
+  if(!confirm(`Desfazer? ${rawName(s.pos)} volta a jogar no lugar de ${rawName(s.entra)}.`))return;
+  const e=desfazerGrupo(k);if(e)alert(e);render();
+}
+function abrirWO(id){
+  const kind=id.includes('-')?'scores':'finals',m=jogoPorId(id);if(!m)return;
+  const grupo=kind==='scores',g=grupo?+id.split('-')[0]:-1,j=grupo?+id.split('-')[1]:-1,max=maxGamesWO(id);
+  const jogadores=grupo?[...m.a,...m.b]:[];
+  const op=grupo?opcoesGrupo(g):null;
+  const opcoes=grupo&&j<2?`<option value="">Ninguém por enquanto</option>`+(op.cadastro.length?`<optgroup label="De fora (cadastro) — soma e pode classificar">${op.cadastro.map(a=>`<option value="a:${esc(a.id)}">${esc(a.nome)}</option>`).join('')}</optgroup>`:'')+(op.liga.length?`<optgroup label="Da liga (outro grupo) — não pontua">${op.liga.map(i=>`<option value="i:${i}">${name(i)} — Grupo ${'ABCDEFGH'[grupoDe(i)]}</option>`).join('')}</optgroup>`:''):'';
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>W.O. — ${esc(jogoTexto(id,kind))}</h2>
+   <p class="muted">Quem saiu fica com os games que tinha e o adversário fica com ${max===6?'6 (7 se quem saiu tinha 6)':'6'}. Se a dupla nem entrou em quadra, deixe 0.</p>
+   <p style="margin-top:12px"><b>${grupo?'Quem se machucou':'Qual dupla não pode continuar'}</b></p>
+   <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">${grupo?jogadores.map((i,k)=>`<label style="flex-direction:row;align-items:center;gap:8px"><input type="radio" name="woQuem" value="${i}" data-lado="${k<2?0:1}" ${k===0?'checked':''} onchange="previaWO('${id}')" style="width:20px;height:20px">${name(i)}</label>`).join(''):[m.a,m.b].map((p,k)=>`<label style="flex-direction:row;align-items:center;gap:8px"><input type="radio" name="woQuem" value="${k}" data-lado="${k}" ${k===0?'checked':''} onchange="previaWO('${id}')" style="width:20px;height:20px">${esc(wDupla(p))}</label>`).join('')}</div>
+   <label style="margin-top:12px">Games ${grupo?'da dupla dele':'dessa dupla'} até parar<input id="woGames" type="number" inputmode="numeric" min="0" max="${max}" value="0" oninput="previaWO('${id}')"></label>
+   ${opcoes?`<label style="margin-top:12px">Quem joga os próximos jogos dele<select id="woEntra" onchange="previaWO('${id}')">${opcoes}</select></label>
+   <div class="panel-actions" style="margin-top:6px"><button class="secondary" onclick="novoAtletaParaWO('${id}')">+ Cadastrar atleta novo</button></div>`:''}
+   <p id="woPrevia" class="tag" style="margin-top:12px"></p>
+   <div class="panel-actions"><button onclick="confirmarWO('${id}')">CONFIRMAR W.O.</button><button class="secondary" onclick="fecharModal()">Cancelar</button></div></div></div>`;
+  previaWO(id);
+}
+function previaWO(id){
+  const el=$('woPrevia'),r=document.querySelector('input[name=woQuem]:checked'),m=jogoPorId(id);if(!el||!r||!m)return;
+  const lado=+r.dataset.lado,gm=+$('woGames').value,max=maxGamesWO(id);
+  if(!Number.isInteger(gm)||gm<0||gm>max){el.textContent=`Games: de 0 a ${max}.`;return}
+  const alvo=gm===6?7:6,v=lado?[alvo,gm]:[gm,alvo];
+  let t=`Placar: ${wDupla(m.a)} ${v[0]} x ${v[1]} ${wDupla(m.b)} (W.O.)`;
+  const s=$('woEntra');if(s&&s.value)t+=` • Próximos jogos: ${rawName(+r.value)} → ${s.value.startsWith('i:')?rawName(+s.value.slice(2))+' (não pontua)':(atletas.find(a=>a.id===s.value.slice(2))||{}).nome}`;
+  el.textContent=t;
+}
+function novoAtletaParaWO(id){
+  abrirAtletaForm(null,'',a=>{abrirWO(id);const s=$('woEntra');if(s&&a&&[...s.options].some(o=>o.value==='a:'+a.id)){s.value='a:'+a.id;previaWO(id)}});
+}
+function confirmarWO(id){
+  const r=document.querySelector('input[name=woQuem]:checked');if(!r)return;
+  const lado=+r.dataset.lado,gm=+$('woGames').value,s=$('woEntra');
+  if(!marcarWO(id,lado,gm))return alert(`Confira os games (de 0 a ${maxGamesWO(id)}).`);
+  if(s&&s.value){
+    const g=+id.split('-')[0],j=+id.split('-')[1],quem=+r.value;
+    const pos=quem<capacity()&&grupoDe(quem)===g?quem:-1;
+    const e=pos<0?'Só dá para colocar substituto para atleta do próprio grupo.':substituirNoGrupo(pos,j+1,s.value,'lesão');
+    if(e)alert('O W.O. foi lançado, mas o substituto não: '+e);
+  }
+  fecharModal();render();
 }
 function renderBracket(qs,ss,f,t){
  const box=(m,label,placeholder)=>`<div class="br-match"><div class="br-label">${label}</div>${m?[m.a,m.b].map((p,k)=>`<div class="br-team ${valid(S.finals[m.id])&&S.finals[m.id][k]>S.finals[m.id][1-k]?'br-win':''}"><span>${pair(p)}</span><strong>${valid(S.finals[m.id])&&(S.wo||{})[m.id]===k?'W.O.':S.finals[m.id]?.[k]??'–'}</strong></div>`).join(''):`<div class="br-team br-empty">${placeholder[0]}</div><div class="br-team br-empty">${placeholder[1]}</div>`}</div>`;
