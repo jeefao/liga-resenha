@@ -44,6 +44,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    9. `supabase/migrations/20261128000003_consulta_todas_temporadas.sql` (consulta com todas as temporadas em andamento e encerradas)
    10. `supabase/migrations/20261128000004_acessos_atletas.sql` (login dos atletas: a consulta passa a exigir conta aprovada pelo administrador)
    11. `supabase/migrations/20261128000005_permissoes_admin.sql` (dono e administradores com permissões por área; os administradores existentes viram donos)
+   12. `supabase/migrations/20261128000006_financeiro.sql` (Finanças: caixa único, inscrições por rodada, despesas, premiação prevista; só pelas funções, com as permissões do financeiro)
    O resultado esperado é "Success. No rows returned".
 3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
    deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.

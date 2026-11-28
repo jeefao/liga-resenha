@@ -125,7 +125,23 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
 - O **dono** pode tudo e é o único que usa a aba Usuários (aprovar, bloquear, trocar senha, excluir conta, tornar
   administrador) e que apaga de vez (lixeira, temporada arquivada, atleta).
 - Para tornar alguém administrador: a pessoa cria conta, o dono aprova e, na aba Usuários, marca "É administrador" e
-  as permissões: Ligas e jogos; Temporadas; Cadastro de atletas; Financeiro: ver; Financeiro: lançar (página futura).
+  as permissões: Ligas e jogos; Temporadas; Cadastro de atletas; Financeiro: ver; Financeiro: lançar.
 - Sem uma permissão, os botões daquela área somem e os campos ficam travados; o servidor também recusa.
 - Bloquear ou recusar a pessoa tira também o papel de administrador.
 
+
+## Finanças (v7.5.0)
+
+- Caixa único da liga: saldo inicial (o dinheiro que já existia) + inscrições pagas + entradas − saídas.
+- Inscrição cobrada por atleta em cada rodada (liga relâmpago ou etapa). Valor: o próprio da rodada, se houver;
+  senão o padrão da temporada (para etapas); senão o padrão das ligas relâmpago.
+- Cada inscrito fica Pago, Pendente ou Isento. Isento não entra no "a receber". O valor pago pode ser diferente do padrão.
+- A cobrança de uma rodada é ativada na aba Rodadas; a lista de inscritos vem da própria liga.
+- Despesas e entradas podem ser da rodada, da temporada ou da liga em geral. Categorias de despesa: Quadra, Bar,
+  Prêmios, Bolas, Troféus, Medalhas, Registro do site, Outros.
+- Premiação prevista por colocação, na rodada ou na temporada. Pagar um prêmio cria uma saída na categoria Prêmios;
+  excluir esse lançamento volta o prêmio para previsto.
+- Saldo futuro previsto = caixa atual − premiação prevista. O "a receber" aparece à parte.
+- Lançamentos excluídos ficam guardados no banco (com quem e quando excluiu). Apagar uma liga de vez não apaga o
+  dinheiro que entrou por ela.
+- Só administradores com "Financeiro: ver" abrem a página; gravar exige "Financeiro: lançar". Atletas não veem.

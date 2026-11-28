@@ -1,4 +1,4 @@
-const APP_VERSION='7.4.0';
+const APP_VERSION='7.5.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -87,6 +87,14 @@ function traduzErro(e){
   const m=String(e&&(e.message||e)||'erro desconhecido');
   if(ehErroDeRede(e))return 'sem conexão com o servidor';
   if(/sem_permissao/.test(m))return 'você não tem permissão para isso (fale com o dono da liga)';
+  if(/rodada_com_pagamentos/.test(m))return 'esta rodada já tem pagamentos marcados; volte todos para pendente antes';
+  if(/atleta_nao_inscrito/.test(m))return 'este atleta não está mais inscrito na liga (atualize a tela)';
+  if(/rodada_sem_cobranca/.test(m))return 'esta rodada não está com cobrança ativa (atualize a tela)';
+  if(/premio_pago/.test(m))return 'este prêmio já foi pago; para mudar, exclua o lançamento do pagamento';
+  if(/lancamento_de_premio/.test(m))return 'pagamento de prêmio não se edita; exclua e pague de novo';
+  if(/valor_invalido/.test(m))return 'valor inválido';
+  if(/categoria_invalida/.test(m))return 'escolha a categoria';
+  if(/fin_resumo|fin_lancar|fin_marcar/.test(m)&&/not find|PGRST202|does not exist/.test(m))return 'o Finanças ainda não foi instalado no servidor';
   if(/aprove_antes/.test(m))return 'aprove o acesso da pessoa antes de torná-la administradora';
   if(/permissao_invalida/.test(m))return 'permissão desconhecida';
   if(/escolha_o_atleta/.test(m))return 'escolha o atleta do cadastro antes de aprovar';
@@ -296,7 +304,8 @@ const pode=a=>!!(meuAcesso&&meuAcesso.admin&&(meuAcesso.dono||(meuAcesso.permiss
 // botões que gravam: função chamada no clique → permissão necessária ('dono' = só o dono)
 const ACAO_PERMISSAO={ligas:"criarLiga duplicarLiga mudarArquivo moverParaLixeira retirarDaLixeira restaurarVersao startLeague endLeague corrigirResultados setCapacity clearNames shuffle sortearDuplasTela desfazerGrupoTela confirmarDuplasManual abrirDuplasManual chooseTie resetTie digitarPlacar previaWO abrirWO confirmarWO novoAtletaParaWO previaSub abrirSubstituicao aplicarSubstituicao desfazerSubstituicao removerPosicao toggleAtleta novoAtletaNaLiga aplicarColarLista abrirColarLista vincularCadastro importarAntiga importarArquivo abrirNovaEtapa criarEtapa usarVersaoServidor manterMinhasAlteracoes",
   temporadas:"criarTemporada mudarStatusTemporada salvarRegras salvarDataPrevista adicionarAjuste removerAjuste",
-  atletas:"abrirAtletaForm salvarAtletaForm",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios"};
+  atletas:"abrirAtletaForm salvarAtletaForm",
+  financeiro_lancar:"finAbrirLanc finSalvarLanc finExcluirLanc finMarcar finValorPago finSalvarValorPago finCobrar finParar finValorRodada finSalvarAjustes finSalvarValorTemp finAbrirPremio finSalvarPremio finExcluirPremio finPagarPremio",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios"};
 const FN_PERMISSAO={};for(const [a,l] of Object.entries(ACAO_PERMISSAO))for(const f of l.split(' '))FN_PERMISSAO[f]=a;
 function permitido(a){return a==='dono'?ehDono():pode(a)}
 function areaDoClique(c){
@@ -308,7 +317,7 @@ function areaDoClique(c){
 function aplicarPermissoes(){
   if(!meuAcesso||!meuAcesso.admin||ehDono()||emConsulta())return;
   document.querySelectorAll('#main [onclick],#lifecycle [onclick],#modal [onclick]').forEach(e=>{const a=areaDoClique(e.getAttribute('onclick'));if(a&&!permitido(a))e.remove()});
-  const trava=(view==='liga'&&!pode('ligas'))||(view==='temporada'&&!pode('temporadas'));
+  const trava=(view==='liga'&&!pode('ligas'))||(view==='temporada'&&!pode('temporadas'))||(view==='financas'&&!pode('financeiro_lancar'));
   if(trava)document.querySelectorAll('#main input:not([type=checkbox][data-leitura]),#main select,#main textarea').forEach(e=>{if(!e.closest('[data-leitura]'))e.disabled=true});
 }
 
@@ -530,7 +539,7 @@ function renderInicio(){
   const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
   const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
-  let h=`<section><div class="atalhos"><button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
+  let h=`<section><div class="atalhos">${pode('financeiro_ver')?'<button class="secondary" onclick="abrirFinancas()">Finanças</button>':''}<button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
   if(antiga)h+=`<section class="tie-card tie-pending"><b>Liga da versão anterior encontrada neste aparelho</b>
    <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>
@@ -2402,6 +2411,223 @@ function renderLifecycle(){
    <p class="muted">${L.etapa_numero?'Etapa '+L.etapa_numero+' da temporada • ':''}${fmtData(L.data)} • ${capacity()} atletas • <span class="chip st-${st}">${STATUS_LABEL[st]}</span></p>
    <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px"><div><div class="status-chip">${statusText()}</div><p class="muted" style="margin-top:8px">${progressSummary()}</p></div><div class="row">${acoes}</div></div></section>`;
 }
+/* ---------- Finanças ---------- */
+// Caixa único da liga. Tudo vem do servidor (fin_resumo); nada é guardado neste aparelho.
+// Só aparece para quem tem "Financeiro: ver"; botões de gravar só com "Financeiro: lançar".
+let fin=null,finInfo={carregando:false,erro:null},finTab='Resumo',finRodadaId=null;
+const FIN_TABS=['Resumo','Rodadas','Lançamentos','Premiação','Ajustes'];
+const FIN_CAT_SAIDA=['Quadra','Bar','Prêmios','Bolas','Troféus','Medalhas','Registro do site','Outros'];
+const FIN_CAT_ENTRADA=['Patrocínio','Venda','Outros'];
+const finLanca=()=>pode('financeiro_lancar');
+function reais(c){return (Number(c||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function reaisCampo(c){return c==null?'':(Number(c)/100).toFixed(2).replace('.',',')}
+// "50", "50,5", "1.234,56", "R$ 20" → centavos; vazio → null; inválido → NaN
+function centavosDe(t){
+  let s=String(t==null?'':t).replace(/R\$|\s/g,'');if(!s)return null;
+  if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');
+  if(!/^-?\d+(\.\d{1,2})?$/.test(s))return NaN;
+  return Math.round(Number(s)*100);
+}
+function abrirFinancas(){view='financas';finRodadaId=null;render();carregarFin()}
+async function carregarFin(){
+  finInfo.carregando=true;finInfo.erro=null;if(view==='financas')render();
+  try{const {data,error}=await sb.rpc('fin_resumo');if(error)throw error;fin=data}
+  catch(e){finInfo.erro=traduzErro(e)}
+  finally{finInfo.carregando=false;if(view==='financas')render()}
+}
+// toda gravação: espera o servidor responder antes de mostrar qualquer resultado
+async function finGravar(fn,args,okMsg){
+  if(ocupado)return false;ocupado=true;
+  try{const {data,error}=await sb.rpc(fn,args);if(error)throw error;ocupado=false;fecharModal();await carregarFin();if(okMsg)finAviso(okMsg);return data||true}
+  catch(e){alert('Nada foi gravado: '+traduzErro(e));return false}
+  finally{ocupado=false}
+}
+function finAviso(t){const el=$('fin-aviso');if(el){el.textContent=t;el.style.display='block';clearTimeout(finAviso.t);finAviso.t=setTimeout(()=>{if($('fin-aviso'))$('fin-aviso').style.display='none'},2600)}}
+
+function renderFinancas(){
+  let h=`<section><button class="ghost" onclick="view='inicio';render()">← Início</button><h2 style="margin:12px 0 0">Finanças</h2><p id="fin-aviso" class="fin-aviso" style="display:none"></p></section>`;
+  if(!fin)return h+`<section>${finInfo.erro?`<p class="muted">Não foi possível carregar: ${esc(finInfo.erro)}</p><div class="panel-actions"><button class="secondary" onclick="carregarFin()">Tentar novamente</button></div>`:'<p class="muted">Carregando…</p>'}</section>`;
+  if(finInfo.erro)h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">Mostrando os últimos números carregados. (${esc(finInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarFin()">Tentar novamente</button></div></section>`;
+  if(finTab==='Rodadas')return h+(finRodadaId?finRodadaDetalhe():finRodadas());
+  if(finTab==='Lançamentos')return h+finLancamentos();
+  if(finTab==='Premiação')return h+finPremiacao();
+  if(finTab==='Ajustes')return h+finAjustes();
+  return h+finResumo();
+}
+function finKpis(t){
+  return `<div class="fin-kpis">
+    <div class="fin-kpi"><span>Caixa atual</span><b>${reais(t.caixa)}</b></div>
+    <div class="fin-kpi"><span>A receber</span><b>${reais(t.a_receber)}</b></div>
+    <div class="fin-kpi"><span>Premiação prevista</span><b>${reais(t.premiacao_prevista)}</b></div>
+    <div class="fin-kpi fin-futuro${t.saldo_futuro<0?' neg':''}"><span>Saldo futuro previsto</span><b>${reais(t.saldo_futuro)}</b></div>
+  </div>`;
+}
+function finBotoesLanc(liga,temporada){
+  if(!finLanca())return '';
+  const a=`${liga?`'${liga}'`:'null'},${temporada?`'${temporada}'`:'null'}`;
+  return `<div class="panel-actions"><button class="secondary" onclick="finAbrirLanc(null,'saida',${a})">+ Despesa</button><button class="secondary" onclick="finAbrirLanc(null,'entrada',${a})">+ Entrada</button></div>`;
+}
+function finResumo(){
+  const t=fin.totais;
+  return `<section>${finKpis(t)}
+    <p class="muted" style="margin-top:10px">Caixa = saldo inicial ${reais(t.saldo_inicial)} + inscrições ${reais(t.inscricoes_recebidas)} + entradas ${reais(t.entradas)} − saídas ${reais(t.saidas)}. Saldo futuro previsto = caixa − premiação prevista.</p>
+    ${finBotoesLanc()}</section>
+   <section><h3>Últimos lançamentos</h3>${finListaLanc(fin.lancamentos.slice(0,8))}${fin.lancamentos.length>8?`<div class="panel-actions"><button class="ghost" onclick="finTab='Lançamentos';render()">Ver todos (${fin.lancamentos.length})</button></div>`:''}</section>`;
+}
+function finListaLanc(l){
+  if(!l.length)return '<p class="muted" style="margin-top:8px">Nada lançado ainda.</p>';
+  return `<div class="fin-lista">${l.map(x=>{const onde=x.liga_nome?esc(x.liga_nome):x.temporada_nome?'Temporada '+esc(x.temporada_nome):'Liga (geral)';
+    return `<div class="fin-linha"><div class="fin-linha-txt"><b>${esc(x.categoria)}</b>${x.descricao?' — '+esc(x.descricao):''}<div class="muted">${fmtData(x.data)} • ${onde}</div></div>
+      <div class="fin-valor ${x.tipo==='saida'?'neg':'pos'}">${x.tipo==='saida'?'−':'+'} ${reais(x.valor_centavos)}</div>
+      ${finLanca()?`<div class="fin-acoes">${x.premio_id?'':`<button class="ghost mini" onclick="finAbrirLanc('${x.id}')">Editar</button>`}<button class="ghost mini" onclick="finExcluirLanc('${x.id}')">Excluir</button></div>`:''}</div>`}).join('')}</div>`;
+}
+function finNomeRodada(r){return `${esc(r.nome)}${r.apagada?' <span class="muted">(liga apagada)</span>':r.na_lixeira?' <span class="muted">(na lixeira)</span>':''}`}
+function finRodadas(){
+  const rs=fin.rodadas;
+  let h=`<section><h3>Rodadas com inscrição</h3>${rs.length?`<div class="ligas-list" style="margin-top:10px">${rs.map(r=>{
+    const c={pago:0,isento:0,pendente:0};r.inscritos.forEach(i=>c[i.status]++);const saldo=r.recebido+r.entradas-r.saidas;
+    return `<div class="liga-card fin-rodada" onclick="finRodadaId='${r.liga_id}';render()"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>${finNomeRodada(r)}</h3><span class="muted">${fmtData(r.data)}</span></div>
+      <p class="muted" style="margin-top:4px">${r.temporada_nome?'Temporada '+esc(r.temporada_nome)+(r.etapa_numero?' • etapa '+r.etapa_numero:'')+' • ':'Relâmpago • '}inscrição ${reais(r.valor_centavos)}</p>
+      <p style="margin-top:6px">${c.pago} pago(s) • ${c.pendente} pendente(s) • ${c.isento} isento(s)</p>
+      <p class="muted" style="margin-top:2px">Recebido ${reais(r.recebido)} • a receber ${reais(r.a_receber)} • saldo da rodada <b class="${saldo<0?'neg':''}">${reais(saldo)}</b></p></div>`}).join('')}</div>`:'<p class="muted" style="margin-top:8px">Nenhuma rodada com cobrança ainda.</p>'}</section>`;
+  if(finLanca()&&fin.ligas_sem_cobranca.length)h+=`<section><h3>Cobrar inscrição de uma rodada</h3><p class="muted" style="margin-top:4px">Escolha a liga relâmpago ou etapa. A lista de inscritos vem da própria liga.</p>
+    <select id="fin-nova-rodada" style="margin-top:10px">${fin.ligas_sem_cobranca.map(l=>`<option value="${l.id}">${esc(l.nome)} — ${fmtData(l.data)}</option>`).join('')}</select>
+    <div class="panel-actions"><button onclick="finCobrar()">Cobrar inscrição</button></div></section>`;
+  return h;
+}
+function finRodadaDetalhe(){
+  const r=fin.rodadas.find(x=>x.liga_id===finRodadaId);if(!r){finRodadaId=null;return finRodadas()}
+  const lanc=fin.lancamentos.filter(x=>x.liga_id===r.liga_id),prem=fin.premios.filter(p=>p.liga_id===r.liga_id);
+  const saldo=r.recebido+r.entradas-r.saidas,L=finLanca();
+  const seg=(i,k,s,txt)=>`<button class="${i.status===s?'on':''}" ${L?`onclick="finMarcar('${r.liga_id}',${k},'${s}')"`:'disabled'}>${txt}</button>`;
+  return `<section><button class="ghost" onclick="finRodadaId=null;render()">← Rodadas</button>
+    <h3 style="margin-top:10px">${finNomeRodada(r)}</h3><p class="muted">${fmtData(r.data)} • inscrição ${reais(r.valor_centavos)}${r.valor_proprio!=null?' (valor só desta rodada)':' (valor padrão)'}</p>
+    <div class="fin-kpis" style="margin-top:10px"><div class="fin-kpi"><span>Recebido</span><b>${reais(r.recebido)}</b></div><div class="fin-kpi"><span>A receber</span><b>${reais(r.a_receber)}</b></div><div class="fin-kpi"><span>Despesas</span><b>${reais(r.saidas)}</b></div><div class="fin-kpi fin-futuro${saldo<0?' neg':''}"><span>Saldo da rodada</span><b>${reais(saldo)}</b></div></div>
+    ${L?`<details style="margin-top:10px"><summary class="muted">Mudar o valor da inscrição desta rodada</summary><div class="row" style="margin-top:8px;align-items:end"><label style="flex:1">Valor (R$) <input id="fin-valor-rodada" inputmode="decimal" placeholder="vazio = valor padrão" value="${reaisCampo(r.valor_proprio)}"></label><button class="secondary" onclick="finValorRodada('${r.liga_id}')">Salvar valor</button></div></details>`:''}</section>
+   <section><h3>Inscritos (${r.inscritos.length})</h3>${r.inscritos.length?`<div class="fin-lista">${r.inscritos.map((i,k)=>`<div class="fin-linha"><div class="fin-linha-txt"><b>${esc(i.nome)}</b>${i.status==='pago'?`<div class="muted">pagou ${reais(i.valor_centavos)}${i.pago_em?' em '+fmtData(i.pago_em):''}${L?` • <a href="#" onclick="finValorPago('${r.liga_id}',${k});return false">mudar valor</a>`:''}</div>`:''}</div>
+      <div class="seg">${seg(i,k,'pago','Pago')}${seg(i,k,'pendente','Pendente')}${seg(i,k,'isento','Isento')}</div></div>`).join('')}</div>`:'<p class="muted" style="margin-top:8px">A liga ainda não tem atletas inscritos.</p>'}</section>
+   <section><h3>Despesas e entradas da rodada</h3>${finListaLanc(lanc)}${finBotoesLanc(r.liga_id)}</section>
+   <section><h3>Premiação da rodada</h3>${finListaPremios(prem)}${L?`<div class="panel-actions"><button class="secondary" onclick="finAbrirPremio(null,'${r.liga_id}',null)">+ Prêmio</button></div>`:''}</section>
+   ${L&&!r.recebido&&!r.inscritos.some(i=>i.status!=='pendente')?`<p class="muted" style="text-align:center"><a href="#" onclick="finParar('${r.liga_id}');return false">Parar de cobrar inscrição desta rodada</a></p>`:''}`;
+}
+function finListaPremios(ps){
+  if(!ps.length)return '<p class="muted" style="margin-top:8px">Nenhum prêmio previsto.</p>';
+  return `<div class="fin-lista">${ps.map(p=>`<div class="fin-linha"><div class="fin-linha-txt"><b>${p.colocacao}º lugar</b>${p.descricao?' — '+esc(p.descricao):''}<div class="muted">${p.pago?'pago':'previsto'}</div></div>
+    <div class="fin-valor ${p.pago?'neg':''}">${reais(p.valor_centavos)}</div>
+    ${finLanca()?`<div class="fin-acoes">${p.pago?'<span class="muted" style="font-size:12px">para desfazer, exclua o lançamento</span>':`<button class="secondary mini" onclick="finPagarPremio('${p.id}')">Pagar</button><button class="ghost mini" onclick="finAbrirPremio('${p.id}')">Editar</button><button class="ghost mini" onclick="finExcluirPremio('${p.id}')">Excluir</button>`}</div>`:''}</div>`).join('')}</div>`;
+}
+function finLancamentos(){
+  const t=fin.totais;
+  return `<section><p>Entradas <b class="pos">${reais(t.entradas)}</b> • Saídas <b class="neg">${reais(t.saidas)}</b></p><p class="muted" style="margin-top:4px">As inscrições pagas aparecem nas rodadas.</p>${finBotoesLanc()}</section>
+   <section>${finListaLanc(fin.lancamentos)}</section>`;
+}
+function finPremiacao(){
+  const porTemp=fin.temporadas.map(t=>({t,ps:fin.premios.filter(p=>p.temporada_id===t.id)})).filter(x=>x.ps.length||x.t.status!=='arquivada');
+  const rod=fin.rodadas.map(r=>({r,ps:fin.premios.filter(p=>p.liga_id===r.liga_id)})).filter(x=>x.ps.length);
+  return `<section>${finKpis(fin.totais)}</section>
+   <section><h3>Temporadas</h3>${porTemp.length?porTemp.map(({t,ps})=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(t.nome)}</h3>${finListaPremios(ps)}${finLanca()?`<div class="panel-actions"><button class="secondary" onclick="finAbrirPremio(null,null,'${t.id}')">+ Prêmio da temporada</button></div>`:''}</div>`).join(''):'<p class="muted" style="margin-top:8px">Nenhuma temporada.</p>'}</section>
+   <section><h3>Rodadas</h3>${rod.length?rod.map(({r,ps})=>`<div class="liga-card" style="margin-top:10px"><h3>${finNomeRodada(r)}</h3>${finListaPremios(ps)}</div>`).join(''):'<p class="muted" style="margin-top:8px">Os prêmios de cada rodada são lançados dentro da rodada (aba Rodadas).</p>'}</section>`;
+}
+function finAjustes(){
+  const c=fin.config,L=finLanca(),dis=L?'':' disabled';
+  return `<section><h3>Caixa e inscrição das relâmpago</h3>
+    <div class="form-grid" style="margin-top:10px"><label>Saldo inicial do caixa (R$)<input id="fin-saldo-inicial" inputmode="decimal" value="${reaisCampo(c.saldo_inicial_centavos)}"${dis}></label>
+    <label>Inscrição padrão das ligas relâmpago (R$)<input id="fin-insc-relampago" inputmode="decimal" value="${reaisCampo(c.inscricao_relampago_centavos)}"${dis}></label></div>
+    <p class="muted" style="margin-top:6px">Saldo inicial é o dinheiro que a liga já tinha antes de usar o app.</p>
+    ${L?'<div class="panel-actions"><button onclick="finSalvarAjustes()">Salvar</button></div>':''}</section>
+   <section><h3>Inscrição padrão de cada temporada</h3>${fin.temporadas.length?fin.temporadas.map(t=>`<div class="row" style="margin-top:10px;align-items:end"><label style="flex:1">${esc(t.nome)} (R$)<input id="fin-temp-${t.id}" inputmode="decimal" placeholder="vazio = igual às relâmpago" value="${reaisCampo(t.inscricao_centavos)}"${dis}></label>${L?`<button class="secondary" onclick="finSalvarValorTemp('${t.id}')">Salvar</button>`:''}</div>`).join(''):'<p class="muted" style="margin-top:8px">Nenhuma temporada ainda.</p>'}</section>`;
+}
+
+/* ações (precisam de "Financeiro: lançar"; o servidor confere de novo) */
+function finLerValor(id,{vazio=false,zero=true}={}){
+  const c=centavosDe($(id).value);
+  if(c===null&&vazio)return null;
+  if(c===null||Number.isNaN(c)||c<0||(!zero&&c===0)){alert('Valor inválido. Use, por exemplo, 50 ou 50,00.');$(id).focus();return undefined}
+  return c;
+}
+async function finSalvarAjustes(){
+  const s=centavosDe($('fin-saldo-inicial').value),i=finLerValor('fin-insc-relampago');
+  if(s===null||Number.isNaN(s)){alert('Saldo inicial inválido. Use, por exemplo, 1500 ou 1.500,00.');return}
+  if(i===undefined)return;
+  await finGravar('fin_salvar_config',{p_saldo_inicial_centavos:s,p_inscricao_relampago_centavos:i},'Ajustes salvos.');
+}
+async function finSalvarValorTemp(tid){
+  const v=finLerValor('fin-temp-'+tid,{vazio:true});if(v===undefined)return;
+  await finGravar('fin_salvar_valor_temporada',{p_temporada_id:tid,p_inscricao_centavos:v},'Valor da temporada salvo.');
+}
+async function finCobrar(){
+  const id=$('fin-nova-rodada')&&$('fin-nova-rodada').value;if(!id)return;
+  if(await finGravar('fin_cobrar_rodada',{p_liga_id:id,p_cobrar:true},'Cobrança ativada.'))finRodadaId=id,render();
+}
+async function finParar(id){
+  if(!confirm('Parar de cobrar inscrição desta rodada? Ela sai da lista de rodadas do Finanças.'))return;
+  if(await finGravar('fin_cobrar_rodada',{p_liga_id:id,p_cobrar:false},'Cobrança desativada.'))finRodadaId=null,render();
+}
+async function finValorRodada(id){
+  const v=finLerValor('fin-valor-rodada',{vazio:true});if(v===undefined)return;
+  await finGravar('fin_cobrar_rodada',{p_liga_id:id,p_cobrar:true,p_inscricao_centavos:v},'Valor da rodada salvo.');
+}
+const finInscrito=(liga,k)=>{const r=fin.rodadas.find(x=>x.liga_id===liga);return r&&r.inscritos[k]};
+async function finMarcar(liga,k,status){const i=finInscrito(liga,k);if(i)await finGravar('fin_marcar_inscricao',{p_liga_id:liga,p_chave:i.chave,p_status:status})}
+function finValorPago(liga,k){
+  const i=finInscrito(liga,k);if(!i)return;
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Valor pago — ${esc(i.nome)}</h2>
+    <div class="form-grid" style="margin-top:12px"><label>Valor (R$)<input id="fin-vp" inputmode="decimal" value="${reaisCampo(i.valor_centavos)}"></label><label>Data do pagamento<input id="fin-vp-data" type="date" value="${i.pago_em||hoje()}"></label></div>
+    <div class="panel-actions"><button onclick="finSalvarValorPago('${liga}',${k})">Salvar</button><button class="ghost" onclick="fecharModal()">Cancelar</button></div></div></div>`;
+}
+async function finSalvarValorPago(liga,k){
+  const v=finLerValor('fin-vp');if(v===undefined)return;const i=finInscrito(liga,k);if(!i)return;
+  await finGravar('fin_marcar_inscricao',{p_liga_id:liga,p_chave:i.chave,p_status:'pago',p_valor_centavos:v,p_pago_em:$('fin-vp-data').value||null},'Pagamento salvo.');
+}
+function finAbrirLanc(id,tipo,liga,temporada){
+  const x=id?fin.lancamentos.find(l=>l.id===id):null;
+  tipo=x?x.tipo:tipo||'saida';liga=x?x.liga_id:liga||null;temporada=x?x.temporada_id:temporada||null;
+  const cats=tipo==='saida'?FIN_CAT_SAIDA:FIN_CAT_ENTRADA,vinc=liga?'l:'+liga:temporada?'t:'+temporada:'';
+  const opcoes=[['','Liga (geral)'],...fin.temporadas.map(t=>['t:'+t.id,'Temporada '+t.nome]),...fin.rodadas.map(r=>['l:'+r.liga_id,'Rodada '+r.nome+' — '+fmtData(r.data)])];
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>${x?'Editar':'Nova'} ${tipo==='saida'?'despesa':'entrada'}</h2>
+    <input type="hidden" id="fin-l-tipo" value="${tipo}">
+    <div class="form-grid" style="margin-top:12px">
+      <label>Categoria<select id="fin-l-cat">${cats.map(c=>`<option${x&&x.categoria===c?' selected':''}>${esc(c)}</option>`).join('')}${x&&!cats.includes(x.categoria)?`<option selected>${esc(x.categoria)}</option>`:''}</select></label>
+      <label>Valor (R$)<input id="fin-l-valor" inputmode="decimal" value="${x?reaisCampo(x.valor_centavos):''}" placeholder="0,00"></label>
+      <label>Descrição (opcional)<input id="fin-l-desc" maxlength="200" value="${x&&x.descricao?esc(x.descricao):''}"></label>
+      <label>Data<input id="fin-l-data" type="date" value="${x?x.data:hoje()}"></label>
+      <label>De onde é<select id="fin-l-vinc">${opcoes.map(([v,t])=>`<option value="${v}"${v===vinc?' selected':''}>${esc(t)}</option>`).join('')}</select></label>
+    </div>
+    <div class="panel-actions"><button onclick="finSalvarLanc(${x?`'${x.id}'`:'null'})">Salvar</button><button class="ghost" onclick="fecharModal()">Cancelar</button></div></div></div>`;
+}
+async function finSalvarLanc(id){
+  const v=finLerValor('fin-l-valor',{zero:false});if(v===undefined)return;
+  const vinc=$('fin-l-vinc').value;
+  await finGravar('fin_lancar',{p_id:id||crypto.randomUUID(),p_tipo:$('fin-l-tipo').value,p_categoria:$('fin-l-cat').value,p_descricao:$('fin-l-desc').value.trim()||null,
+    p_valor_centavos:v,p_data:$('fin-l-data').value||null,p_liga_id:vinc.startsWith('l:')?vinc.slice(2):null,p_temporada_id:vinc.startsWith('t:')?vinc.slice(2):null},'Lançamento salvo.');
+}
+async function finExcluirLanc(id){
+  const x=fin.lancamentos.find(l=>l.id===id);if(!x)return;
+  if(!confirm(`Excluir ${x.categoria} de ${reais(x.valor_centavos)}?${x.premio_id?' O prêmio volta a ficar previsto.':''}`))return;
+  await finGravar('fin_excluir_lancamento',{p_id:id},'Lançamento excluído.');
+}
+function finAbrirPremio(id,liga,temporada){
+  const p=id?fin.premios.find(x=>x.id===id):null;liga=p?p.liga_id:liga;temporada=p?p.temporada_id:temporada;
+  const onde=liga?(fin.rodadas.find(r=>r.liga_id===liga)||{}).nome:(fin.temporadas.find(t=>t.id===temporada)||{}).nome;
+  const prox=p?p.colocacao:1+Math.max(0,...fin.premios.filter(x=>liga?x.liga_id===liga:x.temporada_id===temporada).map(x=>x.colocacao));
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>${p?'Editar':'Novo'} prêmio</h2><p class="muted">${liga?'Rodada':'Temporada'} ${esc(onde||'')}</p>
+    <div class="form-grid" style="margin-top:12px"><label>Colocação<input id="fin-p-col" type="number" min="1" max="64" value="${prox}"></label>
+    <label>Descrição (opcional)<input id="fin-p-desc" maxlength="120" placeholder="ex.: dinheiro, troféu, kit" value="${p&&p.descricao?esc(p.descricao):''}"></label>
+    <label>Valor previsto (R$)<input id="fin-p-valor" inputmode="decimal" value="${p?reaisCampo(p.valor_centavos):''}" placeholder="0,00"></label></div>
+    <div class="panel-actions"><button onclick="finSalvarPremio(${p?`'${p.id}'`:'null'},${liga?`'${liga}'`:'null'},${temporada?`'${temporada}'`:'null'})">Salvar</button><button class="ghost" onclick="fecharModal()">Cancelar</button></div></div></div>`;
+}
+async function finSalvarPremio(id,liga,temporada){
+  const v=finLerValor('fin-p-valor');if(v===undefined)return;
+  const col=parseInt($('fin-p-col').value,10);if(!(col>=1&&col<=64)){alert('Colocação inválida.');return}
+  await finGravar('fin_salvar_premio',{p_id:id||crypto.randomUUID(),p_liga_id:liga,p_temporada_id:temporada,p_colocacao:col,p_descricao:$('fin-p-desc').value.trim()||null,p_valor_centavos:v},'Prêmio salvo.');
+}
+async function finExcluirPremio(id){if(confirm('Excluir este prêmio previsto?'))await finGravar('fin_excluir_premio',{p_id:id},'Prêmio excluído.')}
+async function finPagarPremio(id){
+  const p=fin.premios.find(x=>x.id===id);if(!p)return;
+  if(!confirm(`Registrar o pagamento de ${reais(p.valor_centavos)} (${p.colocacao}º lugar)? Vira uma saída do caixa hoje.`))return;
+  await finGravar('fin_pagar_premio',{p_id:id},'Prêmio pago.');
+}
+
 function render(){
   renderSync();
   if(view!=='liga'&&view!=='temporada'){$('lifecycle').innerHTML='';$('nav').innerHTML='';$('nav').style.display='none'}
@@ -2414,6 +2640,7 @@ function render(){
   if(view==='nova')h=renderNova();
   if(view==='atletas')h=renderAtletas();
   if(view==='nova-temporada')h=renderNovaTemporada();
+  if(view==='financas'){$('nav').style.display='';$('nav').innerHTML=FIN_TABS.map(t=>`<button class="${t===finTab?'active':'secondary'}" onclick="finTab='${t}';finRodadaId=null;render()">${t}</button>`).join('');h=renderFinancas()}
   if(view==='temporada'){
     if(T){lsSet('lr6:taba:'+T.id,tTab);$('lifecycle').innerHTML=renderTemporadaCabecalho()}
     $('nav').style.display='';
