@@ -91,7 +91,7 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
 - Ausência sem aviso: suspensão de 3 etapas (controle de suspensão).
 - **Convidados**: até 3 etapas; para entrar precisa chegar a uma semifinal; nova tentativa só após 4 etapas.
 
-## Página pública (v6.7.0)
+## Página pública (v6.7.0 — atualizada na v7.0.0, ver abaixo)
 - Na temporada, o administrador liga/desliga "Página pública" e copia o link (`?consulta`).
 - Quem abre o link vê, sem login e sem poder alterar nada: classificação geral (mesmo cálculo e desempates), etapas (atual e próxima) e, de cada etapa, grupos, jogos, classificação e chave.
 - Só uma temporada aparece: a mais recente marcada como pública (arquivadas não aparecem).
@@ -101,3 +101,17 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
   quando quiser; fica no histórico). Ao criar a etapa, a data já vem preenchida. Na página de consulta, a aba Etapas
   mostra Atual, Próximas (com a data prevista ou "data a definir") e Jogadas.
 - Ficam visíveis os nomes dos atletas que jogaram a temporada e os ajustes de pontos com motivo. Não aparecem observações, apelidos, histórico nem atletas de fora da temporada.
+
+## Página de consulta com login (v7.0.0)
+- Abre num **Início** com os botões Início, Rodada atual, Temporadas e Relâmpagos.
+  - **Rodada atual**: a liga aberta mais recente (em andamento antes de inscrições); sem nenhuma aberta, a última jogada.
+  - **Temporadas**: todas as em andamento e encerradas (arquivadas não). Dentro de cada uma: classificação geral e etapas
+    (cada etapa com grupos, jogos, classificação e chave). Não existe mais o botão de ligar/desligar a página pública.
+- **Login**: cada atleta cria a conta (nome, e-mail e senha) e fica aguardando. Só depois que o administrador aprova
+  e liga a conta a um atleta do cadastro ele vê a consulta, com "Bem-vindo, Nome" no topo.
+- **Aba Usuários** (administrador): aprovar (escolhendo o atleta), recusar, bloquear/desbloquear, trocar o atleta ligado,
+  definir senha provisória e excluir a conta de login. As senhas nunca aparecem (o servidor guarda só o hash).
+  Esqueceu a senha: o administrador define uma provisória. O e-mail de login não é alterado pelo app.
+- **Chave**: sempre visível, espelhada (Q1, Q2 e S1 à esquerda; Q3, Q4 e S2 à direita; final e 3º lugar no centro).
+  Antes dos grupos terminarem, mostra o cruzamento (ex.: "Dupla 1 (1º e 2º)", "Vencedor Q1").
+

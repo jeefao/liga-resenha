@@ -1,5 +1,21 @@
 export const MOCK = () => {
-  const db = { ligas: {}, atletas: {}, temporadas: {} };
+  const db = { ligas: {}, atletas: {}, temporadas: {}, acessos: {} };
+  // contas de login do mock; 'mock:sessao' no localStorage: ausente = administrador, 'nenhuma' = sem login, ou o e-mail da conta
+  const contas = { 'admin@teste': { id: 'u1', email: 'admin@teste', senha: 'admin123', admin: true } };
+  db.contas = contas;
+  let marca = null; try { marca = localStorage.getItem('mock:sessao'); } catch {}
+  let atual = marca === 'nenhuma' ? null : marca ? (contas[marca] || (contas[marca] = { id: 'u-' + marca, email: marca, senha: '123456' })) : contas['admin@teste'];
+  const sessaoDe = () => (atual ? { user: { id: atual.id, email: atual.email } } : null);
+  const ehAdmin = () => !!(atual && atual.admin);
+  const exigeAdmin = () => { if (!ehAdmin()) throw { message: 'sem_permissao' }; };
+  const meuAcesso = () => {
+    if (!atual) return { logado: false };
+    if (atual.admin) return { logado: true, admin: true, status: 'aprovado' };
+    const a = db.acessos[atual.id];
+    if (!a) return { logado: true, admin: false, status: null };
+    const t = a.atleta_id && db.atletas[a.atleta_id];
+    return { logado: true, admin: false, status: a.status, nome: t ? t.nome : a.nome_informado };
+  };
   window.__db = db;
   const agora = () => new Date().toISOString();
   const resumo = (l) => ({ ok: true, ...l });
@@ -60,20 +76,52 @@ export const MOCK = () => {
       let n = 0; for (const l of Object.values(db.ligas)) if (l.temporada_id === p.p_id) { delete db.ligas[l.id]; n++; } delete db.temporadas[p.p_id]; return { ok: true, id: t.id, nome: t.nome, etapas: n }; },
     excluir_temporada(p) { const t = db.temporadas[p.p_id]; if (!t) throw { message: 'temporada_nao_encontrada' }; if (t.status !== 'arquivada') throw { message: 'temporada_nao_arquivada' };
       let n = 0; for (const l of Object.values(db.ligas)) if (l.temporada_id === p.p_id) { delete db.ligas[l.id]; n++; } delete db.temporadas[p.p_id]; return { ok: true, id: t.id, nome: t.nome, etapas: n }; },
+    is_admin() { return ehAdmin(); },
+    meu_acesso() { return meuAcesso(); },
+    solicitar_acesso(p) {
+      const nome = norm(p.p_nome || '');
+      if (nome.length < 3) throw { message: 'nome_invalido' };
+      const a = db.acessos[atual.id];
+      if (a && ['aprovado', 'bloqueado'].includes(a.status)) throw { message: 'pedido_ja_analisado' };
+      db.acessos[atual.id] = { ...(a || { user_id: atual.id, email: atual.email, atleta_id: null, criado_em: agora() }), nome_informado: nome, status: 'pendente' };
+      return meuAcesso();
+    },
+    listar_acessos() {
+      exigeAdmin();
+      return Object.values(db.acessos).map((a) => ({ ...a, atleta_nome: (db.atletas[a.atleta_id] || {}).nome || null, ultimo_acesso: null })).sort((x, y) => (y.status === 'pendente') - (x.status === 'pendente'));
+    },
+    definir_acesso(p) {
+      exigeAdmin();
+      const a = db.acessos[p.p_user_id]; if (!a) throw { message: 'acesso_nao_encontrado' };
+      if (p.p_status === 'aprovado' && !(p.p_atleta_id || a.atleta_id)) throw { message: 'escolha_o_atleta' };
+      a.status = p.p_status; if (p.p_atleta_id) a.atleta_id = p.p_atleta_id; return { ok: true };
+    },
+    trocar_senha_acesso(p) {
+      exigeAdmin();
+      if ((p.p_senha || '').length < 6) throw { message: 'senha_curta' };
+      const c = Object.values(contas).find((x) => x.id === p.p_user_id); if (!c || c.admin) throw { message: 'conta_de_administrador' };
+      c.senha = p.p_senha; return { ok: true };
+    },
+    excluir_acesso(p) {
+      exigeAdmin();
+      const c = Object.values(contas).find((x) => x.id === p.p_user_id); if (!c || c.admin) throw { message: 'conta_de_administrador' };
+      delete contas[c.email]; delete db.acessos[c.id]; return { ok: true };
+    },
     consulta_publica() {
-      const t = Object.values(db.temporadas).filter((x) => x.publica && x.status !== 'arquivada').sort((x, y) => String(y.inicio).localeCompare(String(x.inicio)))[0];
-      const relampagos = Object.values(db.ligas).filter((l) => !l.temporada_id && !l.excluida_em && l.status !== 'arquivada').sort((x, y) => String(y.data).localeCompare(String(x.data))).slice(0, 30)
-        .map((l) => ({ id: l.id, nome: l.nome, data: l.data, status: l.status, etapa: l.etapa, etapa_numero: null, participantes: l.participantes, versao: l.versao, atualizado_em: l.atualizado_em, excluida_em: null, dados: l.dados }));
-      if (!t) return { temporada: null, etapas: [], atletas: [], relampagos };
-      const etapas = Object.values(db.ligas).filter((l) => l.temporada_id === t.id && !l.excluida_em).sort((x, y) => x.etapa_numero - y.etapa_numero)
-        .map((l) => ({ id: l.id, nome: l.nome, data: l.data, status: l.status, etapa: l.etapa, etapa_numero: l.etapa_numero, participantes: l.participantes, versao: l.versao, atualizado_em: l.atualizado_em, excluida_em: null, dados: l.dados }));
-      const ajustes = ((t.dados || {}).ajustes || []).map((x) => ({ id: x.id, atleta_id: x.atleta_id, etapa: x.etapa, pontos: x.pontos, motivo: x.motivo }));
+      if (!ehAdmin() && !(atual && db.acessos[atual.id] && db.acessos[atual.id].status === 'aprovado')) throw { message: 'acesso_negado' };
+      // mesmo formato da função do banco (migration 20261128000003)
+      const ts = Object.values(db.temporadas).filter((x) => ['andamento', 'encerrada'].includes(x.status)).sort((x, y) => String(y.inicio).localeCompare(String(x.inicio)));
+      const temporadas = ts.map((t) => ({ id: t.id, nome: t.nome, inicio: t.inicio, status: t.status, regras: t.regras, dados: {
+        ajustes: ((t.dados || {}).ajustes || []).map((x) => ({ id: x.id, atleta_id: x.atleta_id, etapa: x.etapa, pontos: x.pontos, motivo: x.motivo })),
+        datas: Object.fromEntries(Object.entries((t.dados || {}).datas || {}).filter(([k, v]) => /^\d{1,3}$/.test(k) && /^\d{4}-\d{2}-\d{2}$/.test(v))) } }));
+      const vis = new Set(ts.map((t) => t.id));
+      const linha = (l) => ({ id: l.id, nome: l.nome, data: l.data, status: l.status, etapa: l.etapa, temporada_id: l.temporada_id || null, etapa_numero: l.etapa_numero || null, participantes: l.participantes, versao: l.versao, atualizado_em: l.atualizado_em, excluida_em: null, dados: l.dados });
+      const etapas = Object.values(db.ligas).filter((l) => vis.has(l.temporada_id) && !l.excluida_em).sort((x, y) => x.etapa_numero - y.etapa_numero).map(linha);
+      const relampagos = Object.values(db.ligas).filter((l) => !l.temporada_id && !l.excluida_em && l.status !== 'arquivada').sort((x, y) => String(y.data).localeCompare(String(x.data))).slice(0, 30).map(linha);
       const ids = new Set();
       etapas.forEach((l) => { (l.dados.ids || []).forEach((i) => i && ids.add(i)); [...(l.dados.subs || []), ...(l.dados.gsubs || [])].forEach((x) => x && x.atleta && x.atleta.id && ids.add(x.atleta.id)); });
-      ajustes.forEach((x) => x.atleta_id && ids.add(x.atleta_id));
-      const datas = Object.fromEntries(Object.entries((t.dados || {}).datas || {}).filter(([k, v]) => /^\d{1,3}$/.test(k) && /^\d{4}-\d{2}-\d{2}$/.test(v)));
-      return { relampagos, temporada: { id: t.id, nome: t.nome, inicio: t.inicio, status: t.status, regras: t.regras, dados: { ajustes, datas } }, etapas,
-        atletas: [...ids].map((i) => db.atletas[i]).filter(Boolean).map((x) => ({ id: x.id, nome: x.nome, situacao: x.situacao })) };
+      temporadas.forEach((t) => t.dados.ajustes.forEach((x) => x.atleta_id && ids.add(x.atleta_id)));
+      return { temporadas, etapas, relampagos, atletas: [...ids].map((i) => db.atletas[i]).filter(Boolean).map((x) => ({ id: x.id, nome: x.nome, situacao: x.situacao })) };
     },
     garantir_atletas(p) {
       return p.p_nomes.map((n) => {
@@ -82,10 +130,22 @@ export const MOCK = () => {
       });
     },
   };
-  const sessao = { user: { id: 'u1', email: 'admin@teste' } };
   window.supabase = {
     createClient: () => ({
-      auth: { onAuthStateChange() {}, getSession: async () => ({ data: { session: sessao } }), signOut: async () => {} },
+      auth: {
+        onAuthStateChange() {},
+        getSession: async () => ({ data: { session: sessaoDe() } }),
+        signOut: async () => { atual = null; return { error: null }; },
+        signInWithPassword: async ({ email, password }) => {
+          const c = contas[email];
+          if (!c || c.senha !== password) return { data: {}, error: { message: 'Invalid login credentials' } };
+          atual = c; return { data: { user: sessaoDe().user, session: sessaoDe() }, error: null };
+        },
+        signUp: async ({ email, password }) => {
+          if (contas[email]) return { data: {}, error: { message: 'User already registered' } };
+          atual = contas[email] = { id: 'u-' + email, email, senha: password }; return { data: { user: sessaoDe().user, session: sessaoDe() }, error: null };
+        },
+      },
       from: (t) => builder(t),
       rpc: async (n, p) => {
         await new Promise((r) => setTimeout(r, 30));

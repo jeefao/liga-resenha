@@ -128,7 +128,7 @@ td:not(:first-child),th:not(:first-child){text-align:center}
   .logo-wrap{width:128px;flex-basis:auto}
 }
 
-.br-scroll{overflow-x:auto;padding:8px 0 16px}.br-grid{width:960px;display:grid;grid-template-columns:260px 260px 260px;column-gap:80px;grid-template-rows:40px repeat(8,75px);position:relative}.br-head{font-weight:800;color:var(--gold);text-align:center;align-self:center}.br-lines{position:absolute;left:0;top:40px;width:960px;height:600px;pointer-events:none;z-index:0}.br-lines path{fill:none;stroke:#d5ad52;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.br-node{position:relative;z-index:1;align-self:center}.br-match{background:#101e32;border:1px solid #64748b;border-radius:12px;overflow:hidden}.br-label{padding:6px 10px;color:#f4c85a;font-size:12px;font-weight:800;background:#172945}.br-team{min-height:36px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid #334155;font-size:13px}.br-team strong{font-size:16px}.br-win{background:#244b38;color:#b9f6cc}.br-empty{color:#a8b6c9}.score input{font-size:20px;max-width:68px}.round-stack .match-card{margin-bottom:8px}
+.br-scroll{overflow-x:auto;padding:8px 0 16px}.br-grid{width:100%;min-width:760px;max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);column-gap:3.49%;grid-template-rows:32px repeat(6,70px);position:relative}.br-head{font-weight:800;color:var(--gold);text-align:center;align-self:center}.br-lines{position:absolute;left:0;top:32px;width:100%;height:420px;pointer-events:none;z-index:0}.br-lines path{fill:none;stroke:#d5ad52;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.br-node{position:relative;z-index:1;align-self:center}.br-match{background:#101e32;border:1px solid #64748b;border-radius:12px;overflow:hidden}.br-label{padding:6px 10px;color:#f4c85a;font-size:12px;font-weight:800;background:#172945}.br-team{min-height:36px;display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 8px;border-top:1px solid #334155;font-size:12px;line-height:1.3}.br-team span{overflow-wrap:anywhere}.br-head{grid-row:1}.br-team strong{font-size:16px}.br-win{background:#244b38;color:#b9f6cc}.br-empty{color:#a8b6c9}.score input{font-size:20px;max-width:68px}.round-stack .match-card{margin-bottom:8px}
 body{padding-bottom:84px}
 label{display:block;font-weight:600}
 label input,label select{margin-top:6px;font-weight:400}
@@ -150,6 +150,10 @@ label input,label select{margin-top:6px;font-weight:400}
 .at-membro{color:#bfdbfe;border-color:rgba(96,165,250,.6);background:rgba(30,64,175,.25)}
 .at-convidado{color:#fde68a;border-color:rgba(244,200,90,.6);background:rgba(244,200,90,.12)}
 .at-inativo{color:#cbd5e1;border-color:rgba(148,163,184,.5);background:rgba(51,65,85,.35)}
+.ac-pendente{color:#fde68a;border-color:rgba(244,200,90,.6);background:rgba(244,200,90,.12)}
+.ac-aprovado{color:#bbf7d0;border-color:rgba(34,197,94,.6);background:rgba(20,83,45,.3)}
+.ac-bloqueado{color:#fecaca;border-color:rgba(239,68,68,.6);background:rgba(127,29,29,.3)}
+.ac-recusado{color:#cbd5e1;border-color:rgba(148,163,184,.5);background:rgba(51,65,85,.35)}
 .at-sel{color:var(--text);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.06)}
 .at-sem{color:#fde68a;border-color:rgba(245,158,11,.7);background:rgba(245,158,11,.12)}
 .tabela-rolagem{overflow-x:auto;margin-top:12px;-webkit-overflow-scrolling:touch}
@@ -200,7 +204,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.8.0';
+const APP_VERSION='7.0.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -288,6 +292,15 @@ function ehErroDeRede(e){return !navigator.onLine||/Failed to fetch|NetworkError
 function traduzErro(e){
   const m=String(e&&(e.message||e)||'erro desconhecido');
   if(ehErroDeRede(e))return 'sem conexão com o servidor';
+  if(/escolha_o_atleta/.test(m))return 'escolha o atleta do cadastro antes de aprovar';
+  if(/senha_curta/.test(m))return 'a senha precisa ter pelo menos 6 caracteres';
+  if(/conta_de_administrador/.test(m))return 'não é possível alterar a conta do administrador por aqui';
+  if(/pedido_ja_analisado/.test(m))return 'seu pedido já foi analisado pelo administrador';
+  if(/nome_invalido/.test(m))return 'informe seu nome (de 3 a 80 letras)';
+  if(/acesso_nao_encontrado/.test(m))return 'usuário não encontrado (atualize a lista)';
+  if(/User already registered|already been registered/i.test(m))return 'já existe uma conta com este e-mail — use Entrar';
+  if(/Password should be|password.*characters/i.test(m))return 'a senha precisa ter pelo menos 6 caracteres';
+  if(/listar_acessos|meu_acesso|solicitar_acesso/.test(m)&&/not find|PGRST202|does not exist/.test(m))return 'o login dos atletas ainda não foi instalado no servidor';
   if(/acesso_negado|permission denied|JWT|jwt|401/.test(m))return 'sessão expirada ou sem permissão — entre novamente';
   if(/motivo_obrigatorio/.test(m))return 'liga finalizada exige um motivo para correção';
   if(/participantes_travados/.test(m))return 'a quantidade de atletas não pode mudar depois de iniciar a liga';
@@ -481,7 +494,7 @@ async function entrarLogin(ev){
     if(error)throw error;
     const adm=await sb.rpc('is_admin');
     if(adm.error)throw adm.error;
-    if(adm.data!==true){await sb.auth.signOut();throw new Error('Este usuário não tem permissão de administrador.')}
+    if(adm.data!==true){msg.textContent='Esta conta é de atleta — abrindo a página de consulta…';location.href=linkPublico();return}
     usuario=data.user;view='inicio';render();carregarLista();
   }catch(e){
     msg.textContent=/Invalid login/i.test(e.message||'')?'E-mail ou senha incorretos.':traduzErro(e);
@@ -500,6 +513,140 @@ function renderLogin(){
    <div class="panel-actions"><button type="submit" id="btnEntrar">ENTRAR</button></div>
    <p id="loginMsg" class="warn"></p>
   </form></section>`;
+}
+
+/* ---------- Acesso dos atletas (página de consulta) ---------- */
+// meuAcesso: resposta de meu_acesso(); aModo: 'entrar' | 'criar'
+let meuAcesso=null,aModo='entrar',aMsg='';
+async function verificarAcesso(){
+  view='carregando';render();
+  try{
+    const {data,error}=await sb.rpc('meu_acesso');if(error)throw error;
+    meuAcesso=data;aMsg='';
+    if(data&&(data.admin||data.status==='aprovado'))return abrirConsulta();
+  }catch(e){meuAcesso=null;aMsg='Não foi possível verificar seu acesso: '+traduzErro(e)}
+  view='acesso';render();
+}
+async function entrarAtleta(ev){
+  ev.preventDefault();
+  const btn=$('btnEntrar');btn.disabled=true;$('loginMsg').textContent='Entrando…';
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('senha').value});
+    if(error)throw error;
+    usuario=data.user;verificarAcesso();
+  }catch(e){$('loginMsg').textContent=/Invalid login/i.test(e.message||'')?'E-mail ou senha incorretos.':/not confirmed/i.test(e.message||'')?'E-mail ainda não confirmado. Avise o administrador.':traduzErro(e);btn.disabled=false}
+}
+async function criarConta(ev){
+  ev.preventDefault();
+  const nome=$('nome').value.replace(/\s+/g,' ').trim(),senha=$('senha').value;
+  if(nome.length<3)return $('loginMsg').textContent='Informe seu nome completo.';
+  if(senha.length<6)return $('loginMsg').textContent='A senha precisa ter pelo menos 6 caracteres.';
+  if(senha!==$('senha2').value)return $('loginMsg').textContent='As duas senhas não são iguais.';
+  const btn=$('btnEntrar');btn.disabled=true;$('loginMsg').textContent='Criando conta…';
+  try{
+    const {data,error}=await sb.auth.signUp({email:$('email').value.trim(),password:senha});
+    if(error)throw error;
+    if(!data.session){$('loginMsg').textContent='Conta criada, mas o servidor pediu confirmação por e-mail. Avise o administrador para liberar.';btn.disabled=false;return}
+    usuario=data.user;
+    const r=await sb.rpc('solicitar_acesso',{p_nome:nome});if(r.error)throw r.error;
+    verificarAcesso();
+  }catch(e){$('loginMsg').textContent='Não foi possível criar a conta: '+traduzErro(e);btn.disabled=false}
+}
+async function pedirAcesso(ev){
+  ev.preventDefault();
+  const btn=$('btnEntrar');btn.disabled=true;$('loginMsg').textContent='Enviando pedido…';
+  try{const r=await sb.rpc('solicitar_acesso',{p_nome:$('nome').value});if(r.error)throw r.error;verificarAcesso()}
+  catch(e){$('loginMsg').textContent='Pedido não enviado: '+traduzErro(e);btn.disabled=false}
+}
+async function sairConsulta(){
+  if(!confirm('Sair da conta neste aparelho?'))return;
+  await sb.auth.signOut();usuario=null;meuAcesso=null;aModo='entrar';view='acesso';render();
+}
+function renderAcesso(){
+  const topo='<section><h2>Liga Resenha • consulta</h2>';
+  if(!usuario){
+    const criar=aModo==='criar';
+    return topo+`<p class="muted">${criar?'Crie sua conta. O administrador confere e libera o acesso.':'Entre com o e-mail e a senha da sua conta de atleta.'}</p>
+     <div class="row" style="gap:6px;margin-top:10px"><button class="${criar?'secondary':''}" onclick="aModo='entrar';render()">Entrar</button><button class="${criar?'':'secondary'}" onclick="aModo='criar';render()">Criar conta</button></div>
+     <form onsubmit="${criar?'criarConta':'entrarAtleta'}(event)" class="form-grid" style="margin-top:12px">
+      ${criar?'<label>Seu nome (como é conhecido na liga)<input id="nome" maxlength="80" autocomplete="name" required></label>':''}
+      <label>E-mail<input id="email" type="email" autocomplete="username" required></label>
+      <label>Senha${criar?' (mínimo 6 caracteres)':''}<input id="senha" type="password" autocomplete="${criar?'new-password':'current-password'}" required></label>
+      ${criar?'<label>Repita a senha<input id="senha2" type="password" autocomplete="new-password" required></label>':''}
+      <div class="panel-actions"><button type="submit" id="btnEntrar">${criar?'CRIAR CONTA':'ENTRAR'}</button></div>
+      <p id="loginMsg" class="warn">${esc(aMsg)}</p>
+     </form>${criar?'':'<p class="muted" style="margin-top:8px">Esqueceu a senha? Peça ao administrador uma senha provisória.</p>'}</section>`;
+  }
+  const st=meuAcesso&&meuAcesso.status,sairB='<div class="panel-actions"><button class="ghost" onclick="sairConsulta()">Sair</button></div>';
+  if(!meuAcesso)return topo+`<p class="warn" style="margin-top:6px">${esc(aMsg||'Não foi possível verificar seu acesso.')}</p><div class="panel-actions"><button onclick="verificarAcesso()">Tentar de novo</button><button class="ghost" onclick="sairConsulta()">Sair</button></div></section>`;
+  if(st==='pendente')return topo+`<p style="margin-top:6px">Olá, <b>${esc(meuAcesso.nome)}</b>! Seu pedido de acesso foi enviado.</p><p class="muted" style="margin-top:6px">Aguardando a aprovação do administrador. Depois de aprovado, é só abrir esta página de novo.</p><div class="panel-actions"><button onclick="verificarAcesso()">Já fui aprovado? Verificar</button><button class="ghost" onclick="sairConsulta()">Sair</button></div></section>`;
+  if(st==='bloqueado')return topo+`<p class="warn" style="margin-top:6px">Seu acesso está bloqueado. Fale com o administrador da liga.</p>${sairB}</section>`;
+  return topo+`<p class="muted" style="margin-top:6px">${st==='recusado'?'Seu pedido anterior não foi aprovado. Confira o nome e peça de novo, ou fale com o administrador.':'Falta só pedir o acesso: informe seu nome.'}</p>
+   <form onsubmit="pedirAcesso(event)" class="form-grid" style="margin-top:12px"><label>Seu nome (como é conhecido na liga)<input id="nome" maxlength="80" required value="${esc((meuAcesso&&meuAcesso.nome)||'')}"></label>
+    <div class="panel-actions"><button type="submit" id="btnEntrar">PEDIR ACESSO</button></div><p id="loginMsg" class="warn">${esc(aMsg)}</p></form>${sairB}</section>`;
+}
+
+/* ---------- Usuários da página de consulta (administrador) ---------- */
+let acessos=[],acessosInfo={};
+const ACESSO_LABEL={pendente:'Aguardando',aprovado:'Aprovado',bloqueado:'Bloqueado',recusado:'Recusado'};
+async function carregarAcessos(){
+  acessosInfo={carregando:true};if(view==='usuarios')render();
+  try{const {data,error}=await sb.rpc('listar_acessos');if(error)throw error;acessos=data||[];acessosInfo={}}
+  catch(e){acessosInfo={erro:traduzErro(e)}}
+  if(view==='usuarios')render();
+}
+function abrirUsuarios(){view='usuarios';render();carregarAcessos();carregarAtletas()}
+// atleta sugerido: o já ligado, ou o do cadastro com o mesmo nome informado
+function atletaSugerido(a){if(a.atleta_id)return a.atleta_id;const n=normNome(a.nome_informado),x=atletas.find(t=>normNome(t.nome)===n||normNome(t.apelido||'')===n);return x?x.id:''}
+async function acaoAcesso(uid,status){
+  const a=acessos.find(x=>x.user_id===uid);if(!a||ocupado)return;
+  const sel=$('ua-'+uid),atl=sel&&sel.value||null;
+  if(status==='aprovado'&&!atl)return alert('Escolha o atleta do cadastro antes de aprovar.');
+  if(status==='bloqueado'&&!confirm('Bloquear o acesso de '+a.nome_informado+'? Ele não verá mais a página de consulta até ser desbloqueado.'))return;
+  if(status==='recusado'&&!confirm('Recusar o pedido de '+a.nome_informado+'?'))return;
+  ocupado=true;
+  try{const {error}=await sb.rpc('definir_acesso',{p_user_id:uid,p_status:status,p_atleta_id:status==='aprovado'?atl:null});if(error)throw error;ocupado=false;await carregarAcessos()}
+  catch(e){alert('Nada foi alterado: '+traduzErro(e))}finally{ocupado=false}
+}
+async function trocarSenhaAcesso(uid){
+  const a=acessos.find(x=>x.user_id===uid);if(!a||ocupado)return;
+  const s=prompt('Nova senha provisória para '+a.email+' (mínimo 6 caracteres).\nPasse a senha para o atleta; ele entra com ela.');
+  if(s===null)return;
+  if(s.length<6)return alert('A senha precisa ter pelo menos 6 caracteres. Nada foi alterado.');
+  ocupado=true;
+  try{const {error}=await sb.rpc('trocar_senha_acesso',{p_user_id:uid,p_senha:s});if(error)throw error;alert('Senha de '+a.email+' alterada.')}
+  catch(e){alert('Senha não alterada: '+traduzErro(e))}finally{ocupado=false}
+}
+async function excluirAcesso(uid){
+  const a=acessos.find(x=>x.user_id===uid);if(!a||ocupado)return;
+  if(!confirm('Excluir a conta de login '+a.email+'?\n\nA pessoa perde o acesso e precisa criar outra conta. O atleta do cadastro e os resultados continuam.'))return;
+  ocupado=true;
+  try{const {error}=await sb.rpc('excluir_acesso',{p_user_id:uid});if(error)throw error;ocupado=false;await carregarAcessos()}
+  catch(e){alert('Nada foi excluído: '+traduzErro(e))}finally{ocupado=false}
+}
+function cartaoAcesso(a){
+  const sug=atletaSugerido(a),ops=atletas.filter(t=>t.situacao!=='inativo'||t.id===a.atleta_id);
+  const sel=`<label style="margin-top:8px">Atleta do cadastro<select id="ua-${a.user_id}"><option value="">— escolher —</option>${ops.map(t=>`<option value="${t.id}"${t.id===sug?' selected':''}>${esc(t.nome)}</option>`).join('')}</select></label>`;
+  const b=(t,f,c='secondary')=>`<button class="${c}" onclick="${f}">${t}</button>`;
+  const acoes={pendente:b('Aprovar',`acaoAcesso('${a.user_id}','aprovado')`,'')+b('Recusar',`acaoAcesso('${a.user_id}','recusado')`),
+    aprovado:b('Salvar atleta ligado',`acaoAcesso('${a.user_id}','aprovado')`)+b('Bloquear',`acaoAcesso('${a.user_id}','bloqueado')`),
+    bloqueado:b('Desbloquear',`acaoAcesso('${a.user_id}','aprovado')`,''),recusado:b('Aprovar',`acaoAcesso('${a.user_id}','aprovado')`,'')}[a.status]||'';
+  return `<div class="liga-card"><div class="row" style="justify-content:space-between;align-items:flex-start">
+    <div style="min-width:0"><h3>${esc(a.nome_informado)}</h3><p class="muted" style="overflow-wrap:anywhere">${esc(a.email)}</p></div>
+    <span class="chip ac-${a.status}">${ACESSO_LABEL[a.status]||esc(a.status)}</span></div>
+   <p class="muted" style="margin-top:6px">Atleta ligado: <b>${a.atleta_nome?esc(a.atleta_nome):'nenhum'}</b> • Pedido em ${fmtDataHora(a.criado_em)} • Último acesso: ${a.ultimo_acesso?fmtDataHora(a.ultimo_acesso):'nunca'}</p>
+   ${sel}<div class="panel-actions">${acoes}${b('Trocar senha',`trocarSenhaAcesso('${a.user_id}')`)}${b('🗑 Excluir conta',`excluirAcesso('${a.user_id}')`,'ghost')}</div></div>`;
+}
+function renderUsuarios(){
+  const pend=acessos.filter(a=>a.status==='pendente'),outros=acessos.filter(a=>a.status!=='pendente');
+  let h=`<section><button class="ghost" onclick="voltarInicio()">← Minhas Ligas</button><h2 style="margin-top:12px">Usuários da página de consulta</h2>
+   <p class="muted">Atletas que criaram conta. Só os aprovados veem a página de consulta. As senhas não ficam visíveis (o servidor guarda só uma versão embaralhada); se alguém esquecer, defina uma senha provisória.</p>
+   <div class="panel-actions"><button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link da página de consulta</button><button class="secondary" onclick="carregarAcessos()">↻ Atualizar</button></div></section>`;
+  if(acessosInfo.erro)return h+`<section class="tie-card tie-pending"><b>Não foi possível carregar</b><p class="muted" style="margin-top:6px">${esc(acessosInfo.erro)}</p></section>`;
+  if(acessosInfo.carregando&&!acessos.length)return h+'<section><p class="muted">Carregando…</p></section>';
+  h+=`<section><h2>Aguardando aprovação (${pend.length})</h2>${pend.length?'<div class="ligas-list">'+pend.map(cartaoAcesso).join('')+'</div>':'<p class="muted">Nenhum pedido novo.</p>'}</section>`;
+  h+=`<section><h2>Contas (${outros.length})</h2>${outros.length?'<div class="ligas-list">'+outros.map(cartaoAcesso).join('')+'</div>':'<p class="muted">Nenhuma conta ainda.</p>'}</section>`;
+  return h;
 }
 
 /* ---------- Minhas Ligas ---------- */
@@ -544,7 +691,7 @@ function renderInicio(){
   const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
   const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
-  let h=`<section><div class="panel-actions" style="margin-top:0"><button style="flex:1;font-size:17px;padding:15px" onclick="view='nova';render()">NOVA LIGA</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirAtletas()">ATLETAS</button></div></section>`;
+  let h=`<section><div class="panel-actions" style="margin-top:0"><button style="flex:1;font-size:17px;padding:15px" onclick="view='nova';render()">NOVA LIGA</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirAtletas()">ATLETAS</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirUsuarios()">👥 USUÁRIOS</button></div></section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
   if(antiga)h+=`<section class="tie-card tie-pending"><b>Liga da versão anterior encontrada neste aparelho</b>
    <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>
@@ -1021,16 +1168,10 @@ function renderTemporadaCabecalho(){
    <p class="muted">${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}${enc} etapa(s) encerrada(s) • ${criadas} de ${R.etapas} criadas • <span class="chip st-${T.status==='andamento'?'andamento':T.status==='encerrada'?'finalizada':'arquivada'}">${T_STATUS[T.status]||esc(T.status)}</span></p>
    ${tInfo.origem==='cache'?`<p class="warn" style="margin-top:6px">Sem conexão: mostrando a cópia guardada em ${fmtDataHora(tInfo.em)}.</p>`:''}
    <div class="panel-actions">${acoes}</div>
-   <div class="panel-actions"><button class="secondary" onclick="alternarPublica()">${T.publica?'🌐 Página pública: ligada — desligar':'🌐 Ligar página pública'}</button>${T.publica?'<button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link</button>':''}</div></section>`;
+   <div class="panel-actions"><button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link da página de consulta</button></div></section>`;
 }
 /* ---------- Página pública (só consulta) ---------- */
 const linkPublico=()=>location.origin+location.pathname+'?consulta';
-async function alternarPublica(){
-  if(!T)return;
-  const ligar=!T.publica;
-  if(!confirm(ligar?'Ligar a página pública desta temporada?\n\nQualquer pessoa com o link poderá VER a classificação, as etapas e os jogos (nomes dos atletas e placares). Ninguém consegue alterar nada por ela. Se houver mais de uma temporada pública, a página mostra a mais recente.':'Desligar a página pública desta temporada? O link deixa de mostrar esta temporada.'))return;
-  if(await salvarTemporada({p_publica:ligar},ligar?'Página pública ligada':'Página pública desligada')){render();if(ligar)copiarLinkPublico()}
-}
 async function copiarLinkPublico(){
   const u=linkPublico();
   try{await navigator.clipboard.writeText(u);alert('Link copiado:\n'+u)}catch{prompt('Copie o link da página pública:',u)}
@@ -1056,22 +1197,42 @@ async function apagarTemporada(){
   finally{ocupado=false}
 }
 const PUBLICO=new URLSearchParams(location.search).has('consulta');
-let pTab='Ranking',pInfo={},REL=[];
+// PUB: tudo que a consulta recebe do servidor; pSec: seção do topo; pOrigem: para onde o "voltar" leva
+let PUB={temporadas:[],etapas:[],atletas:[],relampagos:[]},pSec='inicio',pTab='Ranking',pInfo={},pOrigem=null;
+const P_SECOES=[['inicio','Início'],['rodada','Rodada atual'],['temporadas','Temporadas'],['relampagos','Relâmpagos']];
 async function abrirConsulta(){
   view='carregando';render();
   try{
     const {data,error}=await sb.rpc('consulta_publica');if(error)throw error;
     pInfo={em:new Date().toISOString()};
-    T=data&&data.temporada||null;TE=T?data.etapas||[]:[];REL=data&&data.relampagos||[];atletas=data&&data.atletas||[];pontosCache.clear();
-    if(!T&&!REL.length)view='publica-vazia';
-    else{view='publica';if(!T)pTab='Relâmpagos'}
-  }catch(e){pInfo={erro:traduzErro(e)};view='publica-vazia'}
+    PUB={temporadas:data&&data.temporadas||[],etapas:data&&data.etapas||[],atletas:data&&data.atletas||[],relampagos:data&&data.relampagos||[]};
+    atletas=PUB.atletas;pontosCache.clear();T=null;TE=[];L=null;S=null;pOrigem=null;
+    view='publica';if(pSec==='rodada')pSec='inicio';
+  }catch(e){
+    if(/acesso_negado|permission denied/.test(String(e&&e.message)))return verificarAcesso();
+    pInfo={erro:traduzErro(e)};view='publica-vazia';
+  }
   render();
 }
-function cabecalhoPublico(){
-  return `<section class="header-card"><p class="muted">Liga Resenha • página de consulta</p><h2 style="margin:6px 0 2px">${T?esc(T.nome):'Ligas relâmpago'}</h2>
-   <p class="muted">${T?(T.inicio?'Início '+fmtData(T.inicio)+' • ':'')+`<span class="chip st-${T.status==='andamento'?'andamento':'finalizada'}">${T_STATUS[T.status]||esc(T.status)}</span> • `:''}atualizado ${fmtDataHora(pInfo.em)}</p>
-   <div class="panel-actions"><button class="secondary pub" onclick="abrirConsulta()">↻ Atualizar</button></div></section>`;
+function usarTemporada(id){T=PUB.temporadas.find(x=>x.id===id)||null;TE=T?PUB.etapas.filter(e=>e.temporada_id===id):[];return T}
+// rodada atual: a liga aberta mais recente (em andamento antes de inscrições); sem nenhuma aberta, a última jogada
+function rodadaAtual(){
+  const todas=[...PUB.etapas.filter(e=>{const t=PUB.temporadas.find(x=>x.id===e.temporada_id);return t&&t.status==='andamento'}),...PUB.relampagos];
+  const abertas=todas.filter(l=>!ligaEncerrada(l)).sort((a,b)=>(b.status==='andamento')-(a.status==='andamento')||String(b.data).localeCompare(String(a.data)));
+  if(abertas.length)return {l:abertas[0],aberta:true};
+  const ult=todas.sort((a,b)=>String(b.data).localeCompare(String(a.data)))[0];
+  return ult?{l:ult,aberta:false}:null;
+}
+function irSecaoPublica(sec){
+  if(sec==='rodada'){const r=rodadaAtual();pSec='rodada';if(r){pOrigem=null;return abrirEtapaPublica(r.l.id,true)}}
+  pSec=sec;view='publica';T=null;TE=[];L=null;S=null;render();window.scrollTo(0,0);
+}
+function cabecalhoPublico(sub=''){
+  return `<section class="header-card"><div class="row" style="justify-content:space-between;align-items:center"><div style="min-width:0"><p class="muted">Liga Resenha • consulta</p><p style="margin-top:2px">Bem-vindo, <b>${esc(meuAcesso&&meuAcesso.admin?'administrador':(meuAcesso&&meuAcesso.nome)||'atleta')}</b></p></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="ghost pub" style="padding:6px 10px" onclick="abrirConsulta()" title="Atualizar">↻</button><button class="ghost pub" style="padding:6px 10px" onclick="sairConsulta()">Sair</button></div></div>
+   <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${P_SECOES.map(([k,t])=>`<button class="${k===pSec?'':'secondary'} pub" onclick="irSecaoPublica('${k}')">${t}</button>`).join('')}</div>${sub}</section>`;
+}
+function subCabecalho(volta,titulo,linha){
+  return `<div style="margin-top:14px;border-top:1px solid #334155;padding-top:12px">${volta?`<button class="ghost pub" onclick="voltarConsulta()">← ${volta}</button>`:''}<h2 style="margin:10px 0 2px">${titulo}</h2>${linha?`<p class="muted">${linha}</p>`:''}</div>`;
 }
 function statusEtapaPublica(l){return ligaEncerrada(l)?'Encerrada':l.status==='preparacao'?'Inscrições':'Em andamento'}
 function cartaoLigaPublica(l,rotulo){
@@ -1079,6 +1240,31 @@ function cartaoLigaPublica(l,rotulo){
     <p style="margin-top:6px"><b>${esc(l.nome)}</b> • ${fmtData(l.data)} • ${statusEtapaPublica(l)}${l.participantes?' • '+l.participantes+' atletas':''}</p>
     <div class="panel-actions"><button class="secondary pub" onclick="abrirEtapaPublica('${l.id}')">${l.dados&&l.dados.drawn?'Ver grupos e jogos':'Ver inscritos'}</button></div></div>`;
 }
+function renderInicioPublico(){
+  const r=rodadaAtual(),ta=PUB.temporadas.find(t=>t.status==='andamento'),rel=PUB.relampagos[0];
+  if(!r&&!PUB.temporadas.length)return '<section><h2>Liga Resenha</h2><p class="muted" style="margin-top:6px">Ainda não há temporadas nem ligas para consultar.</p></section>';
+  let h='';
+  if(r)h+=`<section><h2>${r.aberta?'Rodada atual':'Última rodada'}</h2>${cartaoLigaPublica(r.l,r.l.temporada_id?esc((PUB.temporadas.find(t=>t.id===r.l.temporada_id)||{}).nome||'Temporada')+' • Etapa '+r.l.etapa_numero:'Relâmpago')}</section>`;
+  if(ta){
+    usarTemporada(ta.id);
+    const R=regrasCompletas(T.regras),usados=new Set(TE.map(l=>l.etapa_numero)),datas=(T.dados&&T.dados.datas)||{};
+    let prox=null;for(let n=1;n<=R.etapas;n++)if(!usados.has(n)){prox=n;break}
+    const top=calcularRanking().linhas.slice(0,5);
+    h+=`<section><h2>${esc(T.nome)}</h2><p class="muted">${prox?'Próxima: <b>Etapa '+prox+'</b> — '+(datas[prox]?'data prevista '+fmtData(datas[prox]):'data a definir'):'Todas as etapas já foram criadas.'}</p>
+     ${top.length?`<table style="margin-top:10px"><tr><th>#</th><th>Atleta</th><th>Pontos</th></tr>${top.map(x=>`<tr><td>${x.pos}º</td><td>${esc(x.nome)}</td><td><b>${x.total}</b></td></tr>`).join('')}</table>`:'<p class="muted" style="margin-top:8px">Ranking ainda sem resultados.</p>'}
+     <div class="panel-actions"><button class="secondary pub" onclick="abrirTemporadaPublica('${T.id}')">Ver temporada completa</button></div></section>`;
+    T=null;TE=[];
+  }
+  if(rel&&(!r||rel.id!==r.l.id))h+=`<section><h2>Última relâmpago</h2>${cartaoLigaPublica(rel,'Relâmpago')}</section>`;
+  return h;
+}
+function renderTemporadasPublicas(){
+  if(!PUB.temporadas.length)return '<section><h2>Temporadas</h2><p class="muted" style="margin-top:6px">Nenhuma temporada ainda.</p></section>';
+  return `<section><h2>Temporadas</h2>${PUB.temporadas.map(t=>{const n=PUB.etapas.filter(e=>e.temporada_id===t.id).length;return `<div class="match-card" style="margin-top:10px"><div class="match-label">${T_STATUS[t.status]||esc(t.status)}</div>
+    <p style="margin-top:6px"><b>${esc(t.nome)}</b>${t.inicio?' • início '+fmtData(t.inicio):''} • ${n} etapa(s)</p>
+    <div class="panel-actions"><button class="secondary pub" onclick="abrirTemporadaPublica('${t.id}')">Ver classificação e etapas</button></div></div>`}).join('')}</section>`;
+}
+function abrirTemporadaPublica(id){if(!usarTemporada(id))return;pSec='temporadas';pTab='Ranking';view='publica-temporada';L=null;S=null;render();window.scrollTo(0,0)}
 function renderEtapasPublicas(){
   const R=regrasCompletas(T.regras),ets=TE.slice().sort((a,b)=>a.etapa_numero-b.etapa_numero);
   const tags=n=>(R.dobradas.includes(n)?' • vale o dobro':'')+(R.especiais.includes(n)?' • especial':'');
@@ -1092,18 +1278,23 @@ function renderEtapasPublicas(){
   return h+'</section>';
 }
 function renderRelampagosPublicas(){
-  return `<section><h2>Ligas relâmpago</h2><p class="muted">Fora do ranking da temporada.</p>${REL.length?REL.map(l=>cartaoLigaPublica(l,'Relâmpago')).join(''):'<p class="muted" style="margin-top:10px">Nenhuma liga relâmpago no momento.</p>'}</section>`;
+  return `<section><h2>Ligas relâmpago</h2><p class="muted">Fora do ranking das temporadas.</p>${PUB.relampagos.length?PUB.relampagos.map(l=>cartaoLigaPublica(l,'Relâmpago')).join(''):'<p class="muted" style="margin-top:10px">Nenhuma liga relâmpago no momento.</p>'}</section>`;
 }
-const pubAbas=()=>T?['Ranking','Etapas','Relâmpagos']:['Relâmpagos'];
 const pubTabs=['Grupos','Jogos','Classificação','Chave'];
-function abrirEtapaPublica(id){
-  const l=TE.find(x=>x.id===id)||REL.find(x=>x.id===id);if(!l)return;
-  try{S=validarDados(l.dados)}catch{return alert('Não foi possível abrir esta liga.')}
-  L={...l};const R=T&&l.temporada_id!==null&&TE.includes(l)?regrasCompletas(T.regras):null;
-  CONFRONTO_DIRETO=!!(R&&R.confronto_direto);ESPECIAL=ehEspecial(R?{...L,temporada_id:T.id}:null,R,S);
+function abrirEtapaPublica(id,daRodada=false){
+  const l=PUB.etapas.find(x=>x.id===id)||PUB.relampagos.find(x=>x.id===id);if(!l)return;
+  if(!daRodada)pOrigem={view,pSec,pTab,tid:T&&T.id};
+  let d;try{d=validarDados(l.dados)}catch{return alert('Não foi possível abrir esta liga.')}
+  const R=l.temporada_id&&usarTemporada(l.temporada_id)?regrasCompletas(T.regras):null;
+  S=d;L={...l};CONFRONTO_DIRETO=!!(R&&R.confronto_direto);ESPECIAL=ehEspecial(R?L:null,R,S);
   tab=S.drawn?'Jogos':'Grupos';view='publica-etapa';render();window.scrollTo(0,0);
 }
-function voltarConsulta(){const rel=L&&REL.some(x=>x.id===L.id);L=null;S=null;view='publica';pTab=rel?'Relâmpagos':'Etapas';render();window.scrollTo(0,0)}
+function voltarConsulta(){
+  const o=pOrigem,v=view;pOrigem=null;L=null;S=null;
+  if(v==='publica-etapa'&&o&&o.view==='publica-temporada'&&usarTemporada(o.tid)){pSec='temporadas';pTab=o.pTab;view='publica-temporada'}
+  else{pSec=v==='publica-temporada'?'temporadas':o&&o.view==='publica'?o.pSec:'inicio';view='publica';T=null;TE=[]}
+  render();window.scrollTo(0,0);
+}
 function renderEtapaPublica(){
   if(!S.drawn)return `<section><h2>Atletas confirmados</h2><p class="muted">Grupos ainda não sorteados.</p><ol style="margin-top:8px">${S.names.filter(n=>n.trim()).map(n=>'<li>'+esc(n)+'</li>').join('')}</ol></section>`;
   if(tab==='Grupos')return renderGroups();
@@ -2303,11 +2494,37 @@ function confirmarWO(id){
   }
   fecharModal();render();
 }
-function renderBracket(qs,ss,f,t){
- const box=(m,label,placeholder)=>`<div class="br-match"><div class="br-label">${label}</div>${m?[m.a,m.b].map((p,k)=>`<div class="br-team ${valid(S.finals[m.id])&&S.finals[m.id][k]>S.finals[m.id][1-k]?'br-win':''}"><span>${pair(p)}</span><strong>${valid(S.finals[m.id])&&(S.wo||{})[m.id]===k?'W.O.':S.finals[m.id]?.[k]??'–'}</strong></div>`).join(''):`<div class="br-team br-empty">${placeholder[0]}</div><div class="br-team br-empty">${placeholder[1]}</div>`}</div>`;
- return `<section><h2>Chave da competição</h2><p class="muted">Deslize horizontalmente para acompanhar os cruzamentos.${PUBLICO?'':' Os placares são lançados na aba Mata-mata.'}</p><div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button><button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button></div></section><div class="br-scroll"><div class="br-grid"><div class="br-head" style="grid-column:1;grid-row:1">Quartas</div><div class="br-head" style="grid-column:2;grid-row:1">Semifinais</div><div class="br-head" style="grid-column:3;grid-row:1">Final</div><svg class="br-lines" viewBox="0 0 960 600" preserveAspectRatio="none"><path d="M260 75 H300 V150 H340 M260 225 H300 V150 M260 375 H300 V450 H340 M260 525 H300 V450 M600 150 H640 V300 H680 M600 450 H640 V300"/></svg>${qs.map((m,i)=>`<div class="br-node" style="grid-column:1;grid-row:${2+i*2}/span 2">${box(m,'Q'+(i+1),[])}</div>`).join('')}<div class="br-node" style="grid-column:2;grid-row:3/span 2">${box(ss[0],'S1',['Vencedor Q1','Vencedor Q2'])}</div><div class="br-node" style="grid-column:2;grid-row:7/span 2">${box(ss[1],'S2',['Vencedor Q3','Vencedor Q4'])}</div><div class="br-node" style="grid-column:3;grid-row:5/span 2">${box(f,'Final',['Vencedor S1','Vencedor S2'])}</div></div></div><section><h2>Terceiro lugar</h2><p class="muted">Perdedores das semifinais</p>${box(t,'Disputa de 3º',['Perdedor S1','Perdedor S2'])}</section>`;
+// Chave na tela, espelhada como na imagem/impressão: Q1, Q2 e S1 à esquerda; Q3, Q4 e S2 à direita;
+// final e 3º lugar no centro. Sem chave formada, mostra o cruzamento (quem enfrenta quem).
+function renderBracket(c){
+ const {qs,ss,f,t}=c||{qs:[null,null,null,null],ss:[null,null],f:null,t:null};
+ const oq=ordemQuartas(),dupla=d=>`Dupla ${d+1} (${2*d+1}º e ${2*d+2}º)`;
+ const sorteio=ESPECIAL?'Sorteio entre os vencedores de ':'';
+ const ph={q1:[dupla(oq[0][0]),dupla(oq[0][1])],q2:[dupla(oq[1][0]),dupla(oq[1][1])],q3:[dupla(oq[2][0]),dupla(oq[2][1])],q4:[dupla(oq[3][0]),dupla(oq[3][1])],
+   s1:ESPECIAL?[sorteio+'Q1 e Q2','']:['Vencedor Q1','Vencedor Q2'],s2:ESPECIAL?[sorteio+'Q3 e Q4','']:['Vencedor Q3','Vencedor Q4'],
+   f:ESPECIAL?[sorteio+'S1 e S2','']:['Vencedor S1','Vencedor S2'],t:ESPECIAL?['Sorteio entre os perdedores de S1 e S2','']:['Perdedor S1','Perdedor S2']};
+ const box=(m,id,label)=>`<div class="br-match"><div class="br-label">${label}</div>${m?[m.a,m.b].map((p,k)=>`<div class="br-team ${valid(S.finals[m.id])&&S.finals[m.id][k]>S.finals[m.id][1-k]?'br-win':''}"><span>${p.map(name).join('<br>')}</span><strong>${valid(S.finals[m.id])&&(S.wo||{})[m.id]===k?'W.O.':S.finals[m.id]?.[k]??'–'}</strong></div>`).join(''):ph[id].map(x=>`<div class="br-team br-empty">${x}</div>`).join('')}</div>`;
+ const no=(col,lin,html)=>`<div class="br-node" style="grid-column:${col};grid-row:${lin}">${html}</div>`;
+ return `<section><h2>Chave da competição</h2><p class="muted">${c?'':'A chave é preenchida quando terminarem os jogos dos grupos. '}No celular, deslize para os lados.${PUBLICO?'':' Os placares são lançados na aba Mata-mata.'}</p>${PUBLICO?'':`<div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button>${c?`<button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button>`:''}</div>`}</section>
+ <div class="br-scroll"><div class="br-grid">
+  <div class="br-head" style="grid-column:1">Quartas</div><div class="br-head" style="grid-column:2">Semifinal</div><div class="br-head" style="grid-column:3">Final</div><div class="br-head" style="grid-column:4">Semifinal</div><div class="br-head" style="grid-column:5">Quartas</div>
+  <svg class="br-lines" viewBox="0 0 860 420" preserveAspectRatio="none"><path d="M148 105 H163 V210 H178 M148 315 H163 V210 M326 210 H341 V105 H356 M712 105 H697 V210 H682 M712 315 H697 V210 M534 210 H519 V105 H504"/></svg>
+  ${no(1,'2/span 3',box(qs[0],'q1','Q1'))}${no(1,'5/span 3',box(qs[1],'q2','Q2'))}
+  ${no(2,'3/span 4',box(ss[0],'s1','Semi 1'))}
+  ${no(3,'2/span 3',box(f,'f','🏆 Final'))}${no(3,'5/span 3',box(t,'t','🥉 3º lugar'))}
+  ${no(4,'3/span 4',box(ss[1],'s2','Semi 2'))}
+  ${no(5,'2/span 3',box(qs[2],'q3','Q3'))}${no(5,'5/span 3',box(qs[3],'q4','Q4'))}
+ </div></div>`;
+}
+// chave formada (com substituições e sorteios) ou null enquanto os grupos/desempates não permitem
+function chavePronta(){
+  if(!S.drawn||!complete()||groupPending())return null;
+  const lists=listsGeneral(),counts=FORMATS[capacity()].counts;
+  if(lists.some((l,k)=>counts[k]>0&&pending('r'+k,l,counts[k])))return null;
+  const cg=classificadosGerais();return cg?chaveAtual(cg):null;
 }
 function renderKnockout(bracketOnly=false){
+  if(bracketOnly)return renderBracket(chavePronta());
   let h=`<section><h2>Mata-mata</h2><p class="muted">A chave é liberada após os ${groupGameCount()} jogos e os desempates necessários.</p><p style="margin-top:8px"><b>Classificação:</b> ${formatRule()}</p></section>`;
   if(!complete())return h+'<section><p class="tag">Conclua os '+groupGameCount()+' jogos dos grupos para liberar as quartas.</p><div class="panel-actions"><button onclick="tab=\'Jogos\';render()">Ir para jogos</button></div></section>';
   if(groupPending())return h+'<section><p class="tag">Resolva primeiro os empates dentro dos grupos.</p><div class="panel-actions"><button onclick="tab=\'Classificação\';render()">Ir para classificação</button></div></section>';
@@ -2324,7 +2541,6 @@ function renderKnockout(bracketOnly=false){
   let duos=cg.duos;
   if(!bracketOnly)h+=duoCards(duos);
   const c=chaveAtual(cg),{qs,ss,f,t}=c,esp=id=>c.aguardando.find(x=>x.id===id);
-  if(bracketOnly)return renderBracket(qs,ss,f,t);
   const jogo=(m,id,txt)=>m?scorecard(m,'finals'):esp(id)?cartaoSorteio(esp(id)):placeholderCard(id.toUpperCase(),txt);
   h+=(ESPECIAL?'<section><p class="tag">Etapa especial: da semifinal em diante as duplas são sorteadas antes de cada jogo.</p></section>':'')+'<section><h2>Quartas de final</h2>'+qs.map(m=>scorecard(m,'finals')).join('')+'</section><section><h2>Semifinais</h2>'+ss.map((m,i)=>jogo(m,'s'+(i+1),'Aguardando as quartas')).join('')+'</section><section><h2>Final e terceiro lugar</h2>'+(f||t||esp('f')||esp('t')?jogo(f,'f','')+jogo(t,'t',''):placeholderCard('FINAL / 3º','Aguardando as semifinais'))+'</section>';
   if(f&&valid(S.finals.f))h+=`<section><h2 class="tag">Campeões: ${pair(winner(f))}</h2><p style="margin-top:8px">2º lugar: ${pair(loser(f))}</p>${t&&valid(S.finals.t)?'<p style="margin-top:4px">3º lugar: '+pair(winner(t))+'</p>':''}</section>`;
@@ -2352,6 +2568,8 @@ function render(){
   if(view==='carregando')h='<section><p class="muted">Carregando…</p></section>';
   if(view==='erro')h='<section><h2>Não foi possível iniciar</h2><p class="muted">O app não conseguiu carregar os componentes necessários. Verifique a conexão e recarregue a página.</p><div class="panel-actions"><button onclick="location.reload()">Recarregar</button></div></section>';
   if(view==='login')h=renderLogin();
+  if(view==='acesso')h=renderAcesso();
+  if(view==='usuarios')h=renderUsuarios();
   if(view==='inicio')h=renderInicio();
   if(view==='nova')h=renderNova();
   if(view==='atletas')h=renderAtletas();
@@ -2364,13 +2582,19 @@ function render(){
   }
   if(view==='publica-vazia')h=`<section><h2>Liga Resenha</h2><p class="muted" style="margin-top:6px">${pInfo.erro?'Não foi possível carregar: '+esc(pInfo.erro):'Nenhuma temporada ou liga relâmpago para consultar no momento.'}</p><div class="panel-actions"><button class="pub" onclick="abrirConsulta()">Tentar de novo</button></div></section>`;
   if(view==='publica'){
-    $('lifecycle').innerHTML=cabecalhoPublico();$('nav').style.display='';
-    if(!pubAbas().includes(pTab))pTab=pubAbas()[0];
-    $('nav').innerHTML=pubAbas().map(t=>`<button class="${t===pTab?'active':'secondary'}" onclick="pTab='${t}';render()">${t}</button>`).join('');
-    h=pTab==='Ranking'?renderRankingTemporada():pTab==='Etapas'?renderEtapasPublicas():renderRelampagosPublicas();
+    $('lifecycle').innerHTML=cabecalhoPublico();$('nav').style.display='none';$('nav').innerHTML='';
+    h=pSec==='temporadas'?renderTemporadasPublicas():pSec==='relampagos'?renderRelampagosPublicas():pSec==='rodada'?'<section><p class="muted">Nenhuma rodada para mostrar.</p></section>':renderInicioPublico();
+  }
+  if(view==='publica-temporada'){
+    $('lifecycle').innerHTML=cabecalhoPublico(subCabecalho('Temporadas',esc(T.nome),`${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}${T_STATUS[T.status]||esc(T.status)}`));
+    $('nav').style.display='';
+    $('nav').innerHTML=['Ranking','Etapas'].map(t=>`<button class="${t===pTab?'active':'secondary'}" onclick="pTab='${t}';render()">${t==='Ranking'?'Classificação geral':t}</button>`).join('');
+    h=pTab==='Ranking'?renderRankingTemporada():renderEtapasPublicas();
   }
   if(view==='publica-etapa'){
-    $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost pub" onclick="voltarConsulta()">← ${REL.some(x=>x.id===L.id)?'Ligas relâmpago':esc(T.nome)}</button><h2 style="margin:12px 0 2px">${esc(L.nome)}</h2><p class="muted">${fmtData(L.data)} • ${statusEtapaPublica(L)}</p></section>`;
+    const o=pOrigem,volta=!o?'':o.view==='publica-temporada'?esc(T?T.nome:'Temporada'):o.pSec==='relampagos'?'Relâmpagos':o.pSec==='temporadas'?'Temporadas':'Início';
+    const tit=L.temporada_id&&T?esc(T.nome)+' • Etapa '+L.etapa_numero:'Relâmpago';
+    $('lifecycle').innerHTML=cabecalhoPublico(subCabecalho(volta,esc(L.nome),`${tit} • ${fmtData(L.data)} • ${statusEtapaPublica(L)}`));
     $('nav').style.display=S.drawn?'':'none';
     $('nav').innerHTML=pubTabs.map(t=>`<button class="${t===tab?'active':'secondary'}" onclick="tab='${t}';render()">${t}</button>`).join('');
     h=renderEtapaPublica();
@@ -2391,8 +2615,9 @@ function render(){
   }
   h+=PUBLICO?`<div class="footer-note">Página só de consulta — nada pode ser alterado por aqui. • v${APP_VERSION}</div>`:`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
   $('main').innerHTML=h;
+  document.querySelectorAll('.br-scroll').forEach(e=>{e.scrollLeft=(e.scrollWidth-e.clientWidth)/2});
   // página pública: só leitura (o servidor também não aceita gravação sem login)
-  if(PUBLICO){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input,#main select,#main textarea').forEach(e=>e.disabled=true)}
+  if(PUBLICO&&view.startsWith('publica')){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input,#main select,#main textarea').forEach(e=>e.disabled=true)}
   if(view==='nova'){const q=$('nlQtd');q.onchange=()=>{$('nlRegra').textContent=FORMATS[q.value].label}}
   if(view==='liga'){
     if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
@@ -2404,13 +2629,15 @@ async function iniciar(){
   if(!window.supabase||!window.supabase.createClient){view='erro';render();return}
   sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'lr6-auth'}});
   sb.auth.onAuthStateChange((ev,session)=>{
-    if(ev==='SIGNED_OUT'){usuario=null;if(['inicio','nova','atletas','temporada','nova-temporada'].includes(view)){view='login';render()}}
+    if(ev==='SIGNED_OUT'){usuario=null;if(PUBLICO){meuAcesso=null;if(view!=='acesso'){view='acesso';render()}}else if(['inicio','nova','atletas','temporada','nova-temporada','usuarios'].includes(view)){view='login';render()}}
     else if(session)usuario=session.user;
   });
-  if(PUBLICO){abrirConsulta();return}
   view='carregando';render();
   let session=null;
   try{const r=await sb.auth.getSession();session=r.data&&r.data.session}catch{}
+  if(PUBLICO){usuario=session&&session.user;if(usuario)verificarAcesso();else{view='acesso';render()}return}
+  // conta de atleta aberta no endereço do administrador: vai para a consulta
+  if(session&&navigator.onLine){try{const r=await sb.rpc('is_admin');if(!r.error&&r.data===false){location.href=linkPublico();return}}catch{}}
   let temSessaoGuardada=false;try{temSessaoGuardada=!!localStorage.getItem('lr6-auth')}catch{}
   if(!session&&!(temSessaoGuardada&&!navigator.onLine)){view='login';render();return}
   usuario=session&&session.user;
@@ -2427,7 +2654,7 @@ async function conferirVersaoNoServidor(recarregar){
     if(recarregar)abrirLiga(L.id,{ignorarCache:true});else setSync('desatualizada');
   }catch{}
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(view==='publica')abrirConsulta();else if(view==='liga')conferirVersaoNoServidor(true);else if(view==='inicio')carregarLista()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(view==='publica'&&pSec==='inicio')abrirConsulta();else if(view==='liga')conferirVersaoNoServidor(true);else if(view==='inicio')carregarLista()}});
 setInterval(()=>{
   if(view!=='liga')return;
   if(fila.pendente&&!enviando&&(sync.estado==='offline'||sync.estado==='pendente'))tentarNovamente();

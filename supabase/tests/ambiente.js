@@ -12,7 +12,10 @@ const SUPABASE_STUB = `
   create role anon nologin;
   create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, encrypted_password text, updated_at timestamptz, last_sign_in_at timestamptz);
+  create schema extensions;
+  create function extensions.gen_salt(text) returns text language sql as $$ select 'sal-' || $1 $$;
+  create function extensions.crypt(text, text) returns text language sql as $$ select 'hash(' || $1 || ')' $$;
   create function auth.uid() returns uuid language sql stable as $$
     select nullif((nullif(current_setting('request.jwt.claims', true), '')::json)->>'sub', '')::uuid $$;
   grant usage on schema public, auth to anon, authenticated;

@@ -41,9 +41,13 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    6. `supabase/migrations/20261126000001_excluir_temporada.sql` (apagar temporada arquivada de vez)
    7. `supabase/migrations/20261128000001_consulta_publica.sql` (página pública só de consulta: leitura da temporada marcada como pública, sem login)
    8. `supabase/migrations/20261128000002_consulta_publica_relampagos.sql` (página de consulta com ligas relâmpago e datas previstas)
+   9. `supabase/migrations/20261128000003_consulta_todas_temporadas.sql` (consulta com todas as temporadas em andamento e encerradas)
+   10. `supabase/migrations/20261128000004_acessos_atletas.sql` (login dos atletas: a consulta passa a exigir conta aprovada pelo administrador)
    O resultado esperado é "Success. No rows returned".
-3. **Bloquear cadastros públicos**: em *Authentication* → *Sign In / Providers*,
-   desligue *Allow new users to sign up* e salve.
+3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
+   deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.
+   Quem cria conta não vê nem altera nada até o administrador aprovar (aba Usuários do app);
+   as tabelas continuam liberadas só para o administrador. Antes da migration 10, deixe o cadastro desligado.
 4. **Criar o seu usuário**: em *Authentication* → *Users* → *Add user* →
    *Create new user*, informe o seu e-mail e uma senha, marque *Auto Confirm User*.
 5. **Tornar o seu usuário administrador**: no *SQL Editor*, rode (troque o e-mail):
