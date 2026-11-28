@@ -1,4 +1,4 @@
-const APP_VERSION='7.5.0';
+const APP_VERSION='7.5.1';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -98,6 +98,10 @@ function traduzErro(e){
   if(/aprove_antes/.test(m))return 'aprove o acesso da pessoa antes de torná-la administradora';
   if(/permissao_invalida/.test(m))return 'permissão desconhecida';
   if(/escolha_o_atleta/.test(m))return 'escolha o atleta do cadastro antes de aprovar';
+  if(/muitos_pedidos/.test(m))return 'há muitos pedidos esperando; tente mais tarde ou fale com o administrador';
+  if(/email_invalido/.test(m))return 'e-mail inválido';
+  if(/pedido_nao_encontrado/.test(m))return 'este pedido não existe mais (atualize a lista)';
+  if(/pedir_nova_senha|responder_pedido_senha/.test(m)&&/not find|PGRST202|does not exist/.test(m))return 'o pedido de senha nova ainda não foi instalado no servidor';
   if(/senha_curta/.test(m))return 'a senha precisa ter pelo menos 6 caracteres';
   if(/conta_de_administrador/.test(m))return 'não é possível alterar a conta do administrador por aqui';
   if(/pedido_ja_analisado/.test(m))return 'seu pedido já foi analisado pelo administrador';
@@ -305,7 +309,7 @@ const pode=a=>!!(meuAcesso&&meuAcesso.admin&&(meuAcesso.dono||(meuAcesso.permiss
 const ACAO_PERMISSAO={ligas:"criarLiga duplicarLiga mudarArquivo moverParaLixeira retirarDaLixeira restaurarVersao startLeague endLeague corrigirResultados setCapacity clearNames shuffle sortearDuplasTela desfazerGrupoTela confirmarDuplasManual abrirDuplasManual chooseTie resetTie digitarPlacar previaWO abrirWO confirmarWO novoAtletaParaWO previaSub abrirSubstituicao aplicarSubstituicao desfazerSubstituicao removerPosicao toggleAtleta novoAtletaNaLiga aplicarColarLista abrirColarLista vincularCadastro importarAntiga importarArquivo abrirNovaEtapa criarEtapa usarVersaoServidor manterMinhasAlteracoes",
   temporadas:"criarTemporada mudarStatusTemporada salvarRegras salvarDataPrevista adicionarAjuste removerAjuste",
   atletas:"abrirAtletaForm salvarAtletaForm",
-  financeiro_lancar:"finAbrirLanc finSalvarLanc finExcluirLanc finMarcar finValorPago finSalvarValorPago finCobrar finParar finValorRodada finSalvarAjustes finSalvarValorTemp finAbrirPremio finSalvarPremio finExcluirPremio finPagarPremio",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios"};
+  financeiro_lancar:"finAbrirLanc finSalvarLanc finExcluirLanc finMarcar finValorPago finSalvarValorPago finCobrar finParar finValorRodada finSalvarAjustes finSalvarValorTemp finAbrirPremio finSalvarPremio finExcluirPremio finPagarPremio",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios responderSenha"};
 const FN_PERMISSAO={};for(const [a,l] of Object.entries(ACAO_PERMISSAO))for(const f of l.split(' '))FN_PERMISSAO[f]=a;
 function permitido(a){return a==='dono'?ehDono():pode(a)}
 function areaDoClique(c){
@@ -357,7 +361,7 @@ async function verificarAcesso(){
 }
 function abrirAdministracao(){
   T=null;TE=[];L=null;S=null;CONFRONTO_DIRETO=false;ESPECIAL=false;pontosCache.clear();
-  view='inicio';render();carregarLista();carregarAtletas();
+  view='inicio';render();carregarLista();carregarAtletas();conferirPendentes();
 }
 async function entrarAtleta(ev){
   ev.preventDefault();
@@ -384,6 +388,19 @@ async function criarConta(ev){
     verificarAcesso();
   }catch(e){$('loginMsg').textContent='Não foi possível criar a conta: '+traduzErro(e);btn.disabled=false}
 }
+function esqueciSenha(){aModo='senha';aMsg='';render()}
+// esqueci a senha: o pedido fica guardado e só vale quando o dono aprovar
+async function pedirNovaSenha(ev){
+  ev.preventDefault();
+  const email=$('email').value.trim(),senha=$('senha').value;
+  if(senha.length<6)return $('loginMsg').textContent='A senha precisa ter pelo menos 6 caracteres.';
+  if(senha!==$('senha2').value)return $('loginMsg').textContent='As duas senhas não são iguais.';
+  const btn=$('btnEntrar');btn.disabled=true;$('loginMsg').textContent='Enviando pedido…';
+  try{const r=await sb.rpc('pedir_nova_senha',{p_email:email,p_senha:senha});if(r.error)throw r.error;
+    aModo='entrar';aMsg='';render();$('email').value=email;
+    $('loginMsg').className='ok';$('loginMsg').textContent='Pedido enviado. Assim que o administrador aprovar, entre com a senha nova.'}
+  catch(e){$('loginMsg').textContent='Pedido não enviado: '+traduzErro(e);btn.disabled=false}
+}
 async function pedirAcesso(ev){
   ev.preventDefault();
   const btn=$('btnEntrar');btn.disabled=true;$('loginMsg').textContent='Enviando pedido…';
@@ -397,6 +414,14 @@ async function sairConsulta(){
 function renderAcesso(){
   const topo=`<section><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>Liga Resenha</h2>${botaoInstalar('padding:6px 10px')}</div>`;
   if(!usuario){
+    if(aModo==='senha')return topo+`<p class="muted">Esqueceu a senha? Informe o e-mail da sua conta e a senha nova. Ela passa a valer quando o administrador aprovar.</p>
+     <form onsubmit="pedirNovaSenha(event)" class="form-grid" style="margin-top:12px">
+      <label>E-mail<input id="email" type="email" autocomplete="username" required></label>
+      <label>Senha nova (mínimo 6 caracteres)<input id="senha" type="password" autocomplete="new-password" required></label>
+      <label>Repita a senha nova<input id="senha2" type="password" autocomplete="new-password" required></label>
+      <div class="panel-actions"><button type="submit" id="btnEntrar">PEDIR NOVA SENHA</button><button type="button" class="ghost" onclick="aModo='entrar';render()">Voltar</button></div>
+      <p id="loginMsg" class="warn">${esc(aMsg)}</p>
+     </form></section>`;
     const criar=aModo==='criar';
     return topo+`<p class="muted">${criar?'Crie sua conta. O administrador confere e libera o acesso.':'Entre com o seu e-mail e a sua senha.'}</p>
      <div class="row" style="gap:6px;margin-top:10px"><button class="${criar?'secondary':''}" onclick="aModo='entrar';render()">Entrar</button><button class="${criar?'':'secondary'}" onclick="aModo='criar';render()">Criar conta</button></div>
@@ -407,7 +432,7 @@ function renderAcesso(){
       ${criar?'<label>Repita a senha<input id="senha2" type="password" autocomplete="new-password" required></label>':''}
       <div class="panel-actions"><button type="submit" id="btnEntrar">${criar?'CRIAR CONTA':'ENTRAR'}</button></div>
       <p id="loginMsg" class="warn">${esc(aMsg)}</p>
-     </form>${criar?'':'<p class="muted" style="margin-top:8px">Esqueceu a senha? Peça ao administrador uma senha provisória.</p>'}</section>`;
+     </form>${criar?'':'<div class="panel-actions"><button class="ghost" onclick="esqueciSenha()">Esqueci a senha</button></div>'}</section>`;
   }
   const st=meuAcesso&&meuAcesso.status,sairB='<div class="panel-actions"><button class="ghost" onclick="sairConsulta()">Sair</button></div>';
   if(!meuAcesso)return topo+`<p class="warn" style="margin-top:6px">${esc(aMsg||'Não foi possível verificar seu acesso.')}</p><div class="panel-actions"><button onclick="verificarAcesso()">Tentar de novo</button><button class="ghost" onclick="sairConsulta()">Sair</button></div></section>`;
@@ -425,8 +450,20 @@ async function carregarAcessos(){
   acessosInfo={carregando:true};if(view==='usuarios')render();
   try{const {data,error}=await sb.rpc('listar_acessos');if(error)throw error;acessos=data||[];acessosInfo={}}
   catch(e){acessosInfo={erro:traduzErro(e)}}
-  if(view==='usuarios')render();
+  if(view==='usuarios'||view==='inicio')render();
 }
+const precisaAtencao=a=>a.status==='pendente'||!!a.pedido_senha_em;
+const pendentesAprovacao=()=>acessos.filter(precisaAtencao).length;
+async function responderSenha(uid,aprovar){
+  const a=acessos.find(x=>x.user_id===uid);if(!a||ocupado)return;
+  if(!confirm(aprovar?'Aprovar a senha nova de '+a.nome_informado+' ('+a.email+')?\n\nConfira se foi mesmo ele quem pediu. Depois disso, ele entra com a senha que digitou.':'Recusar o pedido de senha nova de '+a.nome_informado+'? A senha atual continua valendo.'))return;
+  ocupado=true;
+  try{const {error}=await sb.rpc('responder_pedido_senha',{p_user_id:uid,p_aprovar:aprovar});if(error)throw error;ocupado=false;await carregarAcessos();alert(aprovar?'Senha nova de '+a.nome_informado+' liberada.':'Pedido recusado.')}
+  catch(e){alert('Nada foi alterado: '+traduzErro(e))}finally{ocupado=false}
+}
+// o dono vê no botão Usuários quantas pessoas esperam aprovação
+function conferirPendentes(){if(ehDono()&&navigator.onLine)carregarAcessos()}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&view==='inicio')conferirPendentes()});
 function abrirUsuarios(){view='usuarios';render();carregarAcessos();carregarAtletas()}
 // atleta sugerido: o já ligado, ou o do cadastro com o mesmo nome informado
 function atletaSugerido(a){if(a.atleta_id)return a.atleta_id;const n=normNome(a.nome_informado),x=atletas.find(t=>normNome(t.nome)===n||normNome(t.apelido||'')===n);return x?x.id:''}
@@ -467,6 +504,7 @@ function cartaoAcesso(a){
     <div style="min-width:0"><h3>${esc(a.nome_informado)}</h3><p class="muted" style="overflow-wrap:anywhere">${esc(a.email)}</p></div>
     <span class="row" style="gap:4px;flex-wrap:nowrap">${a.admin?'<span class="chip ac-adm">ADM</span>':''}<span class="chip ac-${a.status}">${ACESSO_LABEL[a.status]||esc(a.status)}</span></span></div>
    <p class="muted" style="margin-top:6px">Atleta ligado: <b>${a.atleta_nome?esc(a.atleta_nome):'nenhum'}</b> • Pedido em ${fmtDataHora(a.criado_em)} • Último acesso: ${a.ultimo_acesso?fmtDataHora(a.ultimo_acesso):'nunca'}</p>
+   ${a.pedido_senha_em?`<div class="tie-card tie-pending" style="margin-top:8px;padding:10px;border-radius:10px"><b>🔑 Pediu senha nova em ${fmtDataHora(a.pedido_senha_em)}</b><div class="panel-actions">${b('Aprovar senha nova',`responderSenha('${a.user_id}',true)`,'')}${b('Recusar',`responderSenha('${a.user_id}',false)`)}</div></div>`:''}
    ${sel}${a.status==='aprovado'?blocoAdmin(a):''}<div class="panel-actions">${acoes}${b('Trocar senha',`trocarSenhaAcesso('${a.user_id}')`)}${b('🗑 Excluir conta',`excluirAcesso('${a.user_id}')`,'ghost')}</div></div>`;
 }
 function blocoAdmin(a){
@@ -486,9 +524,9 @@ async function salvarAdmin(uid){
   catch(e){alert('Nada foi alterado: '+traduzErro(e))}finally{ocupado=false}
 }
 function renderUsuarios(){
-  const pend=acessos.filter(a=>a.status==='pendente'),outros=acessos.filter(a=>a.status!=='pendente');
+  const pend=acessos.filter(precisaAtencao),outros=acessos.filter(a=>!precisaAtencao(a));
   let h=`<section><button class="ghost" onclick="voltarInicio()">← Minhas Ligas</button><h2 style="margin-top:12px">Usuários do app</h2>
-   <p class="muted">Atletas que criaram conta no app. Só os aprovados veem a página de consulta. As senhas não ficam visíveis (o servidor guarda só uma versão embaralhada); se alguém esquecer, defina uma senha provisória.</p>
+   <p class="muted">Atletas que criaram conta no app. Só os aprovados veem a página de consulta. As senhas não ficam visíveis (o servidor guarda só uma versão embaralhada); quem esquecer pede uma senha nova no app e ela aparece aqui para você aprovar (ou defina uma senha provisória).</p>
    <div class="panel-actions"><button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link da página de consulta</button><button class="secondary" onclick="carregarAcessos()">↻ Atualizar</button></div></section>`;
   if(acessosInfo.erro)return h+`<section class="tie-card tie-pending"><b>Não foi possível carregar</b><p class="muted" style="margin-top:6px">${esc(acessosInfo.erro)}</p></section>`;
   if(acessosInfo.carregando&&!acessos.length)return h+'<section><p class="muted">Carregando…</p></section>';
@@ -539,7 +577,7 @@ function renderInicio(){
   const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
   const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
-  let h=`<section><div class="atalhos">${pode('financeiro_ver')?'<button class="secondary" onclick="abrirFinancas()">Finanças</button>':''}<button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
+  let h=`<section><div class="atalhos">${pode('financeiro_ver')?'<button class="secondary" onclick="abrirFinancas()">Finanças</button>':''}<button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários${pendentesAprovacao()?` <span class="alerta" title="pessoas esperando aprovação">🔔 ${pendentesAprovacao()}</span>`:''}</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
   if(antiga)h+=`<section class="tie-card tie-pending"><b>Liga da versão anterior encontrada neste aparelho</b>
    <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>

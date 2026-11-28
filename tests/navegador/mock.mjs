@@ -1,5 +1,5 @@
 export const MOCK = () => {
-  const db = { ligas: {}, atletas: {}, temporadas: {}, acessos: {} };
+  const db = { ligas: {}, atletas: {}, temporadas: {}, acessos: {}, pedidosSenha: {} };
   // contas de login do mock; 'mock:sessao' no localStorage: ausente = administrador, 'nenhuma' = sem login, ou o e-mail da conta
   const contas = { 'admin@teste': { id: 'u1', email: 'admin@teste', senha: 'admin123', admin: true, dono: true } };
   db.contas = contas;
@@ -121,7 +121,7 @@ export const MOCK = () => {
     },
     listar_acessos() {
       exigeAdmin();
-      return Object.values(db.acessos).map((a) => { const c = contaPorId(a.user_id) || {}; return { ...a, atleta_nome: (db.atletas[a.atleta_id] || {}).nome || null, ultimo_acesso: null, admin: !!c.admin, dono: false, permissoes: c.permissoes || [] }; }).sort((x, y) => (y.status === 'pendente') - (x.status === 'pendente'));
+      return Object.values(db.acessos).map((a) => { const c = contaPorId(a.user_id) || {}; return { ...a, atleta_nome: (db.atletas[a.atleta_id] || {}).nome || null, ultimo_acesso: null, admin: !!c.admin, dono: false, permissoes: c.permissoes || [], pedido_senha_em: (db.pedidosSenha[a.user_id] || {}).criado_em || null }; }).sort((x, y) => (y.status === 'pendente' || !!y.pedido_senha_em) - (x.status === 'pendente' || !!x.pedido_senha_em));
     },
     definir_acesso(p) {
       exigeAdmin();
@@ -137,6 +137,20 @@ export const MOCK = () => {
       if (!p.p_admin) { c.admin = false; c.permissoes = []; return { ok: true }; }
       if (!db.acessos[c.id] || db.acessos[c.id].status !== 'aprovado') throw { message: 'aprove_antes' };
       c.admin = true; c.permissoes = [...new Set(p.p_permissoes || [])].sort(); return { ok: true };
+    },
+    pedir_nova_senha(p) {
+      if ((p.p_senha || '').length < 6) throw { message: 'senha_curta' };
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.p_email || '')) throw { message: 'email_invalido' };
+      const c = contas[(p.p_email || '').trim().toLowerCase()];
+      if (c && !c.dono && db.acessos[c.id]) db.pedidosSenha[c.id] = { senha: p.p_senha, criado_em: agora() };
+      return { ok: true };
+    },
+    responder_pedido_senha(p) {
+      exigeAdmin();
+      const r = db.pedidosSenha[p.p_user_id]; if (!r) throw { message: 'pedido_nao_encontrado' };
+      delete db.pedidosSenha[p.p_user_id];
+      if (p.p_aprovar) { const c = contaPorId(p.p_user_id); c.senha = r.senha; }
+      return { ok: true };
     },
     trocar_senha_acesso(p) {
       exigeAdmin();

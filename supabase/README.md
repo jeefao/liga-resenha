@@ -45,6 +45,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    10. `supabase/migrations/20261128000004_acessos_atletas.sql` (login dos atletas: a consulta passa a exigir conta aprovada pelo administrador)
    11. `supabase/migrations/20261128000005_permissoes_admin.sql` (dono e administradores com permissões por área; os administradores existentes viram donos)
    12. `supabase/migrations/20261128000006_financeiro.sql` (Finanças: caixa único, inscrições por rodada, despesas, premiação prevista; só pelas funções, com as permissões do financeiro)
+   13. `supabase/migrations/20261129000001_pedido_nova_senha.sql` (esqueci a senha: o atleta pede a senha nova no app, sem login; ela só passa a valer quando o dono aprova na aba Usuários)
    O resultado esperado é "Success. No rows returned".
 3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
    deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.
@@ -63,3 +64,12 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
 6. **Dados para o app**: em *Project Settings* → *API Keys*, copie a **Publishable key**
    (começa com `sb_publishable_`) e a **Project URL**. Essas duas são públicas e vão
    no app. **Nunca** copie a `secret`/`service_role` para o app.
+
+## Esqueci a senha (v7.5.1)
+
+- Na tela de entrar, "Esqueci a senha" pede o e-mail e a senha nova. A função `pedir_nova_senha` (aceita sem login)
+  guarda só a versão embaralhada da senha em `pedidos_senha` — ninguém lê essa tabela direto.
+- A resposta é sempre a mesma, exista ou não a conta, para não revelar quais e-mails estão cadastrados. Conta do dono
+  não aceita pedido. No máximo 30 pedidos esperando ao mesmo tempo; um pedido novo da mesma conta substitui o anterior.
+- A senha só muda quando o dono toca em "Aprovar senha nova" (`responder_pedido_senha`); recusar apaga o pedido e a
+  senha antiga continua valendo. O botão Usuários mostra 🔔 com a soma de contas e senhas esperando.

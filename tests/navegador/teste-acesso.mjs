@@ -48,6 +48,9 @@ try {
   // o mock é recriado a cada carga: recoloca o atleta e os pedidos
   await ev((a) => { Object.assign(__db.acessos, JSON.parse(a)); const id = 'atl-bia'; __db.atletas[id] = { id, nome: 'Bia Teste', apelido: null, situacao: 'membro', observacoes: null, versao: 1, atualizado_em: new Date().toISOString() }; __db.contas['bia@teste'] = { id: 'u-bia@teste', email: 'bia@teste', senha: '123456' }; __db.contas['x@teste'] = { id: 'u-x', email: 'x@teste', senha: '123456' }; }, acessosAntes);
   check('administrador tem o botão Usuários', (await txt()).includes('Usuários'));
+  await ev(() => conferirPendentes()); await espera(300);
+  check('botão Usuários avisa os 2 pedidos pendentes', (await ev(() => { const b = document.querySelector('[onclick^="abrirUsuarios"] .alerta'); return b && b.textContent.trim(); })) === '🔔 2');
+  await page.screenshot({ path: SAIDA + '/aviso-pendentes.png' });
   await ev(() => abrirUsuarios()); await espera(300);
   const tu = await txt();
   check('lista mostra os pedidos pendentes', tu.includes('Aguardando aprovação (2)') && tu.includes('bia@teste') && tu.includes('Fulano'), tu.slice(0, 400));
@@ -64,6 +67,8 @@ try {
   check('bloquear', (await ev(() => __db.acessos['u-x'].status)) === 'bloqueado' && (await txt()).includes('Desbloquear'));
   await ev(() => excluirAcesso('u-x')); await espera(300);
   check('excluir conta some da lista', !(await ev(() => !!__db.acessos['u-x'])) && !(await txt()).includes('x@teste'));
+  await ev(() => { view = 'inicio'; render(); }); await espera(100);
+  check('sem pedidos pendentes o aviso some', !(await ev(() => !!document.querySelector('[onclick^="abrirUsuarios"] .alerta'))));
   const estado = await ev(() => JSON.stringify({ acessos: __db.acessos, atletas: __db.atletas, contas: __db.contas }));
 
   // atleta aprovado entra com a senha provisória e vê "Bem-vindo"

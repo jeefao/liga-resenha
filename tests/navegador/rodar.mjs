@@ -15,7 +15,7 @@ mkdirSync(SAIDA, { recursive: true });
 const TESTES = [
   ['teste-ordem.mjs', SAIDA], ['teste-placar.mjs', SAIDA], ['teste-folhas2.mjs', SAIDA],
   ['teste-temporadas.mjs', SAIDA], ['teste-atletas.mjs', SAIDA], ['teste-rolagem.mjs', '1'],
-  ['teste-subs.mjs', '3'], ['teste-grupos-lesao.mjs', '1'], ['teste-tela-grupos.mjs', '1'], ['teste-regras.mjs', '1', SAIDA], ['teste-chave.mjs', SAIDA], ['teste-acesso.mjs', SAIDA], ['teste-permissoes.mjs', SAIDA], ['teste-financas.mjs', SAIDA],
+  ['teste-subs.mjs', '3'], ['teste-grupos-lesao.mjs', '1'], ['teste-tela-grupos.mjs', '1'], ['teste-regras.mjs', '1', SAIDA], ['teste-chave.mjs', SAIDA], ['teste-acesso.mjs', SAIDA], ['teste-permissoes.mjs', SAIDA], ['teste-financas.mjs', SAIDA], ['teste-senha.mjs', SAIDA],
 ];
 const so = process.argv[2];
 let ok = 0, falhas = 0;

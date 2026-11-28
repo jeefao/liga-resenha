@@ -185,3 +185,6 @@ button.mini{padding:4px 9px;font-size:12px}
 .seg button.on{background:rgba(244,200,90,.16);color:#fde68a}
 .fin-rodada{cursor:pointer}
 .fin-aviso{margin-top:8px;padding:8px 10px;border-radius:10px;background:#14361f;border:1px solid rgba(34,197,94,.6);color:#bbf7d0;font-size:13px}
+.alerta{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;font-weight:800;line-height:1.5;animation:pisca 1.6s ease-in-out 3}
+@keyframes pisca{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.alerta{animation:none}}
