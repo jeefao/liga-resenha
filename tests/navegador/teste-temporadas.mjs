@@ -162,12 +162,21 @@ try {
   check('administrador entra na administração', (await pub.evaluate(() => view)) === 'inicio' && (await pub.evaluate(() => document.body.innerText.includes('Página de consulta'))));
   await pub.evaluate(() => abrirConsulta()); await espera(300);
   const evP = (f, ...a) => pub.evaluate(f, ...a), txtP = () => evP(() => document.body.innerText);
-  const semEdicao = () => evP(() => [...document.querySelectorAll('#main button')].every((b) => b.classList.contains('pub')) && [...document.querySelectorAll('#main input,#main select')].every((e) => e.disabled));
-  check('consulta abre no Início com os 4 botões', (await evP(() => view + '/' + pSec)) === 'publica/inicio' && (await evP(() => ['Início', 'Rodada atual', 'Temporadas', 'Relâmpagos'].every((x) => [...document.querySelectorAll('#lifecycle button')].some((b) => b.textContent === x)))));
+  // só a escolha do painel (classe pub) fica liberada na consulta
+  const semEdicao = () => evP(() => [...document.querySelectorAll('#main button')].every((b) => b.classList.contains('pub')) && [...document.querySelectorAll('#main input,#main select')].every((e) => e.disabled || e.classList.contains('pub')));
+  check('consulta abre no Painel com os 4 botões', (await evP(() => view + '/' + pSec)) === 'publica/inicio' && (await evP(() => ['Painel', 'Rodada atual', 'Temporadas', 'Relâmpagos'].every((x) => [...document.querySelectorAll('#lifecycle button')].some((b) => b.textContent === x)))));
   const ti = await txtP();
-  check('início: rodada atual, temporada com top 5 e próxima etapa', ti.includes('Rodada atual') && ti.includes('Temporada Teste') && ti.includes('Próxima: Etapa 4 — data prevista 07/03/2027') && ti.includes('A04'), ti.slice(0, 900).split('\n').join(' ¦ '));
-  check('início sem botões de edição', await semEdicao());
-  await pub.screenshot({ path: SAIDA + '/publica-inicio.png', fullPage: true });
+  check('painel: sem ligas na tela principal, só a escolha do atleta', ti.includes('Painel do atleta') && ti.includes('Ver o painel de') && !ti.includes('Ver temporada completa') && !ti.includes('Última relâmpago'), ti.slice(0, 900).split('\n').join(' ¦ '));
+  check('linha da próxima etapa abaixo dos botões', /Próxima etapa: \d{2}\/\d{2}\/\d{4}/.test(await evP(() => document.querySelector('#lifecycle .prox-etapa').textContent)));
+  check('painel sem botões de edição', await semEdicao());
+  // painel de um atleta: posição e pontos iguais à classificação geral
+  const linhaA04 = rkAdmin.split('|').find((x) => x.split(':')[1] === 'A04').split(':');
+  await evP(() => escolherPainel(atletas.find((a) => a.nome === 'A04').id));
+  const tp = await txtP();
+  check('painel do atleta: números e temporada com a mesma posição do ranking', ['A04', 'Temporadas', 'Etapas', 'Jogos', 'Vitórias', 'Aproveitamento', 'Nas temporadas', 'Participações'].every((x) => tp.includes(x)) && tp.includes(linhaA04[0] + 'º\n' + linhaA04[2] + ' pts'), tp.slice(0, 1200).split('\n').join(' ¦ '));
+  const st = await evP(() => { const s = estatisticasAtleta(atletas.find((a) => a.nome === 'A04').id); return { j: s.jogos, v: s.v, p: s.part.length }; });
+  check('painel do atleta: jogos e vitórias coerentes', st.j > 0 && st.v <= st.j && st.p >= 1, JSON.stringify(st));
+  await pub.screenshot({ path: SAIDA + '/publica-painel.png', fullPage: true });
   await evP(() => irSecaoPublica('temporadas'));
   const tt = await txtP();
   check('temporadas: lista a temporada em andamento', tt.includes('Temporada Teste') && tt.includes('Ver classificação e etapas'));
@@ -197,7 +206,7 @@ try {
   await evP(() => irSecaoPublica('rodada'));
   check('rodada atual abre direto a liga aberta mais recente, sem voltar', (await evP(() => view + '/' + pSec + '/' + !!pOrigem + '/' + ligaEncerrada(L))) === 'publica-etapa/rodada/false/false' && !(await txtP()).replace('← Administração', '').includes('← '));
   await evP(async () => { for (const t of Object.values(__db.temporadas)) t.status = 'arquivada'; for (const l of Object.values(__db.ligas)) if (!l.temporada_id) l.excluida_em = 'x'; await abrirConsulta(); });
-  check('sem nada para consultar: aviso no início', (await txtP()).includes('Ainda não há temporadas nem ligas para consultar'));
+  check('sem liga aberta: painel continua abrindo', (await txtP()).includes('Ver o painel de'));
   check('pública: sem erros de script', errosPub.length === 0, errosPub.join(' | '));
 } finally { await browser.close(); srv.close(); }
 console.log('OK:', ok.length); for (const f of falhas) console.log('FALHA:', f);

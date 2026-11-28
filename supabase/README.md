@@ -46,6 +46,8 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    11. `supabase/migrations/20261128000005_permissoes_admin.sql` (dono e administradores com permissões por área; os administradores existentes viram donos)
    12. `supabase/migrations/20261128000006_financeiro.sql` (Finanças: caixa único, inscrições por rodada, despesas, premiação prevista; só pelas funções, com as permissões do financeiro)
    13. `supabase/migrations/20261129000001_pedido_nova_senha.sql` (esqueci a senha: o atleta pede a senha nova no app, sem login; ela só passa a valer quando o dono aprova na aba Usuários)
+   14. `supabase/migrations/20261129000002_corrige_ajustes_financas.sql` (o Supabase recusa UPDATE sem WHERE: corrige o Salvar dos Ajustes do Finanças)
+   15. `supabase/migrations/20261129000003_historico_app.sql` (histórico do app, situação do atleta na próxima liga e atletas que são administradores)
    O resultado esperado é "Success. No rows returned".
 3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
    deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.
@@ -73,3 +75,19 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
   não aceita pedido. No máximo 30 pedidos esperando ao mesmo tempo; um pedido novo da mesma conta substitui o anterior.
 - A senha só muda quando o dono toca em "Aprovar senha nova" (`responder_pedido_senha`); recusar apaga o pedido e a
   senha antiga continua valendo. O botão Usuários mostra 🔔 com a soma de contas e senhas esperando.
+
+## Painel do atleta e histórico do app (v7.6.0)
+
+- A consulta abre no painel do atleta da conta (temporadas, etapas, relâmpagos, jogos, vitórias, aproveitamento,
+  saldo de games, títulos, posição em cada temporada e participações). Os números saem dos mesmos placares e da mesma
+  conta do ranking. Dá para escolher o painel de qualquer atleta.
+- Linha "Próxima etapa" abaixo dos botões: `minha_situacao(liga)` diz se o atleta da conta está na lista da próxima
+  liga e, se a rodada cobra inscrição, se está pago, isento ou pendente. Só a própria situação; nada de outros atletas.
+- Histórico: gatilhos anotam em `historico` o que muda em temporadas, atletas, contas, administradores, pedidos de
+  senha e financeiro (quem, o quê, quando). As ligas entram pelo registro que já existia (`ligas_eventos`). Visitas:
+  o app chama `registrar_visita()` ao abrir (no máximo uma linha a cada 30 minutos por pessoa). Ações iguais em poucos
+  minutos viram uma linha só com "vezes".
+- `historico_app()` só para o dono (bloco abaixo da Lixeira); `historico_financeiro()` para quem tem "Financeiro: ver"
+  (aba Histórico do Finanças). Ninguém lê a tabela direto. O histórico começa a contar a partir da instalação.
+- Todo UPDATE/DELETE dentro das funções precisa de WHERE (o Supabase recusa sem): o teste
+  `supabase/tests/update-com-where.test.js` confere isso nas migrations.

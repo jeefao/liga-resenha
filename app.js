@@ -1,4 +1,4 @@
-const APP_VERSION='7.5.2';
+const APP_VERSION='7.6.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -349,6 +349,7 @@ async function verificarAcesso(){
     const {data,error}=await sb.rpc('meu_acesso');if(error)throw error;
     meuAcesso=data;aMsg='';
     lsSet('lr6:acesso',data&&data.admin?data:{admin:false});
+    if(data&&(data.admin||data.status==='aprovado'))sb.rpc('registrar_visita').then(()=>{},()=>{});
     if(data&&data.admin)return abrirAdministracao();
     if(data&&data.status==='aprovado')return abrirConsulta();
   }catch(e){
@@ -577,7 +578,7 @@ function renderInicio(){
   const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
   const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
-  let h=`<section><div class="atalhos">${pode('financeiro_ver')?'<button class="secondary" onclick="abrirFinancas()">Finanças</button>':''}<button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários${pendentesAprovacao()?` <span class="alerta" title="pessoas esperando aprovação">🔔 ${pendentesAprovacao()}</span>`:''}</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
+  let h=`<section><div class="atalhos">${pode('financeiro_ver')?'<button class="secondary" onclick="abrirFinancas()">Finanças</button>':''}<button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários${pendentesAprovacao()?` <span class="alerta" title="pessoas esperando aprovação">🔔 ${pendentesAprovacao()}</span>`:''}</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button><button class="secondary" onclick="atualizarInicio()" title="Buscar de novo os dados no servidor">↻ Atualizar</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
   if(antiga)h+=`<section class="tie-card tie-pending"><b>Liga da versão anterior encontrada neste aparelho</b>
    <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>
@@ -589,8 +590,40 @@ function renderInicio(){
   h+=`<section><h3>Backups</h3><p class="muted" style="margin-top:6px">Exporte todas as ligas num arquivo. A importação sempre cria ligas novas e nunca altera as existentes.</p>
    <div class="panel-actions"><button class="secondary" onclick="exportarTodas()">Exportar todas as ligas</button><button class="secondary" onclick="$('imp').click()">Importar backup</button><input id="imp" type="file" accept=".json,application/json" hidden onchange="importarArquivo(event)"></div></section>`;
   h+=`<section><details ${mostrarLixeira?'open':''} ontoggle="mostrarLixeira=this.open"><summary><b>Lixeira (${lixeira.length})</b></summary>${lixeira.length?lixeira.map(x=>`<div class="liga-card" style="margin-top:10px"><h3>${esc(x.nome)}</h3><p class="muted">${x.etapa_numero?'Etapa '+x.etapa_numero+' de temporada • ':''}${fmtData(x.data)} • ${x.participantes} atletas • na lixeira desde ${fmtDataHora(x.excluida_em)}</p><div class="panel-actions"><button class="secondary" onclick="retirarDaLixeira('${x.id}')">Retirar da lixeira</button><button class="danger" onclick="apagarDeVez('${x.id}')">Apagar de vez</button></div></div>`).join('')+`<div class="panel-actions" style="margin-top:14px"><button class="danger" onclick="esvaziarLixeira()">ESVAZIAR LIXEIRA (${lixeira.length})</button></div><p class="muted" style="margin-top:6px">Apagar de vez não tem volta. Antes, o app baixa um arquivo de backup das ligas apagadas.</p>`:'<p class="muted" style="margin-top:8px">Vazia.</p>'}</details></section>`;
+  if(ehDono())h+=`<section><details ${histApp.aberto?'open':''} ontoggle="abrirHistApp(this.open)"><summary><b>Histórico do app</b></summary>
+    <p class="muted" style="margin-top:8px">Tudo o que acontece no app: ligas, temporadas, atletas, contas, financeiro e visitas, com quem fez e quando. Ações repetidas em poucos minutos aparecem juntas.</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px">${HIST_AREAS.map(([k,t])=>`<button class="${histApp.area===k?'':'secondary'}" style="padding:6px 10px" onclick="filtrarHistApp('${k}')">${t}</button>`).join('')}</div>
+    <div style="margin-top:10px">${histItens(histApp,'maisHistApp()')}</div></details></section>`;
   h+=`<p class="muted" style="text-align:center;margin-top:14px">${usuario&&usuario.email?'Conectado como '+esc(usuario.email)+' • ':''}<a href="#" onclick="sair();return false">Sair</a></p>`;
   return h;
+}
+
+function atualizarInicio(){carregarLista();carregarAtletas();conferirPendentes();if(histApp.aberto)carregarHistApp(histApp,'historico_app',{p_area:histApp.area||null})}
+
+/* ---------- Histórico do app (dono) e do financeiro ---------- */
+const HIST_AREAS=[['','Tudo'],['ligas','Ligas'],['temporadas','Temporadas'],['atletas','Atletas'],['usuarios','Usuários'],['financeiro','Financeiro'],['visita','Visitas']];
+const HIST_PAGINA=100;
+let histApp={area:'',itens:[],carregando:false,erro:null,fim:false,aberto:false},histFin={itens:[],carregando:false,erro:null,fim:false,pedido:false};
+async function carregarHistApp(h,fn,args,mais=false){
+  if(h.carregando)return;h.carregando=true;h.erro=null;if(!mais){h.itens=[];h.fim=false}render();
+  try{
+    const antes=mais&&h.itens.length?h.itens[h.itens.length-1].em:null;
+    const {data,error}=await sb.rpc(fn,{...args,p_antes:antes});if(error)throw error;
+    const novos=data||[];h.itens=mais?h.itens.concat(novos):novos;h.fim=novos.length<HIST_PAGINA;
+  }catch(e){h.erro=traduzErro(e)}
+  finally{h.carregando=false;render()}
+}
+function abrirHistApp(aberto){if(aberto===histApp.aberto)return;histApp.aberto=aberto;if(aberto&&!histApp.itens.length)carregarHistApp(histApp,'historico_app',{p_area:histApp.area||null})}
+function filtrarHistApp(a){histApp.area=a;carregarHistApp(histApp,'historico_app',{p_area:a||null})}
+function maisHistApp(){carregarHistApp(histApp,'historico_app',{p_area:histApp.area||null},true)}
+function maisHistFin(){carregarHistApp(histFin,'historico_financeiro',{},true)}
+const HIST_ROTULO={ligas:'Liga',temporadas:'Temporada',atletas:'Atleta',usuarios:'Usuário',financeiro:'Financeiro',visita:'Visita'};
+function histItens(h,maisFn){
+  if(h.erro)return `<p class="warn">Não foi possível carregar: ${esc(h.erro)}</p>`;
+  if(!h.itens.length)return `<p class="muted">${h.carregando?'Carregando…':'Nada registrado ainda.'}</p>`;
+  return `<div class="hist-lista">${h.itens.map(x=>`<div class="hist-item"><div class="hist-quando">${fmtDataHora(x.em)} • <b>${esc(x.quem)}</b> <span class="hist-area">${HIST_ROTULO[x.area]||esc(x.area)}</span></div>
+    <div>${x.area==='ligas'?`<b>${esc(x.alvo||'')}</b>: ${esc(x.acao)}`:`${esc(x.acao)}${x.alvo?`: <b>${esc(x.alvo)}</b>`:''}`}${x.vezes>1?` <span class="muted">(${x.vezes} vezes)</span>`:''}</div></div>`).join('')}</div>
+    ${h.fim?'':`<div class="panel-actions"><button class="secondary" onclick="${maisFn}"${h.carregando?' disabled':''}>${h.carregando?'Carregando…':'Carregar mais'}</button></div>`}`;
 }
 
 /* ---------- Cadastro único de atletas ---------- */
@@ -626,7 +659,10 @@ async function carregarParticipacoes(){
   }catch{participacoes=null}
   if(view==='atletas')render();
 }
-function abrirAtletas(){view='atletas';render();carregarAtletas();carregarParticipacoes()}
+function abrirAtletas(){view='atletas';render();carregarAtletas();carregarParticipacoes();carregarAtletasAdm()}
+// tag ADM: atletas ligados a contas de administrador
+let atletasAdm=new Set();
+async function carregarAtletasAdm(){try{const {data,error}=await sb.rpc('atletas_admins');if(error)throw error;atletasAdm=new Set(data||[]);if(view==='atletas')rerenderAtletas()}catch{}}
 function atletasFiltrados(){
   const b=normNome(atlFiltro.busca),s=atlFiltro.situacao;
   return atletas.filter(a=>(s==='todos'||(s==='ativos'?a.situacao!=='inativo':a.situacao===s))&&(!b||normNome(a.nome+' '+(a.apelido||'')).includes(b)));
@@ -637,7 +673,7 @@ function listaAtletasHtml(){
   if(!f.length)return '<p class="muted">Nenhum atleta encontrado.</p>';
   return '<div class="atl-list">'+f.map(a=>`<div class="atl-row">
    <div style="flex:1;min-width:0"><b>${esc(a.nome)}</b>${a.apelido?` <span class="muted">(${esc(a.apelido)})</span>`:''}
-    <div class="muted"><span class="chip at-${a.situacao}">${SITUACAO_LABEL[a.situacao]||esc(a.situacao)}</span>${participacoes?` ${participacoes[a.id]||0} liga(s)`:''}</div>
+    <div class="muted"><span class="chip at-${a.situacao}">${SITUACAO_LABEL[a.situacao]||esc(a.situacao)}</span>${atletasAdm.has(a.id)?' <span class="chip ac-adm">ADM</span>':''}${participacoes?` ${participacoes[a.id]||0} liga(s)`:''}</div>
     ${a.observacoes?`<div class="muted" style="margin-top:4px">${esc(a.observacoes)}</div>`:''}</div>
    <div class="row" style="gap:6px;flex-wrap:nowrap">${a.situacao==='inativo'&&participacoes&&!participacoes[a.id]?`<button class="danger" onclick="apagarAtleta('${a.id}')">Apagar</button>`:''}<button class="secondary" onclick="abrirAtletaForm('${a.id}')">Editar</button></div></div>`).join('')+'</div>';
 }
@@ -672,9 +708,8 @@ function abrirAtletaForm(id,nomeInicial='',depois=null){
   $('modal').innerHTML=`<div class="modal-bg"><div class="modal-box"><h2>${a?'Editar atleta':'Novo atleta'}</h2>
    <form class="form-grid" style="margin-top:10px" onsubmit="salvarAtletaForm(event,${a?`'${a.id}'`:'null'})">
     <label>Nome<input id="afNome" maxlength="80" required value="${esc(a?a.nome:nomeInicial)}"></label>
-    <label>Apelido (opcional)<input id="afApelido" maxlength="40" value="${esc(a&&a.apelido||'')}"></label>
     <label>Situação<select id="afSit">${Object.entries(SITUACAO_LABEL).map(([v,t])=>`<option value="${v}" ${(a?a.situacao:'membro')===v?'selected':''}>${t}</option>`).join('')}</select></label>
-    <label>Observações (opcional)<textarea id="afObs" maxlength="500" rows="3">${esc(a&&a.observacoes||'')}</textarea></label>
+    <label>Observações (opcional)<textarea id="afObs" maxlength="500" rows="2" style="min-height:0">${esc(a&&a.observacoes||'')}</textarea></label>
     ${a?'<p class="muted">Mudar o nome aqui não altera os nomes já gravados nas ligas anteriores.</p>':''}
     <p class="muted" id="afMsg"></p>
     <div class="panel-actions"><button type="submit" id="afBtn">SALVAR</button><button type="button" class="secondary" onclick="fecharModal()">Cancelar</button></div>
@@ -690,7 +725,7 @@ async function salvarAtletaForm(ev,id){
   if(dup&&!confirm('Já existe "'+dup.nome+'" no cadastro. Salvar mesmo assim?'))return;
   $('afBtn').disabled=true;$('afMsg').textContent='Salvando no servidor…';
   try{
-    const {data,error}=await sb.rpc('salvar_atleta',{p_id:id,p_versao_esperada:a?a.versao:null,p_nome:nome,p_apelido:$('afApelido').value.trim()||null,p_situacao:$('afSit').value,p_observacoes:$('afObs').value.trim()||null});
+    const {data,error}=await sb.rpc('salvar_atleta',{p_id:id,p_versao_esperada:a?a.versao:null,p_nome:nome,p_apelido:a&&a.apelido||null,p_situacao:$('afSit').value,p_observacoes:$('afObs').value.trim()||null});
     if(error)throw error;
     if(data.conflito){alert('Este atleta foi alterado em outro aparelho. O cadastro será recarregado; confira e edite de novo.');fecharModal();carregarAtletas();return}
     atualizarAtletaLocal(data);
@@ -857,8 +892,8 @@ function pontosDaEtapa(liga,R){
   const P=R.pontos,velho=CONFRONTO_DIRETO,velhoEsp=ESPECIAL;CONFRONTO_DIRETO=R.confronto_direto;
   ESPECIAL=ehEspecial(liga,R,d);
   // v = vitórias nos grupos; vt/sg/gp = vitórias, saldo e games pró em todos os jogos (desempate do ranking)
-  const novo=()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[],vt:0,sg:0,gp:0});
-  const somarJogo=(x,v,k)=>{x.sg+=v[k]-v[1-k];x.gp+=v[k];if(v[k]>v[1-k])x.vt++};
+  const novo=()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[],vt:0,sg:0,gp:0,j:0});
+  const somarJogo=(x,v,k)=>{x.j++;x.sg+=v[k]-v[1-k];x.gp+=v[k];if(v[k]>v[1-k])x.vt++};
   try{comDados(d,()=>{
     const pos=S.names.map(novo);
     for(const g of groupIndexes()){
@@ -892,7 +927,7 @@ function pontosDaEtapa(liga,R){
     pos.forEach((x,i)=>{
       if(!x)return;
       const id=idDe(i),n=nomeCompleto(i);x.total=x.grupo+x.mata;
-      if(id){const y=out.porId.get(id);if(y){for(const k of ['grupo','v','b','dz','mata','total','vt','sg','gp'])y[k]+=x[k];y.mataTxt.push(...x.mataTxt);y.posicao=y.posicao??x.posicao}else out.porId.set(id,x)}
+      if(id){const y=out.porId.get(id);if(y){for(const k of ['grupo','v','b','dz','mata','total','vt','sg','gp','j'])y[k]+=x[k];y.mataTxt.push(...x.mataTxt);y.posicao=y.posicao??x.posicao}else out.porId.set(id,x)}
       else if(n.trim())out.semVinculo.push(n);
     });
   })}finally{CONFRONTO_DIRETO=velho;ESPECIAL=velhoEsp}
@@ -1087,7 +1122,9 @@ async function apagarTemporada(){
 const emConsulta=()=>view.startsWith('publica');
 // PUB: tudo que a consulta recebe do servidor; pSec: seção do topo; pOrigem: para onde o "voltar" leva
 let PUB={temporadas:[],etapas:[],atletas:[],relampagos:[]},pSec='inicio',pTab='Ranking',pInfo={},pOrigem=null;
-const P_SECOES=[['inicio','Início'],['rodada','Rodada atual'],['temporadas','Temporadas'],['relampagos','Relâmpagos']];
+// PROX: próxima liga/etapa; PSIT: situação do atleta da conta nela (minha_situacao); pAtleta: painel aberto
+let PROX=null,PSIT=null,pAtleta=null;
+const P_SECOES=[['inicio','Painel'],['rodada','Rodada atual'],['temporadas','Temporadas'],['relampagos','Relâmpagos']];
 async function abrirConsulta(){
   view='carregando';render();
   try{
@@ -1095,6 +1132,14 @@ async function abrirConsulta(){
     pInfo={em:new Date().toISOString()};
     PUB={temporadas:data&&data.temporadas||[],etapas:data&&data.etapas||[],atletas:data&&data.atletas||[],relampagos:data&&data.relampagos||[]};
     atletas=PUB.atletas;pontosCache.clear();T=null;TE=[];L=null;S=null;pOrigem=null;
+    PROX=proximaLigaPublica();
+    try{const r=await sb.rpc('minha_situacao',{p_liga_id:PROX&&PROX.l?PROX.l.id:null});PSIT=r.error?null:r.data}catch{PSIT=null}
+    // o servidor manda só os atletas das etapas: completa com os das relâmpago e com o atleta da conta
+    const conhecidos=new Set(PUB.atletas.map(a=>a.id));
+    const incluir=(id,nome)=>{if(id&&nome&&!conhecidos.has(id)){conhecidos.add(id);PUB.atletas.push({id,nome:String(nome).trim()})}};
+    for(const l of PUB.relampagos){const d=l.dados||{};(d.ids||[]).forEach((id,i)=>incluir(id,(d.names||[])[i]))}
+    if(PSIT&&PSIT.atleta_id)incluir(PSIT.atleta_id,meuAcesso&&meuAcesso.nome);
+    if(!pAtleta&&PSIT&&PSIT.atleta_id)pAtleta=PSIT.atleta_id;
     view='publica';if(pSec==='rodada')pSec='inicio';
   }catch(e){
     if(/acesso_negado|permission denied/.test(String(e&&e.message)))return verificarAcesso();
@@ -1117,7 +1162,7 @@ function irSecaoPublica(sec){
 }
 function cabecalhoPublico(sub=''){
   return `<section class="header-card"><div class="row" style="justify-content:space-between;align-items:center"><div style="min-width:0"><p class="muted">Liga Resenha • consulta</p><p style="margin-top:2px">Bem-vindo, <b>${esc((meuAcesso&&meuAcesso.nome)||(meuAcesso&&meuAcesso.admin?'administrador':'atleta'))}</b></p>${meuAcesso&&meuAcesso.admin?'<button class="ghost pub" style="padding:6px 10px;margin-top:6px" onclick="abrirAdministracao()">← Administração</button>':''}</div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="ghost pub" style="padding:6px 10px" onclick="abrirConsulta()" title="Atualizar">↻</button><button class="ghost pub" style="padding:6px 10px" onclick="sairConsulta()">Sair</button></div></div>${botaoInstalar('margin-top:8px')}
-   <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${P_SECOES.map(([k,t])=>`<button class="${k===pSec?'':'secondary'} pub" onclick="irSecaoPublica('${k}')">${t}</button>`).join('')}</div>${sub}</section>`;
+   <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${P_SECOES.map(([k,t])=>`<button class="${k===pSec?'':'secondary'} pub" onclick="irSecaoPublica('${k}')">${t}</button>`).join('')}</div>${linhaProxima()}${sub}</section>`;
 }
 function subCabecalho(volta,titulo,linha){
   return `<div style="margin-top:14px;border-top:1px solid #334155;padding-top:12px">${volta?`<button class="ghost pub" onclick="voltarConsulta()">← ${volta}</button>`:''}<h2 style="margin:10px 0 2px">${titulo}</h2>${linha?`<p class="muted">${linha}</p>`:''}</div>`;
@@ -1128,22 +1173,74 @@ function cartaoLigaPublica(l,rotulo){
     <p style="margin-top:6px"><b>${esc(l.nome)}</b> • ${fmtData(l.data)} • ${statusEtapaPublica(l)}${l.participantes?' • '+l.participantes+' atletas':''}</p>
     <div class="panel-actions"><button class="secondary pub" onclick="abrirEtapaPublica('${l.id}')">${l.dados&&l.dados.drawn?'Ver grupos e jogos':'Ver inscritos'}</button></div></div>`;
 }
-function renderInicioPublico(){
-  const r=rodadaAtual(),ta=PUB.temporadas.find(t=>t.status==='andamento'),rel=PUB.relampagos[0];
-  if(!r&&!PUB.temporadas.length)return '<section><h2>Liga Resenha</h2><p class="muted" style="margin-top:6px">Ainda não há temporadas nem ligas para consultar.</p></section>';
-  let h='';
-  if(r)h+=`<section><h2>${r.aberta?'Rodada atual':'Última rodada'}</h2>${cartaoLigaPublica(r.l,r.l.temporada_id?esc((PUB.temporadas.find(t=>t.id===r.l.temporada_id)||{}).nome||'Temporada')+' • Etapa '+r.l.etapa_numero:'Relâmpago')}</section>`;
-  if(ta){
-    usarTemporada(ta.id);
-    const R=regrasCompletas(T.regras),usados=new Set(TE.map(l=>l.etapa_numero)),datas=(T.dados&&T.dados.datas)||{};
-    let prox=null;for(let n=1;n<=R.etapas;n++)if(!usados.has(n)){prox=n;break}
-    const top=calcularRanking().linhas.slice(0,5);
-    h+=`<section><h2>${esc(T.nome)}</h2><p class="muted">${prox?'Próxima: <b>Etapa '+prox+'</b> — '+(datas[prox]?'data prevista '+fmtData(datas[prox]):'data a definir'):'Todas as etapas já foram criadas.'}</p>
-     ${top.length?`<table style="margin-top:10px"><tr><th>#</th><th>Atleta</th><th>Pontos</th></tr>${top.map(x=>`<tr><td>${x.pos}º</td><td>${esc(x.nome)}</td><td><b>${x.total}</b></td></tr>`).join('')}</table>`:'<p class="muted" style="margin-top:8px">Ranking ainda sem resultados.</p>'}
-     <div class="panel-actions"><button class="secondary pub" onclick="abrirTemporadaPublica('${T.id}')">Ver temporada completa</button></div></section>`;
-    T=null;TE=[];
+// próxima liga: a aberta (inscrições ou em andamento) de data mais próxima; sem nenhuma, a próxima etapa prevista
+function proximaLigaPublica(){
+  const tAnd=PUB.temporadas.filter(t=>t.status==='andamento');
+  const abertas=[...PUB.etapas.filter(e=>tAnd.some(t=>t.id===e.temporada_id)),...PUB.relampagos].filter(l=>!ligaEncerrada(l)).sort((a,b)=>String(a.data).localeCompare(String(b.data)));
+  if(abertas.length)return {l:abertas.find(l=>String(l.data)>=hoje())||abertas[abertas.length-1]};
+  let melhor=null;
+  for(const t of tAnd){
+    const R=regrasCompletas(t.regras),usados=new Set(PUB.etapas.filter(e=>e.temporada_id===t.id).map(e=>e.etapa_numero)),datas=(t.dados&&t.dados.datas)||{};
+    for(let n=1;n<=R.etapas;n++)if(!usados.has(n)){const d=datas[n]||null;if(!melhor||(d&&(!melhor.data||d<melhor.data)))melhor={t,n,data:d};break}
   }
-  if(rel&&(!r||rel.id!==r.l.id))h+=`<section><h2>Última relâmpago</h2>${cartaoLigaPublica(rel,'Relâmpago')}</section>`;
+  return melhor;
+}
+function linhaProxima(){
+  const p=PROX;if(!p)return '';
+  const it=[];
+  if(p.l){
+    it.push(['',fmtData(p.l.data)]);
+    if(PSIT&&PSIT.atleta_id){
+      it.push(PSIT.inscrito?['ok','Inscrito']:['muted','Não inscrito']);
+      if(PSIT.inscrito&&PSIT.cobranca)it.push(PSIT.pagamento==='pago'?['ok','Pago']:PSIT.pagamento==='isento'?['ok','Isento']:['warn','Pagamento pendente']);
+    }
+  }else it.push(['',p.data?fmtData(p.data)+' (prevista)':'data a definir'],['muted','inscrições ainda não abertas']);
+  return `<p class="prox-etapa">Próxima etapa: ${it.map(([c,t])=>`<b class="${c}">${t}</b>`).join(' - ')}</p>`;
+}
+/* ---------- Painel do atleta (consulta) ---------- */
+const RES_LABEL={campeao:'🏆 Campeão',vice:'🥈 Vice',terceiro:'🥉 3º lugar',quarto:'4º lugar',semi:'Semifinal',quartas:'Quartas'};
+function resultadoMata(txt){
+  return txt.includes('vitória final')?'campeao':txt.includes('final')?'vice':txt.includes('vitória 3º lugar')?'terceiro':txt.includes('3º lugar')?'quarto':txt.includes('semifinal')?'semi':txt.includes('quartas')?'quartas':null;
+}
+// números do atleta em todas as ligas da consulta (só onde o nome está ligado ao cadastro)
+function estatisticasAtleta(id){
+  const st={part:[],temporadas:[],jogos:0,v:0,sg:0,gp:0,titulos:0,vices:0,terceiros:0};
+  const R0=regrasCompletas({});
+  for(const l of [...PUB.etapas,...PUB.relampagos]){
+    if(!((l.dados&&l.dados.ids)||[]).includes(id))continue;
+    const t=l.temporada_id?PUB.temporadas.find(x=>x.id===l.temporada_id)||null:null;
+    const pe=pontosDaEtapa(l,t?regrasCompletas(t.regras):R0),x=pe&&pe.porId.get(id)||null,res=x?resultadoMata(x.mataTxt):null;
+    if(x){st.jogos+=x.j;st.v+=x.vt;st.sg+=x.sg;st.gp+=x.gp}
+    if(res==='campeao')st.titulos++;else if(res==='vice')st.vices++;else if(res==='terceiro')st.terceiros++;
+    st.part.push({l,t,x,res});
+  }
+  const salvo=[T,TE];
+  for(const t of PUB.temporadas){
+    const n=st.part.filter(p=>p.t&&p.t.id===t.id).length;if(!n)continue;
+    usarTemporada(t.id);const {linhas}=calcularRanking(),r=linhas.find(x=>x.id===id);
+    st.temporadas.push({t,etapas:n,pos:r?r.pos:null,total:r?r.total:0,de:linhas.length});
+  }
+  [T,TE]=salvo;
+  return st;
+}
+function iniciais(n){return String(n||'').trim().split(/\s+/).filter(Boolean).map((p,i,a)=>i===0||i===a.length-1?p[0]:'').join('').toUpperCase().slice(0,2)}
+function mesAno(d){const m=/^(\d{4})-(\d{2})/.exec(d||'');return m?['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+m[2]-1]+'/'+m[1]:''}
+function escolherPainel(v){pAtleta=v||null;render();window.scrollTo(0,0)}
+function renderInicioPublico(){
+  const ops=PUB.atletas.filter(a=>a.situacao!=='inativo'||a.id===pAtleta).slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  const eu=PSIT&&PSIT.atleta_id;
+  const sel=`<label class="painel-escolha">Ver o painel de<select class="pub" onchange="escolherPainel(this.value)"><option value="">— escolher atleta —</option>${eu&&ops.some(a=>a.id===eu)?`<option value="${eu}"${eu===pAtleta?' selected':''}>Meu painel</option>`:''}${ops.filter(a=>a.id!==eu).map(a=>`<option value="${a.id}"${a.id===pAtleta?' selected':''}>${esc(a.nome)}</option>`).join('')}</select></label>`;
+  const a=pAtleta&&PUB.atletas.find(x=>x.id===pAtleta);
+  if(!a)return `<section><h2>Painel do atleta</h2><p class="muted" style="margin-top:6px">${PSIT&&!PSIT.atleta_id&&!(meuAcesso&&meuAcesso.admin)?'Sua conta ainda não está ligada a um atleta do cadastro. Fale com o administrador.':'Escolha um atleta para ver o histórico e as estatísticas dele na liga.'}</p>${sel}</section>`;
+  const s=estatisticasAtleta(a.id),et=s.part.filter(p=>p.t).length,rel=s.part.length-et,aprov=s.jogos?Math.round(100*s.v/s.jogos):null;
+  const desde=s.part.map(p=>p.l.data).filter(Boolean).sort()[0];
+  const kpi=(t,v,sub='')=>`<div class="painel-kpi"><b>${v}</b><span>${t}</span>${sub?`<small>${sub}</small>`:''}</div>`;
+  let h=`<section><div class="painel-id"><div class="painel-avatar" aria-hidden="true">${esc(iniciais(a.nome))}</div><div style="min-width:0"><h2>${esc(a.nome)}</h2><p class="muted">${[[SITUACAO_LABEL[a.situacao],desde?'na liga desde '+mesAno(desde):''].filter(Boolean).join(' ').replace(/^./,c=>c.toUpperCase()),a.id===eu?'você':''].filter(Boolean).join(' • ')}</p></div></div>${sel}</section>`;
+  if(!s.part.length)return h+'<section><p class="muted">Ainda sem participações registradas nas ligas da consulta.</p></section>';
+  h+=`<section><div class="painel-kpis">${kpi('Temporadas',s.temporadas.length)}${kpi('Etapas',et)}${kpi('Relâmpagos',rel)}${kpi('Jogos',s.jogos)}${kpi('Vitórias',s.v,s.jogos?(s.jogos-s.v)+' derrota(s)':'')}${kpi('Aproveitamento',aprov==null?'–':aprov+'%')}${kpi('Saldo de games',(s.sg>0?'+':'')+s.sg,s.gp+' games pró')}${kpi('Títulos',s.titulos,s.vices||s.terceiros?s.vices+' vice • '+s.terceiros+' 3º':'')}</div></section>`;
+  if(s.temporadas.length)h+=`<section><h3>Nas temporadas</h3>${s.temporadas.map(x=>`<a href="#" class="painel-linha" onclick="abrirTemporadaPublica('${x.t.id}');return false"><div style="min-width:0"><b>${esc(x.t.nome)}</b><p class="muted">${x.etapas} etapa(s) jogada(s) • ${T_STATUS[x.t.status]||esc(x.t.status)}</p></div><div class="painel-pos">${x.pos?x.pos+'º':'–'}<small>${x.total} pts${x.de?' • de '+x.de:''}</small></div></a>`).join('')}</section>`;
+  const ult=s.part.slice().sort((p,q)=>String(q.l.data).localeCompare(String(p.l.data)));
+  h+=`<section><h3>Participações (${ult.length})</h3>${ult.map(p=>{const x=p.x;return `<a href="#" class="painel-linha" onclick="abrirEtapaPublica('${p.l.id}');return false"><div style="min-width:0"><b>${p.t?'Etapa '+p.l.etapa_numero+' • '+esc(p.t.nome):esc(p.l.nome)}</b><p class="muted">${fmtData(p.l.data)} • ${x&&x.j?x.vt+'V '+(x.j-x.vt)+'D'+(x.posicao?' • '+x.posicao+'º no grupo':''):statusEtapaPublica(p.l)}</p></div><div class="painel-res">${RES_LABEL[p.res]||''}</div></a>`}).join('')}</section>`;
   return h;
 }
 function renderTemporadasPublicas(){
@@ -2453,7 +2550,7 @@ function renderLifecycle(){
 // Caixa único da liga. Tudo vem do servidor (fin_resumo); nada é guardado neste aparelho.
 // Só aparece para quem tem "Financeiro: ver"; botões de gravar só com "Financeiro: lançar".
 let fin=null,finInfo={carregando:false,erro:null},finTab='Resumo',finRodadaId=null;
-const FIN_TABS=['Resumo','Rodadas','Lançamentos','Premiação','Ajustes'];
+const FIN_TABS=['Resumo','Rodadas','Lançamentos','Premiação','Ajustes','Histórico'];
 const FIN_CAT_SAIDA=['Quadra','Bar','Prêmios','Bolas','Troféus','Medalhas','Registro do site','Outros'];
 const FIN_CAT_ENTRADA=['Patrocínio','Venda','Outros'];
 const finLanca=()=>pode('financeiro_lancar');
@@ -2466,7 +2563,7 @@ function centavosDe(t){
   if(!/^-?\d+(\.\d{1,2})?$/.test(s))return NaN;
   return Math.round(Number(s)*100);
 }
-function abrirFinancas(){view='financas';finRodadaId=null;render();carregarFin()}
+function abrirFinancas(){view='financas';finRodadaId=null;histFin.pedido=false;render();carregarFin()}
 async function carregarFin(){
   finInfo.carregando=true;finInfo.erro=null;if(view==='financas')render();
   try{const {data,error}=await sb.rpc('fin_resumo');if(error)throw error;fin=data}
@@ -2490,6 +2587,10 @@ function renderFinancas(){
   if(finTab==='Lançamentos')return h+finLancamentos();
   if(finTab==='Premiação')return h+finPremiacao();
   if(finTab==='Ajustes')return h+finAjustes();
+  if(finTab==='Histórico'){
+    if(!histFin.pedido){histFin.pedido=true;setTimeout(()=>carregarHistApp(histFin,'historico_financeiro',{}),0)}
+    return h+`<section><h3>Histórico do financeiro</h3><p class="muted" style="margin-top:6px">Quem lançou, marcou pagamento, mudou valores ou excluiu, e quando.</p><div style="margin-top:10px">${histItens(histFin,'maisHistFin()')}</div></section>`;
+  }
   return h+finResumo();
 }
 function finKpis(t){
@@ -2704,7 +2805,7 @@ function render(){
     h=pTab==='Ranking'?renderRankingTemporada():renderEtapasPublicas();
   }
   if(view==='publica-etapa'){
-    const o=pOrigem,volta=!o?'':o.view==='publica-temporada'?esc(T?T.nome:'Temporada'):o.pSec==='relampagos'?'Relâmpagos':o.pSec==='temporadas'?'Temporadas':'Início';
+    const o=pOrigem,volta=!o?'':o.view==='publica-temporada'?esc(T?T.nome:'Temporada'):o.pSec==='relampagos'?'Relâmpagos':o.pSec==='temporadas'?'Temporadas':'Painel';
     const tit=L.temporada_id&&T?esc(T.nome)+' • Etapa '+L.etapa_numero:'Relâmpago';
     $('lifecycle').innerHTML=cabecalhoPublico(subCabecalho(volta,esc(L.nome),`${tit} • ${fmtData(L.data)} • ${statusEtapaPublica(L)}`));
     $('nav').style.display=S.drawn?'':'none';
@@ -2725,12 +2826,12 @@ function render(){
     if(tab==='Chave')h=renderKnockout(true);
     if(tab==='Histórico')h=renderHistorico();
   }
-  h+=view==='acesso'||emConsulta()?`<div class="footer-note">Página só de consulta — nada pode ser alterado por aqui. • v${APP_VERSION}</div>`:`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
+  h+=`<div class="footer-note">Liga Resenha BT - Desenvolvido por Jeferson Moreno - Versão ${APP_VERSION}</div>`;
   $('main').innerHTML=h;
   document.querySelectorAll('.br-scroll').forEach(e=>{e.scrollLeft=(e.scrollWidth-e.clientWidth)/2});
   aplicarPermissoes();
   // página pública: só leitura (o servidor também não aceita gravação sem login)
-  if(emConsulta()){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input,#main select,#main textarea').forEach(e=>e.disabled=true)}
+  if(emConsulta()){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input:not(.pub),#main select:not(.pub),#main textarea').forEach(e=>e.disabled=true)}
   if(view==='nova'){const q=$('nlQtd');q.onchange=()=>{$('nlRegra').textContent=FORMATS[q.value].label}}
   if(view==='liga'){
     if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);

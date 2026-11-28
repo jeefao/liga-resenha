@@ -112,9 +112,9 @@ try {
   check('tela atletas vazia', (await txt()).includes('Nenhum atleta cadastrado'));
   await ev(() => abrirAtletaForm(null)); await espera(100);
   await page.type('#afNome', '  José   Silva ');
-  await page.type('#afApelido', 'Zé');
+  check('formulário sem apelido', !(await ev(() => !!document.getElementById('afApelido'))) && (await ev(() => $('afObs').rows)) === 2);
   await page.click('#afBtn'); await espera(200);
-  check('atleta criado e listado', (await txt()).includes('José Silva') && (await txt()).includes('Zé'));
+  check('atleta criado e listado', (await txt()).includes('José Silva'));
   // duplicado sem acento → aviso de confirmação
   await ev(() => abrirAtletaForm(null)); await page.type('#afNome', 'jose silva'); await page.click('#afBtn'); await espera(200);
   check('aviso de nome parecido', dialogos.some((m) => m.includes('Já existe "José Silva"')));

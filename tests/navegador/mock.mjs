@@ -138,6 +138,17 @@ export const MOCK = () => {
       if (!db.acessos[c.id] || db.acessos[c.id].status !== 'aprovado') throw { message: 'aprove_antes' };
       c.admin = true; c.permissoes = [...new Set(p.p_permissoes || [])].sort(); return { ok: true };
     },
+    // histórico, painel e ADM (mesmo formato da migration 20261129000003)
+    registrar_visita() { if (!ehAdmin() && !(atual && db.acessos[atual.id] && db.acessos[atual.id].status === 'aprovado')) throw { message: 'acesso_negado' }; (db.visitas ||= []).push(atual.email); return { ok: true }; },
+    minha_situacao(p) {
+      if (!ehAdmin() && !(atual && db.acessos[atual.id] && db.acessos[atual.id].status === 'aprovado')) throw { message: 'acesso_negado' };
+      const at = (atual && db.acessos[atual.id] || {}).atleta_id || null, l = p.p_liga_id && db.ligas[p.p_liga_id];
+      const inscrito = !!(at && l && ((l.dados && l.dados.ids) || []).includes(at)), cobranca = !!(l && fin.rodadas[l.id]);
+      return { atleta_id: at, inscrito, cobranca, pagamento: inscrito && cobranca ? ((fin.inscricoes[l.id + '|' + at] || {}).status || 'pendente') : null };
+    },
+    atletas_admins() { if (!ehAdmin()) throw { message: 'acesso_negado' }; return [...new Set(Object.values(contas).filter((c) => c.admin && db.acessos[c.id] && db.acessos[c.id].atleta_id).map((c) => db.acessos[c.id].atleta_id))]; },
+    historico_app(p) { exigeAdmin(); return (db.historico || []).filter((x) => !p.p_area || x.area === p.p_area).filter((x) => !p.p_antes || x.em < p.p_antes); },
+    historico_financeiro(p) { finPode('financeiro_ver'); return (db.historico || []).filter((x) => x.area === 'financeiro').filter((x) => !p.p_antes || x.em < p.p_antes); },
     pedir_nova_senha(p) {
       if ((p.p_senha || '').length < 6) throw { message: 'senha_curta' };
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.p_email || '')) throw { message: 'email_invalido' };

@@ -188,3 +188,33 @@ button.mini{padding:4px 9px;font-size:12px}
 .alerta{display:inline-block;margin-left:4px;padding:1px 7px;border-radius:999px;background:#dc2626;color:#fff;font-size:12px;font-weight:800;line-height:1.5;animation:pisca 1.6s ease-in-out 3}
 @keyframes pisca{50%{opacity:.45}}
 @media (prefers-reduced-motion:reduce){.alerta{animation:none}}
+
+/* Próxima etapa (consulta) */
+.prox-etapa{margin-top:10px;padding:8px 12px;border-radius:10px;background:rgba(9,18,32,.6);border:1px solid rgba(255,255,255,.07);font-size:14px}
+.prox-etapa b{font-weight:700}
+.prox-etapa b.muted{color:var(--muted)}
+
+/* Painel do atleta (consulta) */
+.painel-id{display:flex;align-items:center;gap:12px}
+.painel-avatar{flex:none;width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:18px;color:#0b1626;background:var(--gold)}
+.painel-escolha{display:block;margin-top:12px;font-size:13px;color:var(--muted)}
+.painel-escolha select{margin-top:4px}
+.painel-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:560px){.painel-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.painel-kpi{padding:10px 12px;border-radius:12px;background:rgba(9,18,32,.6);border:1px solid rgba(255,255,255,.07)}
+.painel-kpi b{display:block;font-size:22px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
+.painel-kpi span{display:block;font-size:13px}
+.painel-kpi small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.painel-linha{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid rgba(255,255,255,.07);color:inherit;text-decoration:none}
+.painel-linha:first-of-type{margin-top:6px}
+.painel-linha:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.painel-pos{text-align:right;font-size:20px;font-weight:800;color:var(--gold);white-space:nowrap}
+.painel-pos small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.painel-res{white-space:nowrap;font-weight:700;font-size:14px}
+
+/* Histórico do app */
+.hist-lista{display:flex;flex-direction:column}
+.hist-item{padding:8px 0;border-top:1px solid rgba(255,255,255,.07);font-size:14px;overflow-wrap:anywhere}
+.hist-quando{font-size:12px;color:var(--muted);margin-bottom:2px}
+.hist-quando b{color:var(--text,inherit)}
+.hist-area{display:inline-block;margin-left:4px;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.06);font-size:11px}
