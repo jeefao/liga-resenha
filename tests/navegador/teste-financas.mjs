@@ -29,7 +29,8 @@ try {
   const temBotaoFin = () => ev(() => !!document.querySelector('[onclick^="abrirFinancas"]'));
   await page.goto(URL0); await espera(300);
   await ev(() => { const nomes = ['Ana Teste', 'Bia Teste', 'Caio Teste', 'Duda Teste', ...Array(12).fill('')];
-    __db.ligas.lf = { id: 'lf', nome: 'Relâmpago Finanças', data: '2026-12-05', participantes: 16, status: 'preparacao', etapa: 'cadastro', versao: 1, temporada_id: null, etapa_numero: null, excluida_em: null, atualizado_em: new Date().toISOString(), dados: { names: nomes, ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {} } }; });
+    __db.ligas.lf = { id: 'lf', nome: 'Relâmpago Finanças', data: '2026-12-05', participantes: 16, status: 'preparacao', etapa: 'cadastro', versao: 1, temporada_id: null, etapa_numero: null, excluida_em: null, atualizado_em: new Date().toISOString(), dados: { names: nomes, ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {} } };
+    __db.ligas.lr2 = { ...__db.ligas.lf, id: 'lr2', nome: 'Relâmpago Sem Cobrança', data: '2026-11-20', dados: { names: Array(16).fill(''), ids: Array(16).fill(null) } }; });
   check('dono vê o botão Finanças no início', await temBotaoFin());
   await clica('Finanças'); await espera(200);
   check('resumo abre com caixa zerado', (await txt()).includes('Caixa atual') && (await txt()).includes(R('0,00')));
@@ -74,8 +75,17 @@ try {
   check('prêmio pago: caixa R$ 80, previsto R$ 0, futuro R$ 80', t.includes('Caixa atual\n' + R('80,00')) && t.includes('Premiação prevista\n' + R('0,00')) && t.includes('Saldo futuro previsto\n' + R('80,00')), t.slice(0, 600));
   check('pagamento do prêmio aparece nos lançamentos', t.includes('Prêmios'));
 
-  // valor inválido não grava nada
+  // "De onde é" mostra também as relâmpago sem cobrança de inscrição
   await clica('Lançamentos'); await clica('+ Despesa');
+  const grupos = await ev(() => [...document.querySelectorAll('#fin-l-vinc optgroup')].map((g) => g.label + ': ' + [...g.children].map((o) => o.textContent).join(' | ')));
+  check('"De onde é" lista as ligas relâmpago, com e sem cobrança', grupos.some((g) => g.startsWith('Ligas relâmpago') && g.includes('Relâmpago Finanças') && g.includes('Relâmpago Sem Cobrança')), grupos.join(' / '));
+  await ev(() => { document.getElementById('fin-l-valor').value = '12'; document.getElementById('fin-l-vinc').value = 'l:lr2'; });
+  await clica('Salvar', '#modal button'); await espera(200);
+  check('despesa ligada à relâmpago sem cobrança', await ev(() => Object.values(__db.fin.lancamentos).some((l) => l.liga_id === 'lr2' && l.valor_centavos === 1200)));
+  await page.screenshot({ path: SAIDA + '/financas-de-onde.png' });
+  await ev(() => fecharModal());
+  // valor inválido não grava nada
+  await clica('+ Despesa');
   await ev(() => { document.getElementById('fin-l-valor').value = 'abc'; });
   const antes = await ev(() => Object.keys(__db.fin.lancamentos).length);
   await clica('Salvar', '#modal button');
@@ -91,7 +101,7 @@ try {
   await ev(() => verificarAcesso()); await espera(300);
   check('membro com "ver" tem o botão Finanças', await temBotaoFin());
   await ev(() => abrirFinancas()); await espera(300); t = await txt();
-  check('membro com "ver" vê o caixa', t.includes('Caixa atual\n' + R('80,00')));
+  check('membro com "ver" vê o caixa', t.includes('Caixa atual\n' + R('68,00')));
   check('membro com "ver" não tem + Despesa', !t.includes('+ Despesa') && !t.includes('+ Entrada'));
   await clica('Rodadas'); await ev(() => document.querySelector('.fin-rodada').click()); await espera(200);
   check('membro com "ver": botões de pagamento travados', (await ev(() => [...document.querySelectorAll('.seg button')].every((b) => b.disabled))));

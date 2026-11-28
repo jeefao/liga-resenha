@@ -1,4 +1,4 @@
-const APP_VERSION='7.5.1';
+const APP_VERSION='7.5.2';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -2621,7 +2621,14 @@ function finAbrirLanc(id,tipo,liga,temporada){
   const x=id?fin.lancamentos.find(l=>l.id===id):null;
   tipo=x?x.tipo:tipo||'saida';liga=x?x.liga_id:liga||null;temporada=x?x.temporada_id:temporada||null;
   const cats=tipo==='saida'?FIN_CAT_SAIDA:FIN_CAT_ENTRADA,vinc=liga?'l:'+liga:temporada?'t:'+temporada:'';
-  const opcoes=[['','Liga (geral)'],...fin.temporadas.map(t=>['t:'+t.id,'Temporada '+t.nome]),...fin.rodadas.map(r=>['l:'+r.liga_id,'Rodada '+r.nome+' — '+fmtData(r.data)])];
+  // todas as ligas (com ou sem cobrança de inscrição): relâmpago e etapas das temporadas
+  const ligasFin=[...fin.rodadas.map(r=>({...r,id:r.liga_id})),...fin.ligas_sem_cobranca].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))),
+    nomeL=l=>l.nome+(l.data?' — '+fmtData(l.data):''),
+    grupos=[['Temporadas',fin.temporadas.map(t=>['t:'+t.id,'Temporada '+t.nome])],
+      ['Ligas relâmpago',ligasFin.filter(l=>!l.temporada_nome).map(l=>['l:'+l.id,nomeL(l)])],
+      ['Etapas das temporadas',ligasFin.filter(l=>l.temporada_nome).map(l=>['l:'+l.id,nomeL(l)+' ('+l.temporada_nome+(l.etapa_numero?', etapa '+l.etapa_numero:'')+')'])]];
+  const opt=([v,t])=>`<option value="${v}"${v===vinc?' selected':''}>${esc(t)}</option>`;
+  const opcoesHtml=opt(['','Liga (geral)'])+grupos.filter(([,o])=>o.length).map(([g,o])=>`<optgroup label="${g}">${o.map(opt).join('')}</optgroup>`).join('');
   $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>${x?'Editar':'Nova'} ${tipo==='saida'?'despesa':'entrada'}</h2>
     <input type="hidden" id="fin-l-tipo" value="${tipo}">
     <div class="form-grid" style="margin-top:12px">
@@ -2629,7 +2636,7 @@ function finAbrirLanc(id,tipo,liga,temporada){
       <label>Valor (R$)<input id="fin-l-valor" inputmode="decimal" value="${x?reaisCampo(x.valor_centavos):''}" placeholder="0,00"></label>
       <label>Descrição (opcional)<input id="fin-l-desc" maxlength="200" value="${x&&x.descricao?esc(x.descricao):''}"></label>
       <label>Data<input id="fin-l-data" type="date" value="${x?x.data:hoje()}"></label>
-      <label>De onde é<select id="fin-l-vinc">${opcoes.map(([v,t])=>`<option value="${v}"${v===vinc?' selected':''}>${esc(t)}</option>`).join('')}</select></label>
+      <label>De onde é<select id="fin-l-vinc">${opcoesHtml}</select></label>
     </div>
     <div class="panel-actions"><button onclick="finSalvarLanc(${x?`'${x.id}'`:'null'})">Salvar</button><button class="ghost" onclick="fecharModal()">Cancelar</button></div></div></div>`;
 }
