@@ -1,4 +1,4 @@
-const APP_VERSION='7.7.1';
+const APP_VERSION='7.8.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -275,8 +275,21 @@ async function abrirLiga(id,{ignorarCache=false}={}){
   alert('Não foi possível abrir a liga: '+traduzErro(erro));
   voltarInicio(true);
 }
+// situação do pagamento de cada inscrito da liga aberta (tags Pago / Falta pagamento); por posição na lista
+let pagLiga={id:null,cobranca:false,st:{}};
+async function carregarPagLiga(id){
+  pagLiga={id,cobranca:false,st:{}};
+  let r;try{r=await sb.rpc('situacao_pagamentos',{p_liga_id:id})}catch{return}
+  if(r.error||!r.data||pagLiga.id!==id)return;
+  const st={};(r.data.inscritos||[]).forEach(i=>st[i.posicao]=i.status);
+  pagLiga={id,cobranca:!!r.data.cobranca,st};
+  if(L&&L.id===id&&((view==='liga'&&tab==='Painel')||(view==='publica-etapa'&&S&&!S.drawn)))render();
+}
+const pagDe=i=>pagLiga.cobranca&&L&&pagLiga.id===L.id?pagLiga.st[i+1]||'pendente':null;
+// nomes preenchidos em ordem alfabética, com a posição original (para a situação do pagamento)
+const inscritosAZ=()=>S.names.map((n,i)=>({n:String(n||'').trim(),i})).filter(x=>x.n).sort((a,b)=>a.n.localeCompare(b.n,'pt',{sensitivity:'base'}));
 function entrarNaLiga(){
-  view='liga';carregarAtletas();
+  view='liga';carregarAtletas();carregarPagLiga(L.id);
   CONFRONTO_DIRETO=false;ESPECIAL=false;
   if(L.temporada_id){const t=(T&&T.id===L.temporada_id)?T:temporadas.find(x=>x.id===L.temporada_id);CONFRONTO_DIRETO=t?regrasCompletas(t.regras).confronto_direto:true;
     ESPECIAL=ehEspecial(L,t&&regrasCompletas(t.regras),S)}
@@ -1274,6 +1287,7 @@ function abrirEtapaPublica(id,daRodada=false){
   const R=l.temporada_id&&usarTemporada(l.temporada_id)?regrasCompletas(T.regras):null;
   S=d;L={...l};CONFRONTO_DIRETO=!!(R&&R.confronto_direto);ESPECIAL=ehEspecial(R?L:null,R,S);
   tab=S.drawn?'Jogos':'Grupos';view='publica-etapa';render();window.scrollTo(0,0);
+  if(!S.drawn)carregarPagLiga(l.id);
 }
 function voltarConsulta(){
   const o=pOrigem,v=view;pOrigem=null;L=null;S=null;
@@ -1282,7 +1296,9 @@ function voltarConsulta(){
   render();window.scrollTo(0,0);
 }
 function renderEtapaPublica(){
-  if(!S.drawn)return `<section><h2>Atletas confirmados</h2><p class="muted">Grupos ainda não sorteados.</p><ol style="margin-top:8px">${S.names.filter(n=>n.trim()).map(n=>'<li>'+esc(n)+'</li>').join('')}</ol></section>`;
+  if(!S.drawn){const PAG={pago:['pg-ok','Pagamento Confirmado'],pendente:['pg-falta','Falta Pagamento'],isento:['pg-isento','Isento']};
+    return `<section><h2>Atletas confirmados</h2><p class="muted">Grupos ainda não sorteados.</p><ol class="lista-insc" style="margin-top:8px">${inscritosAZ().map(({n,i})=>{const p=PAG[pagDe(i)];
+      return `<li><span>${esc(n)}</span>${p?` <span class="chip ${p[0]}">${p[1]}</span>`:''}</li>`}).join('')}</ol></section>`}
   if(tab==='Grupos')return renderGroups();
   if(tab==='Jogos')return renderGroupGames();
   if(tab==='Classificação')return renderClassification();
@@ -2288,10 +2304,13 @@ function heroActionHtml(){
   return '<button onclick="tab=\'Chave\';render()">VER CHAVE</button>';
 }
 function renderHome(){
-  return `<section><h2>Painel da Liga</h2><p class="muted">${progressSummary()}</p><div class="quick-box"><div class="quick-item"><div class="muted">Status</div><div class="v">${statusText()}</div></div><div class="quick-item"><div class="muted">Jogos dos grupos</div><div class="v">${totalGroupGames()} / ${groupGameCount()}</div></div><div class="quick-item"><div class="muted">Mata-mata</div><div class="v">${totalFinalGames()} / 8</div></div></div><div class="hero-actions">${heroActionHtml()}<button class="secondary" onclick="tab='Atletas';render()">ATLETAS</button><button class="secondary" onclick="tab='Classificação';render()">CLASSIFICAÇÃO</button></div></section><section><h2>Fluxo da competição</h2><div class="grid-4"><div class="kpi"><div class="muted">1</div><div class="name">Cadastre</div><div class="muted">Confira os ${capacity()} inscritos</div></div><div class="kpi"><div class="muted">2</div><div class="name">Inicie e sorteie</div><div class="muted">Sorteio único com trava</div></div><div class="kpi"><div class="muted">3</div><div class="name">Lance os grupos</div><div class="muted">${groupGameCount()} jogos + desempates</div></div><div class="kpi"><div class="muted">4</div><div class="name">Feche a chave</div><div class="muted">Quartas, semi, final e 3º</div></div></div></section><section><h2>Atletas inscritos</h2><div class="list-card inscritos">${S.names.map((n,i)=>`<div>${String(i+1).padStart(2,'0')} • <span class="name">${esc(n)||'<span class="muted">(vago)</span>'}</span></div>`).join('')}</div></section>`;
+  return `<section><h2>Painel da Liga</h2><p class="muted">${progressSummary()}</p><div class="quick-box"><div class="quick-item"><div class="muted">Status</div><div class="v">${statusText()}</div></div><div class="quick-item"><div class="muted">Jogos dos grupos</div><div class="v">${totalGroupGames()} / ${groupGameCount()}</div></div><div class="quick-item"><div class="muted">Mata-mata</div><div class="v">${totalFinalGames()} / 8</div></div></div><div class="hero-actions">${heroActionHtml()}<button class="secondary" onclick="tab='Atletas';render()">ATLETAS</button><button class="secondary" onclick="tab='Classificação';render()">CLASSIFICAÇÃO</button></div></section><section><h2>Fluxo da competição</h2><div class="grid-4"><div class="kpi"><div class="muted">1</div><div class="name">Cadastre</div><div class="muted">Confira os ${capacity()} inscritos</div></div><div class="kpi"><div class="muted">2</div><div class="name">Inicie e sorteie</div><div class="muted">Sorteio único com trava</div></div><div class="kpi"><div class="muted">3</div><div class="name">Lance os grupos</div><div class="muted">${groupGameCount()} jogos + desempates</div></div><div class="kpi"><div class="muted">4</div><div class="name">Feche a chave</div><div class="muted">Quartas, semi, final e 3º</div></div></div></section><section><h2>Atletas inscritos</h2><div class="list-card inscritos">${(()=>{const az=inscritosAZ(),vagos=S.names.length-az.length;
+    return az.map(({n,i},k)=>{const p=pagDe(i);return `<div>${String(k+1).padStart(2,'0')} • <span class="name">${esc(n)}</span>${p==='pago'?' <span class="chip pg-ok">Pago</span>':p==='isento'?' <span class="chip pg-isento">Isento</span>':''}</div>`}).join('')
+      +Array.from({length:vagos},(_,k)=>`<div>${String(az.length+k+1).padStart(2,'0')} • <span class="muted">(vago)</span></div>`).join('')})()}</div></section>`;
 }
 function renderGroups(){
-  let h=`<section><h2>Grupos</h2><p class="muted">Para evitar sorteios acidentais, o sistema só libera o sorteio após iniciar a liga. Depois de sortear, o sorteio fica travado.</p><div class="panel-actions"><button onclick="shuffle()" ${S.status!=='started'||S.drawn?'disabled':''}>${S.drawn?'Sorteio realizado — bloqueado':'Sortear grupos'}</button><button class="secondary" onclick="tab='Jogos';render()" ${!S.drawn?'disabled':''}>Ir para jogos</button></div><p class="muted" style="margin-top:10px">${S.drawn?'Sorteio concluído.':'Grupos ainda não sorteados: abaixo está a ordem atual dos atletas.'}</p></section>`;
+  let h=`<section><h2>Grupos</h2><p class="muted">Para evitar sorteios acidentais, o sistema só libera o sorteio após iniciar a liga. Depois de sortear, o sorteio fica travado.</p><div class="panel-actions"><button onclick="shuffle()" ${S.status!=='started'||S.drawn?'disabled':''}>${S.drawn?'Sorteio realizado — bloqueado':'Sortear grupos'}</button><button class="secondary" onclick="tab='Jogos';render()" ${!S.drawn?'disabled':''}>Ir para jogos</button></div><p class="muted" style="margin-top:10px">${S.drawn?'Sorteio concluído.':'Os grupos aparecem aqui depois do sorteio.'}</p></section>`;
+  if(!S.drawn)return h;
   for(let g=0;g<groupIndexes().length;g++)h+=`<section><h3>Grupo ${'ABCDEFGH'[g]}</h3><div class="group-list" style="margin-top:8px">${group(g).map((i,pos)=>`<div>${pos+1}. <span class="name">${name(i)}</span></div>`).join('')}</div></section>`;
   return h;
 }

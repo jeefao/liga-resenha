@@ -53,7 +53,7 @@ export const MOCK = () => {
   const hojeIso = () => new Date().toISOString().slice(0, 10);
   const finPode = (a) => { if (!ehAdmin()) throw { message: 'acesso_negado' }; if (!(atual.dono || (atual.permissoes || []).includes(a))) throw { message: 'sem_permissao' }; };
   const finVal = (v) => { if (v == null || v < 0 || v > 100000000) throw { message: 'valor_invalido' }; };
-  const finInscritos = (d) => { const vistos = new Set(), out = []; ((d && d.names) || []).forEach((n, i) => { n = (n || '').trim(); if (!n) return; const id = (d.ids && d.ids[i]) || null; const chave = id || 'nome:' + n.toLowerCase(); if (vistos.has(chave)) return; vistos.add(chave); out.push({ chave, nome: n, atleta_id: id }); }); return out; };
+  const finInscritos = (d) => { const vistos = new Set(), out = []; ((d && d.names) || []).forEach((n, i) => { n = (n || '').trim(); if (!n) return; const id = (d.ids && d.ids[i]) || null; const chave = id || 'nome:' + n.toLowerCase(); if (vistos.has(chave)) return; vistos.add(chave); out.push({ chave, nome: n, atleta_id: id, posicao: i + 1 }); }); return out; };
   const finValorRodada = (lid) => { const r = fin.rodadas[lid], l = db.ligas[lid]; if (r && r.inscricao_centavos != null) return r.inscricao_centavos; if (l && l.temporada_id && fin.temporadas[l.temporada_id] != null) return fin.temporadas[l.temporada_id]; return fin.config.inscricao_relampago_centavos; };
   function finResumo() {
     const vivos = Object.values(fin.lancamentos).filter((x) => !x.excluido), soma = (l) => l.reduce((s, x) => s + x.valor_centavos, 0);
@@ -148,6 +148,12 @@ export const MOCK = () => {
       const at = (atual && db.acessos[atual.id] || {}).atleta_id || null, l = p.p_liga_id && db.ligas[p.p_liga_id];
       const inscrito = !!(at && l && ((l.dados && l.dados.ids) || []).includes(at)), cobranca = !!(l && fin.rodadas[l.id]);
       return { atleta_id: at, inscrito, cobranca, pagamento: inscrito && cobranca ? ((fin.inscricoes[l.id + '|' + at] || {}).status || 'pendente') : null };
+    },
+    situacao_pagamentos(p) {
+      if (!ehAdmin() && !(atual && db.acessos[atual.id] && db.acessos[atual.id].status === 'aprovado')) throw { message: 'acesso_negado' };
+      const l = db.ligas[p.p_liga_id];
+      if (!l || (l.excluida_em && !ehAdmin()) || !fin.rodadas[l.id]) return { cobranca: false, inscritos: [] };
+      return { cobranca: true, inscritos: finInscritos(l.dados).map((i) => ({ posicao: i.posicao, nome: i.nome, status: (fin.inscricoes[l.id + '|' + i.chave] || {}).status || 'pendente' })) };
     },
     atletas_admins() { if (!ehAdmin()) throw { message: 'acesso_negado' }; return [...new Set(Object.values(contas).filter((c) => c.admin && db.acessos[c.id] && db.acessos[c.id].atleta_id).map((c) => db.acessos[c.id].atleta_id))]; },
     historico_app(p) { exigeAdmin(); return (db.historico || []).filter((x) => !p.p_area || x.area === p.p_area).filter((x) => !p.p_antes || x.em < p.p_antes); },

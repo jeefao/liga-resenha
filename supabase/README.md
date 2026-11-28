@@ -50,6 +50,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    15. `supabase/migrations/20261129000003_historico_app.sql` (histórico do app, situação do atleta na próxima liga e atletas que são administradores)
    16. `supabase/migrations/20261129000004_financeiro_baixa.sql` (Finanças: despesa/entrada paga ou pendente, com baixa)
    17. `supabase/migrations/20261129000005_financeiro_liga_apagada.sql` (Finanças: a cobrança da rodada some quando a liga é apagada de vez e não tem dinheiro ligado)
+   18. `supabase/migrations/20261129000006_situacao_pagamentos.sql` (situação do pagamento de cada inscrito, para as tags das listas)
    O resultado esperado é "Success. No rows returned".
 3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
    deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.
@@ -106,3 +107,10 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
 - Liga apagada de vez: a cobrança da rodada some junto se não houver inscrição paga, lançamento ativo nem prêmio
   (gatilho `fin_liga_apagada`); com dinheiro, continua como "liga apagada". O "De onde é" não oferece ligas apagadas
   nem na lixeira.
+
+## Tags de pagamento nas listas de inscritos (v7.8.0)
+
+- `situacao_pagamentos(liga)` devolve, por posição na lista, se o inscrito está pago, isento ou pendente (sem valores).
+  Só administradores e atletas aprovados; liga na lixeira só para administradores. Sem cobrança na rodada, não há tags.
+- Administração (Painel da liga): tag "Pago" / "Isento". Consulta (Atletas confirmados): "Pagamento Confirmado",
+  "Falta Pagamento" ou "Isento". As duas listas aparecem em ordem alfabética (só na tela; a ordem salva na liga não muda).
