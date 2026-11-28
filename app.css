@@ -139,6 +139,7 @@ label input,label select{margin-top:6px;font-weight:400}
 .at-membro{color:#bfdbfe;border-color:rgba(96,165,250,.6);background:rgba(30,64,175,.25)}
 .at-convidado{color:#fde68a;border-color:rgba(244,200,90,.6);background:rgba(244,200,90,.12)}
 .at-inativo{color:#cbd5e1;border-color:rgba(148,163,184,.5);background:rgba(51,65,85,.35)}
+.ac-adm{color:#e9d5ff;border-color:rgba(168,85,247,.6);background:rgba(88,28,135,.3)}
 .ac-pendente{color:#fde68a;border-color:rgba(244,200,90,.6);background:rgba(244,200,90,.12)}
 .ac-aprovado{color:#bbf7d0;border-color:rgba(34,197,94,.6);background:rgba(20,83,45,.3)}
 .ac-bloqueado{color:#fecaca;border-color:rgba(239,68,68,.6);background:rgba(127,29,29,.3)}

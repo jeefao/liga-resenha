@@ -27,7 +27,7 @@ try {
   page.on('dialog', async (d) => { dialogos.push(d.message()); await (d.type() === 'prompt' ? d.accept('Teste de regra') : d.accept()); });
   const errosJs = []; page.on('pageerror', (e) => errosJs.push(e.message));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(500);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(500);
   const ev = (f, ...a) => page.evaluate(f, ...a);
   const txt = () => ev(() => document.body.innerText);
 
@@ -158,6 +158,9 @@ try {
   await pub.evaluateOnNewDocument(MOCK);
   await pub.evaluateOnNewDocument((b) => { const d = JSON.parse(b); for (const k of Object.keys(d)) window.__db[k] = d[k]; }, banco);
   await pub.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(600);
+  // o administrador abre a consulta pelo botão do Início (mesma tela dos atletas)
+  check('administrador entra na administração', (await pub.evaluate(() => view)) === 'inicio' && (await pub.evaluate(() => document.body.innerText.includes('PÁGINA DE CONSULTA'))));
+  await pub.evaluate(() => abrirConsulta()); await espera(300);
   const evP = (f, ...a) => pub.evaluate(f, ...a), txtP = () => evP(() => document.body.innerText);
   const semEdicao = () => evP(() => [...document.querySelectorAll('#main button')].every((b) => b.classList.contains('pub')) && [...document.querySelectorAll('#main input,#main select')].every((e) => e.disabled));
   check('consulta abre no Início com os 4 botões', (await evP(() => view + '/' + pSec)) === 'publica/inicio' && (await evP(() => ['Início', 'Rodada atual', 'Temporadas', 'Relâmpagos'].every((x) => [...document.querySelectorAll('#lifecycle button')].some((b) => b.textContent === x)))));
@@ -192,7 +195,7 @@ try {
   check('voltar da relâmpago volta para a lista', (await evP(() => view + '/' + pSec)) === 'publica/relampagos');
   await pub.screenshot({ path: SAIDA + '/publica-relampagos.png' });
   await evP(() => irSecaoPublica('rodada'));
-  check('rodada atual abre direto a liga aberta mais recente, sem voltar', (await evP(() => view + '/' + pSec + '/' + !!pOrigem + '/' + ligaEncerrada(L))) === 'publica-etapa/rodada/false/false' && !(await txtP()).includes('← '));
+  check('rodada atual abre direto a liga aberta mais recente, sem voltar', (await evP(() => view + '/' + pSec + '/' + !!pOrigem + '/' + ligaEncerrada(L))) === 'publica-etapa/rodada/false/false' && !(await txtP()).replace('← Administração', '').includes('← '));
   await evP(async () => { for (const t of Object.values(__db.temporadas)) t.status = 'arquivada'; for (const l of Object.values(__db.ligas)) if (!l.temporada_id) l.excluida_em = 'x'; await abrirConsulta(); });
   check('sem nada para consultar: aviso no início', (await txtP()).includes('Ainda não há temporadas nem ligas para consultar'));
   check('pública: sem erros de script', errosPub.length === 0, errosPub.join(' | '));

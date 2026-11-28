@@ -21,7 +21,7 @@ try {
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   page.on('dialog', (d) => (d.type() === 'prompt' ? d.accept('APAGAR') : d.accept()));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
   // ---- folhas ----
   const nomes = [...base, ...Array.from({ length: 12 }, (_, i) => 'Atleta Extra ' + (i + 1))];
   const r = await page.evaluate(async (nomes) => {

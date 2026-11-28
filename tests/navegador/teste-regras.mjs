@@ -20,7 +20,7 @@ try {
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
   const r = await page.evaluate(async () => {
     const out = {}; const pausa = (ms) => new Promise((x) => setTimeout(x, ms));
     const nova = async (n) => {

@@ -49,6 +49,7 @@ const MOCK = () => {
     db.atletas[a.id] = a; return a;
   }
   const rpc = {
+    meu_acesso() { return { logado: true, admin: true, status: 'aprovado', dono: true, permissoes: [] }; },
     criar_liga(p) {
       const l = { id: p.p_id, nome: p.p_nome, data: p.p_data, participantes: p.p_dados.names.length, status: 'preparacao', etapa: 'cadastro', versao: 1, dados: p.p_dados, atualizado_em: agora(), excluida_em: null };
       db.ligas[l.id] = l; return resumo(l);
@@ -100,13 +101,13 @@ try {
   const errosJs = [];
   page.on('pageerror', (e) => errosJs.push(e.message));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`);
   await espera(400);
   const txt = () => page.evaluate(() => document.body.innerText);
   const ev = (f, ...a) => page.evaluate(f, ...a);
 
   // 1. Tela Atletas a partir do início
-  check('botão ATLETAS no início', (await txt()).includes('ATLETAS'));
+  check('botão ATLETAS no início', (await txt()).includes('ATLETAS'), (await ev(() => view)) + ' | ' + (await txt()).slice(0, 200));
   await ev(() => abrirAtletas()); await espera(200);
   check('tela atletas vazia', (await txt()).includes('Nenhum atleta cadastrado'));
   await ev(() => abrirAtletaForm(null)); await espera(100);

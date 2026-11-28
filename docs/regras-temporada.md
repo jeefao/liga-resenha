@@ -115,8 +115,17 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
 - **Chave**: sempre visível, espelhada (Q1, Q2 e S1 à esquerda; Q3, Q4 e S2 à direita; final e 3º lugar no centro).
   Antes dos grupos terminarem, mostra o cruzamento (ex.: "Dupla 1 (1º e 2º)", "Vencedor Q1").
 
-## Endereços e app no celular (v7.1.0)
-- Página de consulta (atletas): endereço principal do site. Administração: o mesmo endereço com `/adm/` no final.
-- Os dois podem ser instalados no celular como app (botão "📲 Instalar app"; no iPhone: Safari → Compartilhar →
-  Adicionar à Tela de Início). Nomes: "Liga Resenha" (consulta) e "Liga Resenha ADM" (administração).
+## Um link e um app só (v7.2.0)
+- O mesmo endereço serve para todos; o login decide: administrador entra na administração, atleta aprovado na consulta.
+- O administrador abre a consulta pelo botão "👀 PÁGINA DE CONSULTA" (igual à dos atletas) e volta por "← Administração".
+- App instalável "Liga Resenha" (botão "📲 Instalar app"; no iPhone: Safari → Compartilhar → Adicionar à Tela de Início).
+  O endereço antigo `/adm/` só redireciona para o principal.
+
+## Permissões dos administradores (v7.3.0)
+- O **dono** pode tudo e é o único que usa a aba Usuários (aprovar, bloquear, trocar senha, excluir conta, tornar
+  administrador) e que apaga de vez (lixeira, temporada arquivada, atleta).
+- Para tornar alguém administrador: a pessoa cria conta, o dono aprova e, na aba Usuários, marca "É administrador" e
+  as permissões: Ligas e jogos; Temporadas; Cadastro de atletas; Financeiro: ver; Financeiro: lançar (página futura).
+- Sem uma permissão, os botões daquela área somem e os campos ficam travados; o servidor também recusa.
+- Bloquear ou recusar a pessoa tira também o papel de administrador.
 

@@ -20,7 +20,7 @@ try {
   const page = await browser.newPage(); await page.setViewport({ width: 900, height: 900 });
   const erros = []; page.on('pageerror', (e) => erros.push(e.message)); page.on('dialog', (d) => d.accept());
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
   const ev = (f, ...a) => page.evaluate(f, ...a);
   // liga de 16 sorteada, sem nenhum placar
   await ev(async () => {

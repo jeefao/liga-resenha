@@ -18,7 +18,7 @@ try {
   const page = await browser.newPage(); const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await new Promise((r) => setTimeout(r, 400));
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await new Promise((r) => setTimeout(r, 400));
   const r = await page.evaluate(async () => {
     const out = {};
     out.nova = JSON.stringify(ordemQuartas({ finals: {} }));

@@ -1,16 +1,18 @@
 export const MOCK = () => {
   const db = { ligas: {}, atletas: {}, temporadas: {}, acessos: {} };
   // contas de login do mock; 'mock:sessao' no localStorage: ausente = administrador, 'nenhuma' = sem login, ou o e-mail da conta
-  const contas = { 'admin@teste': { id: 'u1', email: 'admin@teste', senha: 'admin123', admin: true } };
+  const contas = { 'admin@teste': { id: 'u1', email: 'admin@teste', senha: 'admin123', admin: true, dono: true } };
   db.contas = contas;
   let marca = null; try { marca = localStorage.getItem('mock:sessao'); } catch {}
   let atual = marca === 'nenhuma' ? null : marca ? (contas[marca] || (contas[marca] = { id: 'u-' + marca, email: marca, senha: '123456' })) : contas['admin@teste'];
   const sessaoDe = () => (atual ? { user: { id: atual.id, email: atual.email } } : null);
   const ehAdmin = () => !!(atual && atual.admin);
-  const exigeAdmin = () => { if (!ehAdmin()) throw { message: 'sem_permissao' }; };
+  const exigeAdmin = () => { if (!(atual && atual.dono)) throw { message: ehAdmin() ? 'sem_permissao' : 'acesso_negado' }; };
+  const TODAS = ['ligas', 'temporadas', 'atletas', 'financeiro_ver', 'financeiro_lancar'];
+  const contaPorId = (id) => Object.values(contas).find((x) => x.id === id);
   const meuAcesso = () => {
     if (!atual) return { logado: false };
-    if (atual.admin) return { logado: true, admin: true, status: 'aprovado' };
+    if (atual.admin) { const n = db.acessos[atual.id] && db.atletas[db.acessos[atual.id].atleta_id]; return { logado: true, admin: true, status: 'aprovado', dono: !!atual.dono, permissoes: atual.dono ? TODAS : atual.permissoes || [], ...(n ? { nome: n.nome } : {}) }; }
     const a = db.acessos[atual.id];
     if (!a) return { logado: true, admin: false, status: null };
     const t = a.atleta_id && db.atletas[a.atleta_id];
@@ -88,23 +90,32 @@ export const MOCK = () => {
     },
     listar_acessos() {
       exigeAdmin();
-      return Object.values(db.acessos).map((a) => ({ ...a, atleta_nome: (db.atletas[a.atleta_id] || {}).nome || null, ultimo_acesso: null })).sort((x, y) => (y.status === 'pendente') - (x.status === 'pendente'));
+      return Object.values(db.acessos).map((a) => { const c = contaPorId(a.user_id) || {}; return { ...a, atleta_nome: (db.atletas[a.atleta_id] || {}).nome || null, ultimo_acesso: null, admin: !!c.admin, dono: false, permissoes: c.permissoes || [] }; }).sort((x, y) => (y.status === 'pendente') - (x.status === 'pendente'));
     },
     definir_acesso(p) {
       exigeAdmin();
       const a = db.acessos[p.p_user_id]; if (!a) throw { message: 'acesso_nao_encontrado' };
       if (p.p_status === 'aprovado' && !(p.p_atleta_id || a.atleta_id)) throw { message: 'escolha_o_atleta' };
-      a.status = p.p_status; if (p.p_atleta_id) a.atleta_id = p.p_atleta_id; return { ok: true };
+      a.status = p.p_status; if (p.p_atleta_id) a.atleta_id = p.p_atleta_id;
+      if (p.p_status !== 'aprovado') { const c = contaPorId(a.user_id); if (c && !c.dono) { c.admin = false; c.permissoes = []; } }
+      return { ok: true };
+    },
+    definir_admin(p) {
+      exigeAdmin();
+      const c = contaPorId(p.p_user_id); if (!c || c.dono) throw { message: 'conta_de_administrador' };
+      if (!p.p_admin) { c.admin = false; c.permissoes = []; return { ok: true }; }
+      if (!db.acessos[c.id] || db.acessos[c.id].status !== 'aprovado') throw { message: 'aprove_antes' };
+      c.admin = true; c.permissoes = [...new Set(p.p_permissoes || [])].sort(); return { ok: true };
     },
     trocar_senha_acesso(p) {
       exigeAdmin();
       if ((p.p_senha || '').length < 6) throw { message: 'senha_curta' };
-      const c = Object.values(contas).find((x) => x.id === p.p_user_id); if (!c || c.admin) throw { message: 'conta_de_administrador' };
+      const c = Object.values(contas).find((x) => x.id === p.p_user_id); if (!c || c.dono) throw { message: 'conta_de_administrador' };
       c.senha = p.p_senha; return { ok: true };
     },
     excluir_acesso(p) {
       exigeAdmin();
-      const c = Object.values(contas).find((x) => x.id === p.p_user_id); if (!c || c.admin) throw { message: 'conta_de_administrador' };
+      const c = Object.values(contas).find((x) => x.id === p.p_user_id); if (!c || c.dono) throw { message: 'conta_de_administrador' };
       delete contas[c.email]; delete db.acessos[c.id]; return { ok: true };
     },
     consulta_publica() {

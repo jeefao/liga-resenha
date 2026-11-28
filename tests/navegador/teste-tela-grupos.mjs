@@ -20,7 +20,7 @@ try {
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
   await page.evaluate(async () => {
     const cad = { id: 'cad-1', nome: 'Carlos Cadastro', situacao: 'membro', apelido: null, observacoes: null, versao: 1 };
     __db.atletas[cad.id] = cad; atletas.push(cad);

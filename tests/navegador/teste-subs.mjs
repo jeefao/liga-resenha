@@ -20,7 +20,7 @@ try {
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
   // Liga de 20 atletas com a fase de grupos completa e sem empates pendentes
   const id = await page.evaluate(async () => {
     const nomes = Array.from({ length: 20 }, (_, i) => 'Atleta' + String.fromCharCode(65 + i) + ' Sobre' + String.fromCharCode(65 + i));

@@ -1,8 +1,8 @@
 // Liga Resenha V6 — service worker
 // Troque o número de CACHE a cada publicação.
 // Os dados das ligas (Supabase, outro domínio) NUNCA passam por este cache.
-const CACHE='liga-resenha-v6-pwa-17';
-const ASSETS=['./','./index.html','./adm/','./adm/index.html','./app.js','./app.css','./logo.png','./manifest.webmanifest','./adm/manifest.webmanifest','./vendor/supabase-2.119.0.js','./icon-192.png','./icon-512.png','./icon-maskable.png'];
+const CACHE='liga-resenha-v6-pwa-18';
+const ASSETS=['./','./index.html','./app.js','./app.css','./logo.png','./manifest.webmanifest','./vendor/supabase-2.119.0.js','./icon-192.png','./icon-512.png','./icon-maskable.png'];
 
 self.addEventListener('install',e=>e.waitUntil(
   caches.open(CACHE)
@@ -20,7 +20,7 @@ self.addEventListener('activate',e=>e.waitUntil(
 self.addEventListener('fetch',e=>{
   const req=e.request;
   if(req.method!=='GET'||new URL(req.url).origin!==self.location.origin)return;
-  // Páginas e código do app (consulta na raiz, administrador em /adm/): sempre tenta a versão
+  // Páginas e código do app: sempre tenta a versão
   // mais nova na internet; sem conexão, usa a guardada. A chave do cache ignora o "?..." do endereço.
   const u=new URL(req.url);u.search='';if(u.pathname.endsWith('/'))u.pathname+='index.html';
   const chave=u.href;

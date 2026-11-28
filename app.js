@@ -1,4 +1,4 @@
-const APP_VERSION='7.1.0';
+const APP_VERSION='7.3.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -86,6 +86,9 @@ function ehErroDeRede(e){return !navigator.onLine||/Failed to fetch|NetworkError
 function traduzErro(e){
   const m=String(e&&(e.message||e)||'erro desconhecido');
   if(ehErroDeRede(e))return 'sem conexão com o servidor';
+  if(/sem_permissao/.test(m))return 'você não tem permissão para isso (fale com o dono da liga)';
+  if(/aprove_antes/.test(m))return 'aprove o acesso da pessoa antes de torná-la administradora';
+  if(/permissao_invalida/.test(m))return 'permissão desconhecida';
   if(/escolha_o_atleta/.test(m))return 'escolha o atleta do cadastro antes de aprovar';
   if(/senha_curta/.test(m))return 'a senha precisa ter pelo menos 6 caracteres';
   if(/conta_de_administrador/.test(m))return 'não é possível alterar a conta do administrador por aqui';
@@ -132,6 +135,7 @@ function atualizarListaGuardada(meta){
 /* ---------- Salvamento online ---------- */
 function setSync(estado,msg=''){sync={estado,msg};renderSync()}
 function persist(eventos=[],motivo=null){
+  if(meuAcesso&&meuAcesso.admin&&!pode('ligas')){alert('Você não tem permissão para alterar ligas. Nada foi gravado.');if(L)abrirLiga(L.id,{ignorarCache:true});return}
   fila.pendente=true;
   fila.eventos.push(...eventos.map(e=>({tipo:e.tipo,descricao:String(e.descricao).slice(0,500)})));
   if(fila.eventos.length>100){const n=fila.eventos.length-90;fila.eventos=[{tipo:'alteracao',descricao:n+' alterações feitas sem conexão'},...fila.eventos.slice(-90)]}
@@ -279,34 +283,33 @@ function voltarInicio(forcar=false){
 }
 
 /* ---------- Login ---------- */
-async function entrarLogin(ev){
-  ev.preventDefault();
-  const btn=$('btnEntrar'),msg=$('loginMsg');
-  btn.disabled=true;msg.textContent='Entrando…';
-  try{
-    const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('senha').value});
-    if(error)throw error;
-    const adm=await sb.rpc('is_admin');
-    if(adm.error)throw adm.error;
-    if(adm.data!==true){msg.textContent='Esta conta é de atleta — abrindo a página de consulta…';location.href=linkPublico();return}
-    usuario=data.user;view='inicio';render();carregarLista();
-  }catch(e){
-    msg.textContent=/Invalid login/i.test(e.message||'')?'E-mail ou senha incorretos.':traduzErro(e);
-    btn.disabled=false;
-  }
-}
 async function sair(){
   if(!confirm('Sair da conta neste aparelho?'))return;
-  await sb.auth.signOut();usuario=null;view='login';render();
+  await sb.auth.signOut();usuario=null;meuAcesso=null;aModo='entrar';view='acesso';render();
 }
-function renderLogin(){
-  return `<section><h2>Entrar</h2><p class="muted">Acesso do administrador da Liga Resenha.</p>
-  <form onsubmit="entrarLogin(event)" class="form-grid" style="margin-top:12px">
-   <label>E-mail<input id="email" type="email" autocomplete="username" required></label>
-   <label>Senha<input id="senha" type="password" autocomplete="current-password" required></label>
-   <div class="panel-actions"><button type="submit" id="btnEntrar">ENTRAR</button></div>
-   <p id="loginMsg" class="warn"></p>
-  </form></section>`;
+
+/* ---------- Permissões dos administradores ---------- */
+// O dono pode tudo; os outros administradores só o que o dono marcou. O servidor confere de novo.
+const PERMISSOES=[['ligas','Ligas e jogos','criar ligas e etapas, inscrever, sortear, lançar placares, encerrar, lixeira'],['temporadas','Temporadas','criar e editar temporadas, regras, datas previstas, ajustes de pontos'],['atletas','Cadastro de atletas','criar e editar atletas'],['financeiro_ver','Financeiro: ver','abrir a página do financeiro'],['financeiro_lancar','Financeiro: lançar','registrar valores no financeiro']];
+const ehDono=()=>!!(meuAcesso&&meuAcesso.admin&&meuAcesso.dono);
+const pode=a=>!!(meuAcesso&&meuAcesso.admin&&(meuAcesso.dono||(meuAcesso.permissoes||[]).includes(a)));
+// botões que gravam: função chamada no clique → permissão necessária ('dono' = só o dono)
+const ACAO_PERMISSAO={ligas:"criarLiga duplicarLiga mudarArquivo moverParaLixeira retirarDaLixeira restaurarVersao startLeague endLeague corrigirResultados setCapacity clearNames shuffle sortearDuplasTela desfazerGrupoTela confirmarDuplasManual abrirDuplasManual chooseTie resetTie digitarPlacar previaWO abrirWO confirmarWO novoAtletaParaWO previaSub abrirSubstituicao aplicarSubstituicao desfazerSubstituicao removerPosicao toggleAtleta novoAtletaNaLiga aplicarColarLista abrirColarLista vincularCadastro importarAntiga importarArquivo abrirNovaEtapa criarEtapa usarVersaoServidor manterMinhasAlteracoes",
+  temporadas:"criarTemporada mudarStatusTemporada salvarRegras salvarDataPrevista adicionarAjuste removerAjuste",
+  atletas:"abrirAtletaForm salvarAtletaForm",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios"};
+const FN_PERMISSAO={};for(const [a,l] of Object.entries(ACAO_PERMISSAO))for(const f of l.split(' '))FN_PERMISSAO[f]=a;
+function permitido(a){return a==='dono'?ehDono():pode(a)}
+function areaDoClique(c){
+  if(/^view='nova'/.test(c)||/\$\('imp'\)/.test(c))return 'ligas';
+  if(/^view='nova-temporada'/.test(c))return 'temporadas';
+  const m=c.match(/^\s*(?:await\s+)?([A-Za-z_$][\w$]*)\(/);return m&&FN_PERMISSAO[m[1]];
+}
+// depois de desenhar a tela: some o que a pessoa não pode fazer e trava os campos das áreas sem permissão
+function aplicarPermissoes(){
+  if(!meuAcesso||!meuAcesso.admin||ehDono()||emConsulta())return;
+  document.querySelectorAll('#main [onclick],#lifecycle [onclick],#modal [onclick]').forEach(e=>{const a=areaDoClique(e.getAttribute('onclick'));if(a&&!permitido(a))e.remove()});
+  const trava=(view==='liga'&&!pode('ligas'))||(view==='temporada'&&!pode('temporadas'));
+  if(trava)document.querySelectorAll('#main input:not([type=checkbox][data-leitura]),#main select,#main textarea').forEach(e=>{if(!e.closest('[data-leitura]'))e.disabled=true});
 }
 
 /* ---------- Instalar como app no celular ---------- */
@@ -332,9 +335,20 @@ async function verificarAcesso(){
   try{
     const {data,error}=await sb.rpc('meu_acesso');if(error)throw error;
     meuAcesso=data;aMsg='';
-    if(data&&(data.admin||data.status==='aprovado'))return abrirConsulta();
-  }catch(e){meuAcesso=null;aMsg='Não foi possível verificar seu acesso: '+traduzErro(e)}
+    lsSet('lr6:acesso',data&&data.admin?data:{admin:false});
+    if(data&&data.admin)return abrirAdministracao();
+    if(data&&data.status==='aprovado')return abrirConsulta();
+  }catch(e){
+    // sem internet, o administrador continua usando o que está guardado no aparelho
+    const g=lsGet('lr6:acesso');
+    if(ehErroDeRede(e)&&g&&g.admin){meuAcesso=g;return abrirAdministracao()}
+    meuAcesso=null;aMsg='Não foi possível verificar seu acesso: '+traduzErro(e);
+  }
   view='acesso';render();
+}
+function abrirAdministracao(){
+  T=null;TE=[];L=null;S=null;CONFRONTO_DIRETO=false;ESPECIAL=false;pontosCache.clear();
+  view='inicio';render();carregarLista();carregarAtletas();
 }
 async function entrarAtleta(ev){
   ev.preventDefault();
@@ -372,10 +386,10 @@ async function sairConsulta(){
   await sb.auth.signOut();usuario=null;meuAcesso=null;aModo='entrar';view='acesso';render();
 }
 function renderAcesso(){
-  const topo=`<section><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>Liga Resenha • consulta</h2>${botaoInstalar('padding:6px 10px')}</div>`;
+  const topo=`<section><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><h2>Liga Resenha</h2>${botaoInstalar('padding:6px 10px')}</div>`;
   if(!usuario){
     const criar=aModo==='criar';
-    return topo+`<p class="muted">${criar?'Crie sua conta. O administrador confere e libera o acesso.':'Entre com o e-mail e a senha da sua conta de atleta.'}</p>
+    return topo+`<p class="muted">${criar?'Crie sua conta. O administrador confere e libera o acesso.':'Entre com o seu e-mail e a sua senha.'}</p>
      <div class="row" style="gap:6px;margin-top:10px"><button class="${criar?'secondary':''}" onclick="aModo='entrar';render()">Entrar</button><button class="${criar?'':'secondary'}" onclick="aModo='criar';render()">Criar conta</button></div>
      <form onsubmit="${criar?'criarConta':'entrarAtleta'}(event)" class="form-grid" style="margin-top:12px">
       ${criar?'<label>Seu nome (como é conhecido na liga)<input id="nome" maxlength="80" autocomplete="name" required></label>':''}
@@ -442,14 +456,30 @@ function cartaoAcesso(a){
     bloqueado:b('Desbloquear',`acaoAcesso('${a.user_id}','aprovado')`,''),recusado:b('Aprovar',`acaoAcesso('${a.user_id}','aprovado')`,'')}[a.status]||'';
   return `<div class="liga-card"><div class="row" style="justify-content:space-between;align-items:flex-start">
     <div style="min-width:0"><h3>${esc(a.nome_informado)}</h3><p class="muted" style="overflow-wrap:anywhere">${esc(a.email)}</p></div>
-    <span class="chip ac-${a.status}">${ACESSO_LABEL[a.status]||esc(a.status)}</span></div>
+    <span class="row" style="gap:4px;flex-wrap:nowrap">${a.admin?'<span class="chip ac-adm">ADM</span>':''}<span class="chip ac-${a.status}">${ACESSO_LABEL[a.status]||esc(a.status)}</span></span></div>
    <p class="muted" style="margin-top:6px">Atleta ligado: <b>${a.atleta_nome?esc(a.atleta_nome):'nenhum'}</b> • Pedido em ${fmtDataHora(a.criado_em)} • Último acesso: ${a.ultimo_acesso?fmtDataHora(a.ultimo_acesso):'nunca'}</p>
-   ${sel}<div class="panel-actions">${acoes}${b('Trocar senha',`trocarSenhaAcesso('${a.user_id}')`)}${b('🗑 Excluir conta',`excluirAcesso('${a.user_id}')`,'ghost')}</div></div>`;
+   ${sel}${a.status==='aprovado'?blocoAdmin(a):''}<div class="panel-actions">${acoes}${b('Trocar senha',`trocarSenhaAcesso('${a.user_id}')`)}${b('🗑 Excluir conta',`excluirAcesso('${a.user_id}')`,'ghost')}</div></div>`;
+}
+function blocoAdmin(a){
+  const u=a.user_id,per=a.permissoes||[];
+  return `<details style="margin-top:10px"${a.admin?' open':''}><summary><b>${a.admin?'Administrador — permissões':'Tornar administrador'}</b></summary>
+   <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;margin-top:8px;font-weight:400"><input type="checkbox" style="width:20px;height:20px;flex:none;margin:2px 0 0;padding:0" id="adm-${u}"${a.admin?' checked':''} onchange="document.getElementById('perms-${u}').style.opacity=this.checked?1:.4"> <span><b>É administrador</b> <span class="muted">(entra na administração do app)</span></span></label>
+   <div id="perms-${u}" style="margin:6px 0 0 4px;opacity:${a.admin?1:.4}">${PERMISSOES.map(([k,t,d])=>`<label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;margin-top:8px;font-weight:400"><input type="checkbox" style="width:20px;height:20px;flex:none;margin:2px 0 0;padding:0" data-perm="${k}"${per.includes(k)?' checked':''}> <span><b>${t}</b><br><span class="muted">${d}</span></span></label>`).join('')}</div>
+   <p class="muted" style="margin-top:8px">Só você mexe na aba Usuários e apaga de vez.</p>
+   <div class="panel-actions"><button class="secondary" onclick="salvarAdmin('${u}')">Salvar permissões</button></div></details>`;
+}
+async function salvarAdmin(uid){
+  const a=acessos.find(x=>x.user_id===uid);if(!a||ocupado)return;
+  const ehAdm=$('adm-'+uid).checked,perms=[...$('perms-'+uid).querySelectorAll('[data-perm]:checked')].map(e=>e.dataset.perm);
+  if(!ehAdm&&a.admin&&!confirm('Tirar '+a.nome_informado+' da administração? Ele continua vendo a página de consulta.'))return;
+  ocupado=true;
+  try{const {error}=await sb.rpc('definir_admin',{p_user_id:uid,p_admin:ehAdm,p_permissoes:perms});if(error)throw error;ocupado=false;await carregarAcessos();alert(ehAdm?'Permissões de '+a.nome_informado+' salvas.':a.nome_informado+' não é mais administrador.')}
+  catch(e){alert('Nada foi alterado: '+traduzErro(e))}finally{ocupado=false}
 }
 function renderUsuarios(){
   const pend=acessos.filter(a=>a.status==='pendente'),outros=acessos.filter(a=>a.status!=='pendente');
-  let h=`<section><button class="ghost" onclick="voltarInicio()">← Minhas Ligas</button><h2 style="margin-top:12px">Usuários da página de consulta</h2>
-   <p class="muted">Atletas que criaram conta. Só os aprovados veem a página de consulta. As senhas não ficam visíveis (o servidor guarda só uma versão embaralhada); se alguém esquecer, defina uma senha provisória.</p>
+  let h=`<section><button class="ghost" onclick="voltarInicio()">← Minhas Ligas</button><h2 style="margin-top:12px">Usuários do app</h2>
+   <p class="muted">Atletas que criaram conta no app. Só os aprovados veem a página de consulta. As senhas não ficam visíveis (o servidor guarda só uma versão embaralhada); se alguém esquecer, defina uma senha provisória.</p>
    <div class="panel-actions"><button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link da página de consulta</button><button class="secondary" onclick="carregarAcessos()">↻ Atualizar</button></div></section>`;
   if(acessosInfo.erro)return h+`<section class="tie-card tie-pending"><b>Não foi possível carregar</b><p class="muted" style="margin-top:6px">${esc(acessosInfo.erro)}</p></section>`;
   if(acessosInfo.carregando&&!acessos.length)return h+'<section><p class="muted">Carregando…</p></section>';
@@ -500,7 +530,7 @@ function renderInicio(){
   const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
   const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
-  let h=`<section><div class="panel-actions" style="margin-top:0"><button style="flex:1;font-size:17px;padding:15px" onclick="view='nova';render()">NOVA LIGA</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirAtletas()">ATLETAS</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirUsuarios()">👥 USUÁRIOS</button></div>${botaoInstalar('margin-top:10px')}</section>`;
+  let h=`<section><div class="panel-actions" style="margin-top:0"><button style="flex:1;font-size:17px;padding:15px" onclick="view='nova';render()">NOVA LIGA</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirAtletas()">ATLETAS</button><button class="secondary" style="flex:1;font-size:17px;padding:15px" onclick="abrirUsuarios()">👥 USUÁRIOS</button></div><div class="panel-actions"><button class="secondary" style="flex:1" onclick="abrirConsulta()">👀 PÁGINA DE CONSULTA</button>${botaoInstalar('flex:1')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
   if(antiga)h+=`<section class="tie-card tie-pending"><b>Liga da versão anterior encontrada neste aparelho</b>
    <p style="margin-top:6px">${antiga.d.names.length} atletas • ${esc(statusText(antiga.d))} • ${esc(antiga.d.names.slice(0,4).filter(Boolean).join(', '))}${antiga.d.names.filter(Boolean).length>4?'…':''}</p>
@@ -980,8 +1010,8 @@ function renderTemporadaCabecalho(){
    <div class="panel-actions"><button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link da página de consulta</button></div></section>`;
 }
 /* ---------- Página pública (só consulta) ---------- */
-// consulta na raiz do site; administrador em /adm/ (a casca de cada página define LR_MODO e LR_RAIZ)
-const linkPublico=()=>new URL(LR_RAIZ,location.href).href,linkAdm=()=>new URL(LR_RAIZ+'adm/',location.href).href;
+// um endereço só: o login decide se abre a administração (administrador) ou a consulta (atleta aprovado)
+const linkPublico=()=>new URL(LR_RAIZ,location.href).href;
 async function copiarLinkPublico(){
   const u=linkPublico();
   try{await navigator.clipboard.writeText(u);alert('Link copiado:\n'+u)}catch{prompt('Copie o link da página pública:',u)}
@@ -1006,7 +1036,8 @@ async function apagarTemporada(){
   }catch(e){alert('Nada foi apagado: '+traduzErro(e))}
   finally{ocupado=false}
 }
-const PUBLICO=window.LR_MODO!=='adm';
+// telas da consulta: só leitura, para atletas e para o administrador
+const emConsulta=()=>view.startsWith('publica');
 // PUB: tudo que a consulta recebe do servidor; pSec: seção do topo; pOrigem: para onde o "voltar" leva
 let PUB={temporadas:[],etapas:[],atletas:[],relampagos:[]},pSec='inicio',pTab='Ranking',pInfo={},pOrigem=null;
 const P_SECOES=[['inicio','Início'],['rodada','Rodada atual'],['temporadas','Temporadas'],['relampagos','Relâmpagos']];
@@ -1038,7 +1069,7 @@ function irSecaoPublica(sec){
   pSec=sec;view='publica';T=null;TE=[];L=null;S=null;render();window.scrollTo(0,0);
 }
 function cabecalhoPublico(sub=''){
-  return `<section class="header-card"><div class="row" style="justify-content:space-between;align-items:center"><div style="min-width:0"><p class="muted">Liga Resenha • consulta</p><p style="margin-top:2px">Bem-vindo, <b>${esc(meuAcesso&&meuAcesso.admin?'administrador':(meuAcesso&&meuAcesso.nome)||'atleta')}</b></p></div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="ghost pub" style="padding:6px 10px" onclick="abrirConsulta()" title="Atualizar">↻</button><button class="ghost pub" style="padding:6px 10px" onclick="sairConsulta()">Sair</button></div></div>${botaoInstalar('margin-top:8px')}
+  return `<section class="header-card"><div class="row" style="justify-content:space-between;align-items:center"><div style="min-width:0"><p class="muted">Liga Resenha • consulta</p><p style="margin-top:2px">Bem-vindo, <b>${esc((meuAcesso&&meuAcesso.nome)||(meuAcesso&&meuAcesso.admin?'administrador':'atleta'))}</b></p>${meuAcesso&&meuAcesso.admin?'<button class="ghost pub" style="padding:6px 10px;margin-top:6px" onclick="abrirAdministracao()">← Administração</button>':''}</div><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="ghost pub" style="padding:6px 10px" onclick="abrirConsulta()" title="Atualizar">↻</button><button class="ghost pub" style="padding:6px 10px" onclick="sairConsulta()">Sair</button></div></div>${botaoInstalar('margin-top:8px')}
    <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px">${P_SECOES.map(([k,t])=>`<button class="${k===pSec?'':'secondary'} pub" onclick="irSecaoPublica('${k}')">${t}</button>`).join('')}</div>${sub}</section>`;
 }
 function subCabecalho(volta,titulo,linha){
@@ -2315,7 +2346,7 @@ function renderBracket(c){
    f:ESPECIAL?[sorteio+'S1 e S2','']:['Vencedor S1','Vencedor S2'],t:ESPECIAL?['Sorteio entre os perdedores de S1 e S2','']:['Perdedor S1','Perdedor S2']};
  const box=(m,id,label)=>`<div class="br-match"><div class="br-label">${label}</div>${m?[m.a,m.b].map((p,k)=>`<div class="br-team ${valid(S.finals[m.id])&&S.finals[m.id][k]>S.finals[m.id][1-k]?'br-win':''}"><span>${p.map(name).join('<br>')}</span><strong>${valid(S.finals[m.id])&&(S.wo||{})[m.id]===k?'W.O.':S.finals[m.id]?.[k]??'–'}</strong></div>`).join(''):ph[id].map(x=>`<div class="br-team br-empty">${x}</div>`).join('')}</div>`;
  const no=(col,lin,html)=>`<div class="br-node" style="grid-column:${col};grid-row:${lin}">${html}</div>`;
- return `<section><h2>Chave da competição</h2><p class="muted">${c?'':'A chave é preenchida quando terminarem os jogos dos grupos. '}No celular, deslize para os lados.${PUBLICO?'':' Os placares são lançados na aba Mata-mata.'}</p>${PUBLICO?'':`<div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button>${c?`<button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button>`:''}</div>`}</section>
+ return `<section><h2>Chave da competição</h2><p class="muted">${c?'':'A chave é preenchida quando terminarem os jogos dos grupos. '}No celular, deslize para os lados.${emConsulta()?'':' Os placares são lançados na aba Mata-mata.'}</p>${emConsulta()?'':`<div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button>${c?`<button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button>`:''}</div>`}</section>
  <div class="br-scroll"><div class="br-grid">
   <div class="br-head" style="grid-column:1">Quartas</div><div class="br-head" style="grid-column:2">Semifinal</div><div class="br-head" style="grid-column:3">Final</div><div class="br-head" style="grid-column:4">Semifinal</div><div class="br-head" style="grid-column:5">Quartas</div>
   <svg class="br-lines" viewBox="0 0 860 420" preserveAspectRatio="none"><path d="M148 105 H163 V210 H178 M148 315 H163 V210 M326 210 H341 V105 H356 M712 105 H697 V210 H682 M712 315 H697 V210 M534 210 H519 V105 H504"/></svg>
@@ -2377,7 +2408,6 @@ function render(){
   let h='';
   if(view==='carregando')h='<section><p class="muted">Carregando…</p></section>';
   if(view==='erro')h='<section><h2>Não foi possível iniciar</h2><p class="muted">O app não conseguiu carregar os componentes necessários. Verifique a conexão e recarregue a página.</p><div class="panel-actions"><button onclick="location.reload()">Recarregar</button></div></section>';
-  if(view==='login')h=renderLogin();
   if(view==='acesso')h=renderAcesso();
   if(view==='usuarios')h=renderUsuarios();
   if(view==='inicio')h=renderInicio();
@@ -2423,11 +2453,12 @@ function render(){
     if(tab==='Chave')h=renderKnockout(true);
     if(tab==='Histórico')h=renderHistorico();
   }
-  h+=PUBLICO?`<div class="footer-note">Página só de consulta — nada pode ser alterado por aqui. • v${APP_VERSION}${meuAcesso&&meuAcesso.admin?` • <a href="${linkAdm()}">Área do administrador</a>`:''}</div>`:`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
+  h+=view==='acesso'||emConsulta()?`<div class="footer-note">Página só de consulta — nada pode ser alterado por aqui. • v${APP_VERSION}</div>`:`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
   $('main').innerHTML=h;
   document.querySelectorAll('.br-scroll').forEach(e=>{e.scrollLeft=(e.scrollWidth-e.clientWidth)/2});
+  aplicarPermissoes();
   // página pública: só leitura (o servidor também não aceita gravação sem login)
-  if(PUBLICO&&view.startsWith('publica')){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input,#main select,#main textarea').forEach(e=>e.disabled=true)}
+  if(emConsulta()){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input,#main select,#main textarea').forEach(e=>e.disabled=true)}
   if(view==='nova'){const q=$('nlQtd');q.onchange=()=>{$('nlRegra').textContent=FORMATS[q.value].label}}
   if(view==='liga'){
     if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
@@ -2439,19 +2470,15 @@ async function iniciar(){
   if(!window.supabase||!window.supabase.createClient){view='erro';render();return}
   sb=window.supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'lr6-auth'}});
   sb.auth.onAuthStateChange((ev,session)=>{
-    if(ev==='SIGNED_OUT'){usuario=null;if(PUBLICO){meuAcesso=null;if(view!=='acesso'){view='acesso';render()}}else if(['inicio','nova','atletas','temporada','nova-temporada','usuarios'].includes(view)){view='login';render()}}
+    if(ev==='SIGNED_OUT'){usuario=null;meuAcesso=null;if(view!=='acesso'&&view!=='liga'){view='acesso';render()}}
     else if(session)usuario=session.user;
   });
   view='carregando';render();
   let session=null;
   try{const r=await sb.auth.getSession();session=r.data&&r.data.session}catch{}
-  if(PUBLICO){usuario=session&&session.user;if(usuario)verificarAcesso();else{view='acesso';render()}return}
-  // conta de atleta aberta no endereço do administrador: vai para a consulta
-  if(session&&navigator.onLine){try{const r=await sb.rpc('is_admin');if(!r.error&&r.data===false){location.href=linkPublico();return}}catch{}}
-  let temSessaoGuardada=false;try{temSessaoGuardada=!!localStorage.getItem('lr6-auth')}catch{}
-  if(!session&&!(temSessaoGuardada&&!navigator.onLine)){view='login';render();return}
   usuario=session&&session.user;
-  view='inicio';render();carregarLista();
+  let temSessaoGuardada=false;try{temSessaoGuardada=!!localStorage.getItem('lr6-auth')}catch{}
+  if(usuario||(temSessaoGuardada&&!navigator.onLine))verificarAcesso();else{view='acesso';render()}
 }
 window.addEventListener('online',()=>{if(view==='liga'&&fila.pendente)tentarNovamente();if(view==='inicio')carregarLista()});
 window.addEventListener('offline',()=>{if(view==='liga'&&sync.estado!=='conflito')setSync('offline')});

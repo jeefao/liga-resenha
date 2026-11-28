@@ -85,7 +85,7 @@ beforeEach(async () => {
   }
   await db.exec(`insert into auth.users (id, email) values
     ('${ADMIN}', 'admin@teste.local'), ('${OUTRO}', 'outro@teste.local');
-    insert into public.admins (user_id) values ('${ADMIN}');`);
+    insert into public.admins (user_id, dono) values ('${ADMIN}', true);`);
 });
 
 describe('segurança (RLS e permissões)', () => {

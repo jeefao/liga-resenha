@@ -16,7 +16,7 @@ await new Promise((r) => srv.listen(PORTA, '127.0.0.1', r));
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true, userDataDir: mkdtempSync(join(tmpdir(), 'lr6-ac-')) });
 const ok = [], falhas = []; const check = (n, c, e = '') => (c ? ok : falhas).push(n + (c ? '' : ' → ' + e));
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
-const URL0 = `http://127.0.0.1:${PORTA}/adm/index.html`, URLC = `http://127.0.0.1:${PORTA}/index.html`;
+const URL0 = `http://127.0.0.1:${PORTA}/index.html`, URLC = `http://127.0.0.1:${PORTA}/index.html`;
 try {
   const page = await browser.newPage(); await page.setViewport({ width: 420, height: 900 });
   const erros = []; page.on('pageerror', (e) => erros.push(e.message)); page.on('dialog', (d) => d.accept(d.type() === 'prompt' ? 'prov123' : undefined));
@@ -82,10 +82,23 @@ try {
   await ev(async () => { await sb.auth.signOut(); usuario = null; meuAcesso = null; view = 'acesso'; render(); });
   check('depois de sair volta para entrar', (await txt()).includes('ENTRAR'));
 
-  // conta de atleta no endereço do administrador vai para a consulta
+  // administrador: entra pelo mesmo endereço, cai na administração e abre a consulta dentro do app
+  await ev(() => localStorage.setItem('mock:sessao', 'nenhuma'));
+  await page.goto(URL0); await espera(300);
+  await digita('email', 'admin@teste'); await digita('senha', 'admin123'); await page.click('#btnEntrar'); await espera(500);
+  check('administrador entra na administração pelo mesmo login', (await ev(() => view)) === 'inicio' && (await txt()).includes('PÁGINA DE CONSULTA'));
+  await ev(() => abrirConsulta()); await espera(300);
+  check('administrador vê a consulta igual aos atletas', (await ev(() => view)) === 'publica' && (await txt()).includes('Bem-vindo, administrador') && (await txt()).includes('Rodada atual'));
+  await page.screenshot({ path: SAIDA + '/acesso-admin-consulta.png' });
+  await ev(() => abrirAdministracao()); await espera(300);
+  check('administrador volta para a administração', (await ev(() => view)) === 'inicio' && (await txt()).includes('USUÁRIOS'));
+  // conta de atleta sem pedido: tela para pedir acesso, nunca a administração
   await ev(() => localStorage.setItem('mock:sessao', 'outro@teste'));
   await page.goto(URL0); await espera(500);
-  check('atleta no endereço do administrador é levado à consulta', !page.url().includes('/adm/'), page.url());
+  check('atleta sem pedido não vê a administração', (await ev(() => view)) === 'acesso' && (await txt()).includes('PEDIR ACESSO') && !(await txt()).includes('USUÁRIOS'));
+  // endereço antigo /adm/ leva ao endereço principal
+  await page.goto(`http://127.0.0.1:${PORTA}/adm/`); await espera(500);
+  check('endereço /adm/ redireciona para o principal', !page.url().includes('/adm'), page.url());
   check('sem erros de script', !erros.length, erros.join(' | '));
 } catch (e) { falhas.push('erro: ' + e.message); }
 finally { await browser.close(); srv.close(); }

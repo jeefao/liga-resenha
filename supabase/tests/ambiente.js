@@ -7,6 +7,7 @@ import { PGlite } from '@electric-sql/pglite';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const ADMIN = '00000000-0000-4000-a000-0000000000aa';
 export const OUTRO = '00000000-0000-4000-a000-0000000000bb';
+export const SUB = '00000000-0000-4000-a000-0000000000cc';
 
 const SUPABASE_STUB = `
   create role anon nologin;
@@ -33,8 +34,8 @@ export async function criarBanco() {
     await db.exec(readFileSync(join(dir, f), 'utf8'));
   }
   await db.exec(`insert into auth.users (id, email) values
-    ('${ADMIN}', 'admin@teste.local'), ('${OUTRO}', 'outro@teste.local');
-    insert into public.admins (user_id) values ('${ADMIN}');`);
+    ('${ADMIN}', 'admin@teste.local'), ('${OUTRO}', 'outro@teste.local'), ('${SUB}', 'sub@teste.local');
+    insert into public.admins (user_id, dono) values ('${ADMIN}', true);`);
   const como = async (papel, uid, fn) => {
     await db.exec('begin');
     try {

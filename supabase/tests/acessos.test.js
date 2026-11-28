@@ -63,10 +63,10 @@ describe('acessos dos atletas', () => {
 
   it('atleta não usa as funções do administrador nem lê as tabelas', async () => {
     await pedidoAprovado();
-    await expect(atleta('select public.listar_acessos() as r')).rejects.toThrow(/sem_permissao/);
-    await expect(atleta(`select public.definir_acesso($1, 'aprovado') as r`, [OUTRO])).rejects.toThrow(/sem_permissao/);
-    await expect(atleta(`select public.trocar_senha_acesso($1, '123456') as r`, [OUTRO])).rejects.toThrow(/sem_permissao/);
-    await expect(atleta(`select public.excluir_acesso($1) as r`, [OUTRO])).rejects.toThrow(/sem_permissao/);
+    await expect(atleta('select public.listar_acessos() as r')).rejects.toThrow(/acesso_negado/);
+    await expect(atleta(`select public.definir_acesso($1, 'aprovado') as r`, [OUTRO])).rejects.toThrow(/acesso_negado/);
+    await expect(atleta(`select public.trocar_senha_acesso($1, '123456') as r`, [OUTRO])).rejects.toThrow(/acesso_negado/);
+    await expect(atleta(`select public.excluir_acesso($1) as r`, [OUTRO])).rejects.toThrow(/acesso_negado/);
     await expect(atleta('select * from public.acessos')).rejects.toThrow(/permission denied/);
     expect(await atleta('select count(*)::int as r from public.ligas')).toBe(0);
     expect(await atleta('select count(*)::int as r from public.atletas')).toBe(0);
@@ -92,7 +92,7 @@ describe('acessos dos atletas', () => {
   });
 
   it('administrador vê a consulta sem pedido', async () => {
-    expect(await um('select public.meu_acesso() as r')).toEqual({ logado: true, admin: true, status: 'aprovado' });
+    expect(await um('select public.meu_acesso() as r')).toMatchObject({ logado: true, admin: true, status: 'aprovado', dono: true });
     expect(await um('select public.consulta_publica() as r')).toMatchObject({ temporadas: [] });
   });
 });

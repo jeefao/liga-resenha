@@ -20,7 +20,7 @@ try {
   const dialogos = []; page.on('dialog', async (d) => { dialogos.push(d.message()); await d.accept(); });
   const erros = []; page.on('pageerror', (e) => erros.push(e.message));
   await page.evaluateOnNewDocument(MOCK);
-  await page.goto(`http://127.0.0.1:${PORTA}/adm/index.html`); await espera(400);
+  await page.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(400);
   const ev = (f, ...a) => page.evaluate(f, ...a);
   const nomes = ['Marcos Pereira', 'Paulo Santos', 'Renato Gomes', 'Fabio Lopes', 'Rodrigo Mendes', 'Elton Prado', 'Sergio Moura', 'Davi Pinheiro', 'Vitor Fontes', 'Rogerio Campos', 'Jonas Peixoto', 'Heitor Klein', 'Andre Ferraz', 'Andre Alves', 'Andre Freire', 'Tadeu'];
   const id = await ev((nomes) => { const id = crypto.randomUUID(); __db.ligas[id] = { id, nome: 'Teste placar', data: '2026-11-23', participantes: 16, status: 'andamento', etapa: 'grupos', versao: 1, temporada_id: null, etapa_numero: null, excluida_em: null, atualizado_em: new Date().toISOString(), dados: { names: nomes, ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {}, drawn: true, status: 'drawn' } }; return id; }, nomes);
