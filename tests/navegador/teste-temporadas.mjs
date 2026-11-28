@@ -143,6 +143,18 @@ try {
   check('página pública ligada no servidor', await ev((id) => __db.temporadas[id].publica === true && T.publica === true, tidP));
   check('botão copiar link aparece', (await txt()).includes('Copiar link'));
   const rkAdmin = await ev(() => calcularRanking().linhas.map((x) => x.pos + ':' + x.nome + ':' + x.total).join('|'));
+  // datas previstas: temporada passa a ter 5 etapas; marca a data da 4 pela tela
+  await ev(async () => { await salvarTemporada({ p_regras: { ...T.regras, etapas: 5 } }, 'Teste: 5 etapas'); tTab = 'Etapas'; render(); }); await espera(100);
+  check('campo de data prevista nas etapas não criadas', await ev(() => !!$('dp4') && !!$('dp5') && !$('dp1')));
+  await ev(() => salvarDataPrevista(4, '2027-03-07')); await espera(300);
+  check('data prevista gravada na temporada', await ev((id) => __db.temporadas[id].dados.datas['4'] === '2027-03-07' && $('dp4').value === '2027-03-07', tidP));
+  check('criar etapa já vem com a data prevista', await ev(() => { abrirNovaEtapa(4); const v = $('neData').value; fecharModal(); return v === '2027-03-07'; }));
+  // ligas relâmpago: uma criada (aparece), uma arquivada e uma na lixeira (não aparecem)
+  await ev(() => { const base = { temporada_id: null, etapa_numero: null, participantes: 16, etapa: 'cadastro', versao: 1, atualizado_em: new Date().toISOString(), excluida_em: null };
+    const dd = (n) => ({ names: [n, ...Array(15).fill('')], ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {} });
+    __db.ligas.rel1 = { ...base, id: 'rel1', nome: 'Relâmpago Feriado', data: '2027-04-21', status: 'preparacao', dados: dd('Inscrito Um') };
+    __db.ligas.rel2 = { ...base, id: 'rel2', nome: 'Relâmpago Arquivada', data: '2027-04-22', status: 'arquivada', dados: dd('X') };
+    __db.ligas.rel3 = { ...base, id: 'rel3', nome: 'Relâmpago Lixeira', data: '2027-04-23', status: 'preparacao', excluida_em: new Date().toISOString(), dados: dd('Y') }; });
   const banco = await ev(() => JSON.stringify(__db));
   const pub = await browser.newPage(); await pub.setViewport({ width: 390, height: 844 });
   const errosPub = []; pub.on('pageerror', (e) => errosPub.push(e.message));
@@ -157,7 +169,7 @@ try {
   await pub.screenshot({ path: SAIDA + '/publica-ranking.png' });
   await evP(() => { pTab = 'Etapas'; render(); });
   const te = await txtP();
-  check('pública: etapas com atual e próxima', te.includes('Etapa atual:') && te.includes('Encerrada') && te.includes('Inscrições'), te.slice(0, 900).split('\n').join(' ¦ '));
+  check('pública: etapas atual, próximas e jogadas', ['Atual', 'Próximas', 'Data prevista: 07/03/2027', 'Data a definir', 'Jogadas', 'Encerrada', 'Inscrições'].every((x) => te.includes(x)), te.slice(0, 900).split('\n').join(' ¦ '));
   await evP(() => abrirEtapaPublica(TE.find((l) => l.etapa_numero === 1).id));
   check('pública: etapa abre nos jogos', (await evP(() => view + '/' + tab)) === 'publica-etapa/Jogos' && (await semEdicao()) && (await evP(() => document.querySelectorAll('#main input:disabled').length)) > 0);
   for (const t of ['Grupos', 'Classificação', 'Chave']) { await evP((x) => { tab = x; render(); }, t); check('pública: aba ' + t + ' sem edição', await semEdicao()); }
@@ -165,8 +177,18 @@ try {
   await evP(() => voltarConsulta());
   await evP(() => abrirEtapaPublica(TE.find((l) => l.etapa_numero === 3).id));
   check('pública: etapa sem sorteio mostra atletas', (await txtP()).includes('Grupos ainda não sorteados') && (await txtP()).includes('Fulano'));
+  await evP(() => { voltarConsulta(); pTab = 'Relâmpagos'; render(); });
+  const tr = await txtP();
+  check('pública: relâmpago criada aparece; arquivada e lixeira não', tr.includes('Relâmpago Feriado') && !tr.includes('Relâmpago Arquivada') && !tr.includes('Relâmpago Lixeira') && (await semEdicao()), String(await semEdicao()) + ' ¦ ' + tr.slice(0, 600).split('\n').join(' ¦ '));
+  await evP(() => abrirEtapaPublica('rel1'));
+  check('pública: relâmpago abre os inscritos', (await txtP()).includes('Inscrito Um') && (await txtP()).includes('← Ligas relâmpago'));
+  await evP(() => voltarConsulta());
+  check('voltar da relâmpago volta para a lista', (await evP(() => view + '/' + pTab)) === 'publica/Relâmpagos');
+  await pub.screenshot({ path: SAIDA + '/publica-relampagos.png' });
   await evP(async () => { for (const t of Object.values(__db.temporadas)) t.publica = false; await abrirConsulta(); });
-  check('sem temporada pública: aviso', (await txtP()).includes('Nenhuma temporada está aberta para consulta'));
+  check('sem temporada pública: mostra só as relâmpago', (await evP(() => view + '/' + pTab + '/' + pubAbas().join(','))) === 'publica/Relâmpagos/Relâmpagos');
+  await evP(async () => { delete __db.ligas.rel1; await abrirConsulta(); });
+  check('sem nada para consultar: aviso', (await txtP()).includes('Nenhuma temporada ou liga relâmpago para consultar'));
   check('pública: sem erros de script', errosPub.length === 0, errosPub.join(' | '));
 } finally { await browser.close(); srv.close(); }
 console.log('OK:', ok.length); for (const f of falhas) console.log('FALHA:', f);

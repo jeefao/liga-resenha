@@ -22,9 +22,35 @@ async function cenario() {
 }
 
 describe('consulta pública', () => {
-  it('sem temporada pública, quem não está logado não recebe nada', async () => {
+  it('sem temporada pública, não devolve temporada nem etapas', async () => {
     await cenario();
-    expect(await consulta()).toBeNull();
+    expect(await consulta()).toEqual({ temporada: null, etapas: [], atletas: [], relampagos: [] });
+  });
+
+  it('relâmpago criadas aparecem; arquivadas e na lixeira não', async () => {
+    await cenario();
+    const nova = async (nome, data) => {
+      const id = crypto.randomUUID();
+      await um(`select public.criar_liga($1, $2, $3, $4) as r`, [id, nome, data, JSON.stringify({ names: ['Ana Teste', ...Array(15).fill('')], ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {} })]);
+      return id;
+    };
+    const r1 = await nova('Relâmpago Sábado', '2027-01-20');
+    const r2 = await nova('Relâmpago Domingo', '2027-01-21');
+    const arq = await nova('Relâmpago Arquivada', '2027-01-22');
+    const lix = await nova('Relâmpago Lixeira', '2027-01-23');
+    await db.query(`update public.ligas set status = 'arquivada', versao = versao + 1 where id = $1`, [arq]);
+    await um(`select public.mover_para_lixeira($1) as r`, [lix]);
+    const r = await consulta();
+    expect(r.temporada).toBeNull();
+    expect(r.relampagos.map((x) => x.id)).toEqual([r2, r1]);
+    expect(r.relampagos[0]).toMatchObject({ nome: 'Relâmpago Domingo', status: 'preparacao', etapa_numero: null });
+    expect(r.relampagos[0].dados.names[0]).toBe('Ana Teste');
+  });
+
+  it('devolve as datas previstas válidas das próximas etapas', async () => {
+    const { t } = await cenario();
+    await um(`select public.salvar_temporada($1, 2, p_publica => true, p_dados => $2) as r`, [t, JSON.stringify({ datas: { 2: '2027-02-07', 3: '2027-03-07', x: '2027-01-01', 4: 'amanhã' } })]);
+    expect((await consulta()).temporada.dados).toEqual({ ajustes: [], datas: { 2: '2027-02-07', 3: '2027-03-07' } });
   });
 
   it('com a temporada pública, devolve só o necessário', async () => {
@@ -32,7 +58,8 @@ describe('consulta pública', () => {
     await um(`select public.salvar_temporada($1, 2, p_publica => true) as r`, [t]);
     const r = await consulta();
     expect(r.temporada).toMatchObject({ id: t, nome: '4ª Temporada', regras: { especiais: [3] } });
-    expect(r.temporada.dados).toEqual({ ajustes: [{ id: 'x', atleta_id: a2, etapa: 1, pontos: -5, motivo: 'atraso' }] });
+    expect(r.temporada.dados).toEqual({ ajustes: [{ id: 'x', atleta_id: a2, etapa: 1, pontos: -5, motivo: 'atraso' }], datas: {} });
+    expect(r.relampagos).toEqual([]);
     expect(r.etapas.map((e) => e.id)).toEqual([e1]);
     expect(r.etapas[0].dados.names[0]).toBe('Ana Teste');
     expect(r.atletas).toEqual([{ id: a1, nome: 'Ana Teste', situacao: 'membro' }, { id: a2, nome: 'Bia Teste', situacao: 'membro' }]);

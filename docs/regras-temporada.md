@@ -95,4 +95,9 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
 - Na temporada, o administrador liga/desliga "Página pública" e copia o link (`?consulta`).
 - Quem abre o link vê, sem login e sem poder alterar nada: classificação geral (mesmo cálculo e desempates), etapas (atual e próxima) e, de cada etapa, grupos, jogos, classificação e chave.
 - Só uma temporada aparece: a mais recente marcada como pública (arquivadas não aparecem).
+- **v6.8.0**: a página também mostra as **ligas relâmpago** criadas (mesmo sem sorteio), exceto arquivadas e as da
+  lixeira — até 30, da mais recente. Sem temporada pública, a página mostra só as relâmpago.
+- **Datas previstas**: na aba Etapas da temporada, cada etapa ainda não criada tem o campo "Data prevista" (pode mudar
+  quando quiser; fica no histórico). Ao criar a etapa, a data já vem preenchida. Na página de consulta, a aba Etapas
+  mostra Atual, Próximas (com a data prevista ou "data a definir") e Jogadas.
 - Ficam visíveis os nomes dos atletas que jogaram a temporada e os ajustes de pontos com motivo. Não aparecem observações, apelidos, histórico nem atletas de fora da temporada.

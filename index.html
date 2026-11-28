@@ -200,7 +200,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.7.0';
+const APP_VERSION='6.8.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -1056,42 +1056,54 @@ async function apagarTemporada(){
   finally{ocupado=false}
 }
 const PUBLICO=new URLSearchParams(location.search).has('consulta');
-let pTab='Ranking',pInfo={};
+let pTab='Ranking',pInfo={},REL=[];
 async function abrirConsulta(){
   view='carregando';render();
   try{
     const {data,error}=await sb.rpc('consulta_publica');if(error)throw error;
     pInfo={em:new Date().toISOString()};
-    if(!data){T=null;TE=[];view='publica-vazia'}
-    else{T=data.temporada;TE=data.etapas||[];atletas=data.atletas||[];pontosCache.clear();view='publica'}
+    T=data&&data.temporada||null;TE=T?data.etapas||[]:[];REL=data&&data.relampagos||[];atletas=data&&data.atletas||[];pontosCache.clear();
+    if(!T&&!REL.length)view='publica-vazia';
+    else{view='publica';if(!T)pTab='Relâmpagos'}
   }catch(e){pInfo={erro:traduzErro(e)};view='publica-vazia'}
   render();
 }
 function cabecalhoPublico(){
-  return `<section class="header-card"><p class="muted">Liga Resenha • página de consulta</p><h2 style="margin:6px 0 2px">${esc(T.nome)}</h2>
-   <p class="muted">${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}<span class="chip st-${T.status==='andamento'?'andamento':'finalizada'}">${T_STATUS[T.status]||esc(T.status)}</span> • atualizado ${fmtDataHora(pInfo.em)}</p>
+  return `<section class="header-card"><p class="muted">Liga Resenha • página de consulta</p><h2 style="margin:6px 0 2px">${T?esc(T.nome):'Ligas relâmpago'}</h2>
+   <p class="muted">${T?(T.inicio?'Início '+fmtData(T.inicio)+' • ':'')+`<span class="chip st-${T.status==='andamento'?'andamento':'finalizada'}">${T_STATUS[T.status]||esc(T.status)}</span> • `:''}atualizado ${fmtDataHora(pInfo.em)}</p>
    <div class="panel-actions"><button class="secondary pub" onclick="abrirConsulta()">↻ Atualizar</button></div></section>`;
 }
 function statusEtapaPublica(l){return ligaEncerrada(l)?'Encerrada':l.status==='preparacao'?'Inscrições':'Em andamento'}
+function cartaoLigaPublica(l,rotulo){
+  return `<div class="match-card" style="margin-top:10px"><div class="match-label">${rotulo}</div>
+    <p style="margin-top:6px"><b>${esc(l.nome)}</b> • ${fmtData(l.data)} • ${statusEtapaPublica(l)}${l.participantes?' • '+l.participantes+' atletas':''}</p>
+    <div class="panel-actions"><button class="secondary pub" onclick="abrirEtapaPublica('${l.id}')">${l.dados&&l.dados.drawn?'Ver grupos e jogos':'Ver inscritos'}</button></div></div>`;
+}
 function renderEtapasPublicas(){
   const R=regrasCompletas(T.regras),ets=TE.slice().sort((a,b)=>a.etapa_numero-b.etapa_numero);
-  const atual=ets.find(l=>!ligaEncerrada(l)),usados=new Set(ets.map(l=>l.etapa_numero));
-  let prox=null;if(T.status==='andamento')for(let n=1;n<=R.etapas;n++)if(!usados.has(n)){prox=n;break}
-  let h=`<section><h2>Etapas</h2><p class="muted">${atual?'Etapa atual: <b>'+esc(atual.nome)+'</b> ('+fmtData(atual.data)+'). ':'Nenhuma etapa em andamento. '}${prox?'Próxima: <b>Etapa '+prox+'</b>'+(R.dobradas.includes(prox)?' (vale o dobro)':'')+(R.especiais.includes(prox)?' (especial)':'')+'.':''}</p>`;
-  if(!ets.length)return h+'<p class="muted" style="margin-top:10px">Nenhuma etapa criada ainda.</p></section>';
-  h+=ets.map(l=>`<div class="match-card" style="margin-top:10px"><div class="match-label">Etapa ${l.etapa_numero}${R.dobradas.includes(l.etapa_numero)?' • vale o dobro':''}${R.especiais.includes(l.etapa_numero)?' • especial':''}</div>
-    <p style="margin-top:6px"><b>${esc(l.nome)}</b> • ${fmtData(l.data)} • ${statusEtapaPublica(l)}</p>
-    <div class="panel-actions"><button class="secondary pub" onclick="abrirEtapaPublica('${l.id}')">Ver grupos e jogos</button></div></div>`).join('');
+  const tags=n=>(R.dobradas.includes(n)?' • vale o dobro':'')+(R.especiais.includes(n)?' • especial':'');
+  const jogadas=ets.filter(ligaEncerrada),atuais=ets.filter(l=>!ligaEncerrada(l)),usados=new Set(ets.map(l=>l.etapa_numero));
+  const datas=(T.dados&&T.dados.datas)||{},proximas=[];
+  if(T.status==='andamento')for(let n=1;n<=R.etapas;n++)if(!usados.has(n))proximas.push(n);
+  let h='<section><h2>Etapas</h2>';
+  h+='<h3 style="margin-top:12px">Atual</h3>'+(atuais.length?atuais.map(l=>cartaoLigaPublica(l,'Etapa '+l.etapa_numero+tags(l.etapa_numero))).join(''):'<p class="muted">Nenhuma etapa em andamento.</p>');
+  if(proximas.length)h+='<h3 style="margin-top:16px">Próximas</h3>'+proximas.map(n=>`<div class="match-card" style="margin-top:10px;opacity:.85"><div class="match-label">Etapa ${n}${tags(n)}</div><p style="margin-top:6px">${datas[n]?'Data prevista: <b>'+fmtData(datas[n])+'</b>':'Data a definir'}</p></div>`).join('');
+  h+='<h3 style="margin-top:16px">Jogadas</h3>'+(jogadas.length?jogadas.slice().reverse().map(l=>cartaoLigaPublica(l,'Etapa '+l.etapa_numero+tags(l.etapa_numero))).join(''):'<p class="muted">Nenhuma etapa encerrada ainda.</p>');
   return h+'</section>';
 }
+function renderRelampagosPublicas(){
+  return `<section><h2>Ligas relâmpago</h2><p class="muted">Fora do ranking da temporada.</p>${REL.length?REL.map(l=>cartaoLigaPublica(l,'Relâmpago')).join(''):'<p class="muted" style="margin-top:10px">Nenhuma liga relâmpago no momento.</p>'}</section>`;
+}
+const pubAbas=()=>T?['Ranking','Etapas','Relâmpagos']:['Relâmpagos'];
 const pubTabs=['Grupos','Jogos','Classificação','Chave'];
 function abrirEtapaPublica(id){
-  const l=TE.find(x=>x.id===id);if(!l)return;
-  try{S=validarDados(l.dados)}catch{return alert('Não foi possível abrir esta etapa.')}
-  L={...l};const R=regrasCompletas(T.regras);CONFRONTO_DIRETO=R.confronto_direto;ESPECIAL=ehEspecial(L,R,S);
+  const l=TE.find(x=>x.id===id)||REL.find(x=>x.id===id);if(!l)return;
+  try{S=validarDados(l.dados)}catch{return alert('Não foi possível abrir esta liga.')}
+  L={...l};const R=T&&l.temporada_id!==null&&TE.includes(l)?regrasCompletas(T.regras):null;
+  CONFRONTO_DIRETO=!!(R&&R.confronto_direto);ESPECIAL=ehEspecial(R?{...L,temporada_id:T.id}:null,R,S);
   tab=S.drawn?'Jogos':'Grupos';view='publica-etapa';render();window.scrollTo(0,0);
 }
-function voltarConsulta(){L=null;S=null;view='publica';pTab='Etapas';render();window.scrollTo(0,0)}
+function voltarConsulta(){const rel=L&&REL.some(x=>x.id===L.id);L=null;S=null;view='publica';pTab=rel?'Relâmpagos':'Etapas';render();window.scrollTo(0,0)}
 function renderEtapaPublica(){
   if(!S.drawn)return `<section><h2>Atletas confirmados</h2><p class="muted">Grupos ainda não sorteados.</p><ol style="margin-top:8px">${S.names.filter(n=>n.trim()).map(n=>'<li>'+esc(n)+'</li>').join('')}</ol></section>`;
   if(tab==='Grupos')return renderGroups();
@@ -1150,16 +1162,26 @@ function renderEtapasTemporada(){
   for(let n=1;n<=R.etapas;n++){
     const l=porNum.get(n),tags=(R.dobradas.includes(n)?'<span class="chip at-convidado">vale o dobro</span> ':'')+(R.especiais.includes(n)?'<span class="chip at-membro">especial</span>':'');
     if(l)h+=`<div class="liga-card"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>Etapa ${n}</h3><p class="muted">${fmtData(l.data)} • ${l.participantes} atletas • ${ETAPA_LABEL[l.etapa]||esc(l.etapa)}</p><div style="margin-top:4px">${tags}</div></div><span class="chip st-${l.status}">${STATUS_LABEL[l.status]||esc(l.status)}</span></div><div class="panel-actions"><button onclick="abrirLiga('${l.id}')">ABRIR</button><button class="ghost" onclick="moverParaLixeira('${l.id}')">🗑 Lixeira</button></div></div>`;
-    else h+=`<div class="liga-card" style="opacity:.85"><div class="row" style="justify-content:space-between;align-items:center"><div><h3>Etapa ${n}</h3><div style="margin-top:4px">${tags}</div></div>${aberta?`<button class="secondary" onclick="abrirNovaEtapa(${n})">Criar</button>`:''}</div></div>`;
+    else{const dp=dataPrevista(n);
+      h+=`<div class="liga-card" style="opacity:.85"><div class="row" style="justify-content:space-between;align-items:center"><div><h3>Etapa ${n}</h3><div style="margin-top:4px">${tags}</div></div>${aberta?`<button class="secondary" onclick="abrirNovaEtapa(${n})">Criar</button>`:''}</div>
+      ${aberta?`<label class="muted" style="display:block;margin-top:8px">Data prevista<input type="date" id="dp${n}" value="${dp}" onchange="salvarDataPrevista(${n},this.value)"></label>`:dp?`<p class="muted" style="margin-top:6px">Data prevista: ${fmtData(dp)}</p>`:''}</div>`}
   }
   h+='</div>';
   const extras=TE.filter(l=>!l.excluida_em&&l.etapa_numero>R.etapas);
   if(extras.length)h+=`<p class="warn" style="margin-top:10px">Há etapas além da quantidade definida nas regras: ${extras.map(l=>l.etapa_numero).join(', ')}. Elas não entram no ranking até você aumentar a quantidade de etapas.</p>`;
   return h+'</section>';
 }
+// datas previstas das etapas ainda não criadas (temporadas.dados.datas = {"3": "2027-02-10"})
+function dataPrevista(n){const d=T&&T.dados&&T.dados.datas;return d&&typeof d[n]==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d[n])?d[n]:''}
+async function salvarDataPrevista(n,v){
+  if(!T||v===dataPrevista(n))return;
+  const datas={...((T.dados&&T.dados.datas)||{})};if(v)datas[n]=v;else delete datas[n];
+  await salvarTemporada({p_dados:{...(T.dados||{}),datas}},v?'Data prevista da etapa '+n+': '+fmtData(v):'Data prevista da etapa '+n+' apagada');
+  render();
+}
 function abrirNovaEtapa(n){
   $('modal').innerHTML=`<div class="modal-bg"><div class="modal-box"><h2>Criar etapa ${n}</h2>
-   <div class="form-grid" style="margin-top:10px"><label>Data<input id="neData" type="date" value="${hoje()}"></label>
+   <div class="form-grid" style="margin-top:10px"><label>Data<input id="neData" type="date" value="${dataPrevista(n)||hoje()}"></label>
    <label>Quantidade de participantes<select id="neQtd">${SIZES.map(q=>`<option value="${q}">${q} atletas — ${q/4} grupos</option>`).join('')}</select></label>
    <p class="muted">Com menos de 16 inscritos, o regulamento prevê cancelar a etapa ou fazer uma liga relâmpago (fora do ranking).</p></div>
    <div class="panel-actions"><button id="neBtn" onclick="criarEtapa(${n})">CRIAR E ESCOLHER ATLETAS</button><button class="secondary" onclick="fecharModal()">Cancelar</button></div></div></div>`;
@@ -2340,14 +2362,15 @@ function render(){
     $('nav').innerHTML=tTabs.map(t=>`<button class="${t===tTab?'active':'secondary'}" onclick="tTab='${t}';render()">${t}</button>`).join('');
     h=renderTemporada();
   }
-  if(view==='publica-vazia')h=`<section><h2>Liga Resenha</h2><p class="muted" style="margin-top:6px">${pInfo.erro?'Não foi possível carregar: '+esc(pInfo.erro):'Nenhuma temporada está aberta para consulta no momento.'}</p><div class="panel-actions"><button class="pub" onclick="abrirConsulta()">Tentar de novo</button></div></section>`;
+  if(view==='publica-vazia')h=`<section><h2>Liga Resenha</h2><p class="muted" style="margin-top:6px">${pInfo.erro?'Não foi possível carregar: '+esc(pInfo.erro):'Nenhuma temporada ou liga relâmpago para consultar no momento.'}</p><div class="panel-actions"><button class="pub" onclick="abrirConsulta()">Tentar de novo</button></div></section>`;
   if(view==='publica'){
     $('lifecycle').innerHTML=cabecalhoPublico();$('nav').style.display='';
-    $('nav').innerHTML=['Ranking','Etapas'].map(t=>`<button class="${t===pTab?'active':'secondary'}" onclick="pTab='${t}';render()">${t}</button>`).join('');
-    h=pTab==='Ranking'?renderRankingTemporada():renderEtapasPublicas();
+    if(!pubAbas().includes(pTab))pTab=pubAbas()[0];
+    $('nav').innerHTML=pubAbas().map(t=>`<button class="${t===pTab?'active':'secondary'}" onclick="pTab='${t}';render()">${t}</button>`).join('');
+    h=pTab==='Ranking'?renderRankingTemporada():pTab==='Etapas'?renderEtapasPublicas():renderRelampagosPublicas();
   }
   if(view==='publica-etapa'){
-    $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost pub" onclick="voltarConsulta()">← ${esc(T.nome)}</button><h2 style="margin:12px 0 2px">${esc(L.nome)}</h2><p class="muted">${fmtData(L.data)} • ${statusEtapaPublica(L)}</p></section>`;
+    $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost pub" onclick="voltarConsulta()">← ${REL.some(x=>x.id===L.id)?'Ligas relâmpago':esc(T.nome)}</button><h2 style="margin:12px 0 2px">${esc(L.nome)}</h2><p class="muted">${fmtData(L.data)} • ${statusEtapaPublica(L)}</p></section>`;
     $('nav').style.display=S.drawn?'':'none';
     $('nav').innerHTML=pubTabs.map(t=>`<button class="${t===tab?'active':'secondary'}" onclick="tab='${t}';render()">${t}</button>`).join('');
     h=renderEtapaPublica();

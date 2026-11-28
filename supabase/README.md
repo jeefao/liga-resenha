@@ -40,6 +40,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    5. `supabase/migrations/20261125000001_temporadas.sql` (temporadas e etapas)
    6. `supabase/migrations/20261126000001_excluir_temporada.sql` (apagar temporada arquivada de vez)
    7. `supabase/migrations/20261128000001_consulta_publica.sql` (página pública só de consulta: leitura da temporada marcada como pública, sem login)
+   8. `supabase/migrations/20261128000002_consulta_publica_relampagos.sql` (página de consulta com ligas relâmpago e datas previstas)
    O resultado esperado é "Success. No rows returned".
 3. **Bloquear cadastros públicos**: em *Authentication* → *Sign In / Providers*,
    desligue *Allow new users to sign up* e salve.
