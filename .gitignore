@@ -3,3 +3,6 @@ node_modules/
 .env.*
 # Documentos internos (contêm dados pessoais/PIX) — não publicar
 regulamento/
+
+# Saída dos testes de navegador (prints e PDFs)
+tests/navegador/saida/

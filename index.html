@@ -200,7 +200,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.5.0';
+const APP_VERSION='6.6.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -265,6 +265,8 @@ function validarDados(x){
   if(Array.isArray(x.subs))d.subs=x.subs.filter(s=>s&&Number.isInteger(s.sai)&&Number.isInteger(s.entra)).map(s=>({sai:s.sai,entra:s.entra,atleta:s.atleta&&s.atleta.nome?{id:typeof s.atleta.id==='string'&&s.atleta.id?s.atleta.id:null,nome:String(s.atleta.nome)}:null,motivo:String(s.motivo||'lesão'),em:String(s.em||'')}));
   // substitutos na fase de grupos: a partir do jogo 'jogo' do grupo, quem joga na posição 'pos' é 'entra'
   if(Array.isArray(x.gsubs))d.gsubs=x.gsubs.filter(s=>s&&Number.isInteger(s.pos)&&Number.isInteger(s.jogo)&&Number.isInteger(s.entra)).map(s=>({pos:s.pos,jogo:s.jogo,entra:s.entra,atleta:s.atleta&&s.atleta.nome?{id:typeof s.atleta.id==='string'&&s.atleta.id?s.atleta.id:null,nome:String(s.atleta.nome)}:null,motivo:String(s.motivo||'lesão'),em:String(s.em||'')}));
+  // etapas especiais: duplas sorteadas por jogo (s1, s2, f, t)
+  if(x.sorteioMata&&typeof x.sorteioMata==='object'&&!Array.isArray(x.sorteioMata)){d.sorteioMata={};for(const k of ['s1','s2','f','t']){const v=x.sorteioMata[k];if(Array.isArray(v)&&v.length===2&&v.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isInteger)))d.sorteioMata[k]=v.map(p=>[...p])}}
   if(x.wo&&typeof x.wo==='object'&&!Array.isArray(x.wo)){d.wo={};for(const [k,v] of Object.entries(x.wo))if(v===0||v===1)d.wo[k]=v}
   return d;
 }
@@ -272,7 +274,7 @@ function comDados(d,fn){const old=S;S=d;try{return fn()}finally{S=old}}
 function etapaDe(d){return comDados(d,()=>{if(S.status==='draft')return 'cadastro';if(S.status==='started')return 'sorteio';if(S.status==='ended')return 'encerrada';return complete()?'mata_mata':'grupos'})}
 function statusDe(d){return d.status==='draft'?'preparacao':d.status==='ended'?'finalizada':'andamento'}
 function statusAtual(){const s=statusDe(S);return s==='finalizada'&&L&&L.status==='arquivada'?'arquivada':s}
-function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status,...(d.ordemChave?{ordemChave:d.ordemChave}:{}),...(d.subs&&d.subs.length?{subs:d.subs}:{}),...(d.gsubs&&d.gsubs.length?{gsubs:d.gsubs}:{}),...(d.wo&&Object.keys(d.wo).length?{wo:d.wo}:{})}))}
+function dadosParaServidor(d=S){return JSON.parse(JSON.stringify({names:d.names,ids:d.ids||d.names.map(()=>null),scores:d.scores,finals:d.finals,breaks:d.breaks||{},drawn:!!d.drawn,status:d.status,...(d.ordemChave?{ordemChave:d.ordemChave}:{}),...(d.subs&&d.subs.length?{subs:d.subs}:{}),...(d.gsubs&&d.gsubs.length?{gsubs:d.gsubs}:{}),...(d.sorteioMata&&Object.keys(d.sorteioMata).length?{sorteioMata:d.sorteioMata}:{}),...(d.wo&&Object.keys(d.wo).length?{wo:d.wo}:{})}))}
 // Cruzamentos das quartas (índices das duplas D1..D8). Ordem da planilha:
 // Q1 = 1-2 x 15-16, Q2 = 5-6 x 11-12, Q3 = 7-8 x 9-10, Q4 = 3-4 x 13-14; Semi 1 = Q1 x Q2, Semi 2 = Q3 x Q4.
 // Ligas que já tinham placar no mata-mata antes da mudança continuam na ordem antiga.
@@ -449,8 +451,10 @@ async function abrirLiga(id,{ignorarCache=false}={}){
 }
 function entrarNaLiga(){
   view='liga';carregarAtletas();
-  CONFRONTO_DIRETO=false;
-  if(L.temporada_id){const t=(T&&T.id===L.temporada_id)?T:temporadas.find(x=>x.id===L.temporada_id);CONFRONTO_DIRETO=t?regrasCompletas(t.regras).confronto_direto:true}
+  CONFRONTO_DIRETO=false;ESPECIAL=false;
+  if(L.temporada_id){const t=(T&&T.id===L.temporada_id)?T:temporadas.find(x=>x.id===L.temporada_id);CONFRONTO_DIRETO=t?regrasCompletas(t.regras).confronto_direto:true;
+    // sem as regras carregadas, uma liga que já tem sorteio de duplas continua como especial
+    ESPECIAL=t?regrasCompletas(t.regras).especiais.includes(L.etapa_numero):!!(S.sorteioMata&&Object.keys(S.sorteioMata).length)}
   const salva=lsGet('lr6:aba:'+L.id);
   tab=tabs.includes(salva)?salva:(ABA_DA_ETAPA[L.etapa]||'Painel');
   render();
@@ -461,7 +465,7 @@ function voltarInicio(forcar=false){
     if(fila.pendente&&!confirm('Há alterações ainda não gravadas no servidor. Elas ficam guardadas neste aparelho e serão enviadas quando você abrir esta liga de novo. Voltar mesmo assim?'))return;
   }
   const tid=L&&L.temporada_id;
-  L=null;S=null;historico=null;fila={pendente:false,eventos:[],motivo:null};sync={estado:'',msg:''};CONFRONTO_DIRETO=false;
+  L=null;S=null;historico=null;fila={pendente:false,eventos:[],motivo:null};sync={estado:'',msg:''};CONFRONTO_DIRETO=false;ESPECIAL=false;
   if(tid){fecharModal();abrirTemporada(tid);return}
   fecharModal();view='inicio';render();carregarLista();
 }
@@ -816,16 +820,20 @@ function pontosDaEtapa(liga,R){
   let d;try{d=validarDados(liga.dados)}catch{return null}
   const out={porId:new Map(),semVinculo:[],gruposCompletos:false,mataCompleto:false,iniciada:!!d.drawn};
   if(!d.drawn){pontosCache.set(chave,out);return out}
-  const P=R.pontos,velho=CONFRONTO_DIRETO;CONFRONTO_DIRETO=R.confronto_direto;
+  const P=R.pontos,velho=CONFRONTO_DIRETO,velhoEsp=ESPECIAL;CONFRONTO_DIRETO=R.confronto_direto;
+  ESPECIAL=!!(liga.temporada_id&&R.especiais&&R.especiais.includes(liga.etapa_numero))||!!(d.sorteioMata&&Object.keys(d.sorteioMata).length);
+  // v = vitórias nos grupos; vt/sg/gp = vitórias, saldo e games pró em todos os jogos (desempate do ranking)
+  const novo=()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[],vt:0,sg:0,gp:0});
+  const somarJogo=(x,v,k)=>{x.sg+=v[k]-v[1-k];x.gp+=v[k];if(v[k]>v[1-k])x.vt++};
   try{comDados(d,()=>{
-    const pos=S.names.map(()=>({grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[]}));
+    const pos=S.names.map(novo);
     for(const g of groupIndexes()){
       // pontua no grupo quem é do grupo (inclusive o lesionado, pelos jogos que fez) e o atleta de fora que entrou;
       // substituto vindo de outro grupo da liga não pontua
       const contam=[...group(g),...externosDoGrupo(g)];
-      externosDoGrupo(g).forEach(i=>{if(!pos[i])pos[i]={grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[]}});
+      externosDoGrupo(g).forEach(i=>{if(!pos[i])pos[i]=novo()});
       for(const m of games(g)){const v=S.scores[m.id];if(!valid(v))continue;
-        [m.a,m.b].forEach((lado,k)=>lado.forEach(i=>{if(!contam.includes(i))return;const x=pos[i];
+        [m.a,m.b].forEach((lado,k)=>lado.forEach(i=>{if(!contam.includes(i))return;const x=pos[i];somarJogo(x,v,k);
           if(v[k]>v[1-k]){x.v++;x.grupo+=P.vitoria}
           if(v[k]===6&&v[1-k]===0){x.b++;x.grupo+=P.bonus_6x0}
           if(v[k]===0&&v[1-k]===6){x.dz++;x.grupo+=P.derrota_0x6}
@@ -835,29 +843,31 @@ function pontosDaEtapa(liga,R){
     }
     out.gruposCompletos=complete()&&!groupPending();
     if(out.gruposCompletos){
-      const cg=classificadosGerais();
-      if(cg){
-        const duos=cg.duos;
-        // substituto de fora da liga: só pontos do mata-mata
-        cg.duos.flat().forEach(i=>{if(!pos[i])pos[i]={grupo:0,v:0,b:0,dz:0,posicao:null,mata:0,mataTxt:[]}});
-        const dar=(lado,pts,txt)=>lado.forEach(i=>{pos[i].mata+=pts;pos[i].mataTxt.push(txt)});
-        const jogo=(id,a,b,[part,vit],nome)=>{dar(a,part,nome);dar(b,part,nome);const v=S.finals[id];if(!valid(v))return null;const w=v[0]>v[1]?a:b,l=v[0]>v[1]?b:a;dar(w,vit,'vitória '+nome);return {w,l}};
-        const qs=ordemQuartas().map((p,i)=>jogo('q'+(i+1),duos[p[0]],duos[p[1]],P.quartas,'quartas'));
-        const ss=[0,1].map(i=>qs[2*i]&&qs[2*i+1]?jogo('s'+(i+1),qs[2*i].w,qs[2*i+1].w,P.semi,'semifinal'):null);
-        if(ss[0]&&ss[1]){const f=jogo('f',ss[0].w,ss[1].w,P.final,'final');const t=jogo('t',ss[0].l,ss[1].l,P.terceiro,'3º lugar');out.mataCompleto=!!(f&&t)}
+      // mesma chave da tela (com substituições e, nas etapas especiais, as duplas sorteadas)
+      const c=chaveAtual();
+      if(c){
+        const dar=(lado,pts,txt)=>lado.forEach(i=>{if(!pos[i])pos[i]=novo();pos[i].mata+=pts;pos[i].mataTxt.push(txt)});
+        const jogo=(m,[part,vit],nome)=>{if(!m)return;dar(m.a,part,nome);dar(m.b,part,nome);const v=S.finals[m.id];if(!valid(v))return;
+          [m.a,m.b].forEach((lado,k)=>lado.forEach(i=>somarJogo(pos[i],v,k)));dar(v[0]>v[1]?m.a:m.b,vit,'vitória '+nome)};
+        c.qs.forEach(m=>jogo(m,P.quartas,'quartas'));
+        c.ss.forEach(m=>jogo(m,P.semi,'semifinal'));
+        jogo(c.f,P.final,'final');jogo(c.t,P.terceiro,'3º lugar');
+        out.mataCompleto=!!(c.f&&c.t&&valid(S.finals.f)&&valid(S.finals.t));
       }
     }
     pos.forEach((x,i)=>{
       if(!x)return;
       const id=idDe(i),n=nomeCompleto(i);x.total=x.grupo+x.mata;
-      if(id){const y=out.porId.get(id);if(y){for(const k of ['grupo','v','b','dz','mata','total'])y[k]+=x[k];y.mataTxt.push(...x.mataTxt);y.posicao=y.posicao??x.posicao}else out.porId.set(id,x)}
+      if(id){const y=out.porId.get(id);if(y){for(const k of ['grupo','v','b','dz','mata','total','vt','sg','gp'])y[k]+=x[k];y.mataTxt.push(...x.mataTxt);y.posicao=y.posicao??x.posicao}else out.porId.set(id,x)}
       else if(n.trim())out.semVinculo.push(n);
     });
-  })}finally{CONFRONTO_DIRETO=velho}
+  })}finally{CONFRONTO_DIRETO=velho;ESPECIAL=velhoEsp}
   pontosCache.set(chave,out);return out;
 }
 const ligaEncerrada=l=>l.status==='finalizada'||l.status==='arquivada';
 
+const CRITERIOS_RANKING=['total','v','sg','gp','melhorEtapa','maxVit'];
+function compararRanking(a,b){for(const k of CRITERIOS_RANKING){const d=(b[k]||0)-(a[k]||0);if(d)return d}return 0}
 function calcularRanking(){
   const R=regrasCompletas(T.regras),min=pontosMinimos(R);
   const porNum=new Map(TE.filter(l=>!l.excluida_em).map(l=>[l.etapa_numero,l]));
@@ -886,10 +896,13 @@ function calcularRanking(){
     const aj=ajustes.filter(a=>a.atleta_id===id).reduce((s,a)=>s+inteiro(a.pontos,0),0);
     const total=cel.reduce((s,c)=>s+(c.valor!=null&&!c.descarte?c.valor:0),0)+aj;
     const at=atletaPorId(id);
-    return {id,nome:at?at.nome:'(atleta removido)',situacao:at&&at.situacao,cel,aj,total,etapas:cel.filter(c=>c.tipo==='jogou'||c.tipo==='andamento').length};
+    // desempate: vitórias, saldo e games pró da temporada inteira; depois maior pontuação numa etapa e mais vitórias numa etapa
+    const jog=cel.filter(c=>c.det),soma=k=>jog.reduce((s,c)=>s+(c.det[k]||0),0);
+    return {id,nome:at?at.nome:'(atleta removido)',situacao:at&&at.situacao,cel,aj,total,etapas:jog.length,
+      v:soma('vt'),sg:soma('sg'),gp:soma('gp'),melhorEtapa:jog.length?Math.max(...jog.map(c=>c.valor)):0,maxVit:jog.length?Math.max(...jog.map(c=>c.det.vt||0)):0};
   });
-  linhas.sort((a,b)=>b.total-a.total||a.nome.localeCompare(b.nome,'pt-BR'));
-  linhas.forEach((x,i)=>x.pos=i&&linhas[i-1].total===x.total?linhas[i-1].pos:i+1);
+  linhas.sort((a,b)=>compararRanking(a,b)||a.nome.localeCompare(b.nome,'pt-BR'));
+  linhas.forEach((x,i)=>x.pos=i&&compararRanking(linhas[i-1],x)===0?linhas[i-1].pos:i+1);
   const semVinculo=[...pts].filter(([,p])=>p&&p.semVinculo.length).map(([n,p])=>({n,qtd:p.semVinculo.length}));
   return {R,linhas,semVinculo,encerradas,porNum,pts};
 }
@@ -1053,9 +1066,9 @@ function renderRankingTemporada(){
   let h=`<section><h2>Ranking</h2><p class="muted">${encerradas} de ${R.etapas} etapas encerradas.${R.dobradas.length?' Etapa(s) '+R.dobradas.join(', ')+' valem o dobro.':''} ${R.descartes?R.descartes+' descarte(s) (riscados)'+(encerradas<R.etapas?' — provisório até a última etapa':'')+'.':'Sem descarte.'} Falta (F) vale ${R.ausencia==='minimo'?pontosMinimos(R):0}. Valores em itálico: etapa em andamento.</p>`;
   if(semVinculo.length)h+=`<p class="warn" style="margin-top:8px">⚠ ${semVinculo.map(x=>'Etapa '+x.n+': '+x.qtd+' nome(s) sem vínculo com o cadastro').join(' • ')} — esses nomes não entram no ranking. Abra a etapa, aba Atletas, e use "Vincular ao cadastro".</p>`;
   if(!linhas.length)return h+'<p class="muted" style="margin-top:10px">Ainda não há resultados. Crie a primeira etapa na aba Etapas.</p></section>';
-  h+=`<div class="tabela-rolagem"><table class="rk"><tr><th>#</th><th class="rk-nome">Atleta</th>${Array.from({length:R.etapas},(_,i)=>`<th>E${i+1}${R.dobradas.includes(i+1)?'<small>×2</small>':''}</th>`).join('')}<th>Aj.</th><th>Total</th></tr>
-   ${linhas.map(x=>`<tr><td>${x.pos}º</td><td class="rk-nome"><a href="#" onclick="detalheAtletaTemporada('${x.id}');return false">${esc(x.nome)}</a>${x.situacao==='convidado'?' <span class="chip at-convidado">conv.</span>':''}</td>${x.cel.map(celulaRanking).join('')}<td>${x.aj||''}</td><td><b>${x.total}</b></td></tr>`).join('')}
-   </table></div><p class="muted" style="margin-top:8px">Toque no nome para ver os pontos de cada etapa. Empate no total: mesma posição.</p><div class="panel-actions"><button class="secondary" onclick="abrirWhatsAppRanking()">📤 Enviar ranking no WhatsApp</button></div></section>`;
+  h+=`<div class="tabela-rolagem"><table class="rk"><tr><th>#</th><th class="rk-nome">Atleta</th>${Array.from({length:R.etapas},(_,i)=>`<th>E${i+1}${R.dobradas.includes(i+1)?'<small>×2</small>':''}</th>`).join('')}<th>Aj.</th><th>Total</th><th title="Vitórias na temporada">V</th><th title="Saldo de games">SG</th><th title="Games pró">GP</th></tr>
+   ${linhas.map(x=>`<tr><td>${x.pos}º</td><td class="rk-nome"><a href="#" onclick="detalheAtletaTemporada('${x.id}');return false">${esc(x.nome)}</a>${x.situacao==='convidado'?' <span class="chip at-convidado">conv.</span>':''}</td>${x.cel.map(celulaRanking).join('')}<td>${x.aj||''}</td><td><b>${x.total}</b></td><td>${x.v}</td><td>${x.sg>0?'+':''}${x.sg}</td><td>${x.gp}</td></tr>`).join('')}
+   </table></div><p class="muted" style="margin-top:8px">Toque no nome para ver os pontos de cada etapa. Desempate no total: vitórias (V), saldo de games (SG) e games pró (GP) da temporada; depois a maior pontuação numa etapa e o maior número de vitórias numa etapa. Empate em tudo: mesma posição.</p><div class="panel-actions"><button class="secondary" onclick="abrirWhatsAppRanking()">📤 Enviar ranking no WhatsApp</button></div></section>`;
   return h;
 }
 function detalheAtletaTemporada(id){
@@ -1187,10 +1200,73 @@ function chaveAtual(){
   if(!c)return null;
   const duos=c.duos;
   const qs=ordemQuartas().map((p,i)=>({id:'q'+(i+1),nome:'Quartas '+(i+1),a:duos[p[0]],b:duos[p[1]]}));
-  const ss=[0,1].map(i=>{const x=qs[2*i],y=qs[2*i+1];return valid(S.finals[x.id])&&valid(S.finals[y.id])?{id:'s'+(i+1),nome:'Semifinal '+(i+1),a:winner(x),b:winner(y)}:null});
+  // Etapa especial: da semifinal em diante as duplas são sorteadas antes de cada jogo (sem repetir o parceiro anterior)
+  const aguardando=[];
+  const montar=(id,nome,pa,pb)=>{
+    if(!ESPECIAL)return {id,nome,a:pa,b:pb};
+    const sm=(S.sorteioMata||{})[id];
+    if(sm)return {id,nome,a:sm[0],b:sm[1]};
+    aguardando.push({id,nome,jogadores:[...pa,...pb],antes:[pa,pb]});return null;
+  };
+  const ss=[0,1].map(i=>{const x=qs[2*i],y=qs[2*i+1];return valid(S.finals[x.id])&&valid(S.finals[y.id])?montar('s'+(i+1),'Semifinal '+(i+1),winner(x),winner(y)):null});
   let f=null,t=null;
-  if(ss[0]&&ss[1]&&valid(S.finals.s1)&&valid(S.finals.s2)){f={id:'f',nome:'Final',a:winner(ss[0]),b:winner(ss[1])};t={id:'t',nome:'Disputa de 3º',a:loser(ss[0]),b:loser(ss[1])}}
-  return {duos,qs,ss,f,t};
+  if(ss[0]&&ss[1]&&valid(S.finals.s1)&&valid(S.finals.s2)){f=montar('f','Final',winner(ss[0]),winner(ss[1]));t=montar('t','Disputa de 3º',loser(ss[0]),loser(ss[1]))}
+  return {duos,qs,ss,f,t,aguardando};
+}
+/* ---------- Sorteio de duplas nas etapas especiais ---------- */
+function mesmaDupla(x,y){return x.length===2&&y.length===2&&x.every(i=>y.includes(i))}
+// Jogo que espera sorteio (ou que já foi sorteado e ainda não tem placar): {id,nome,jogadores,antes} ou texto do problema
+function jogoParaSortear(id){
+  if(!ESPECIAL)return 'Esta etapa não tem sorteio de duplas.';
+  if(!podeMexerNoMata())return 'Lançamentos bloqueados.';
+  if(valid(S.finals[id]))return 'Este jogo já tem placar. Apague o placar para sortear de novo.';
+  const sm={...(S.sorteioMata||{})};delete sm[id];
+  const c=comDados({...S,sorteioMata:sm},chaveAtual),g=c&&c.aguardando.find(x=>x.id===id);
+  return g||'Ainda não dá para sortear este jogo.';
+}
+function combinacoesSemRepetir(g){
+  const [a,b,c,d]=g.jogadores;
+  return [[[a,b],[c,d]],[[a,c],[b,d]],[[a,d],[b,c]]].filter(op=>!op.some(p=>g.antes.some(x=>mesmaDupla(p,x))));
+}
+function gravarSorteio(id,pares,como){
+  S.sorteioMata={...(S.sorteioMata||{}),[id]:pares};
+  persist([{tipo:'sorteio',descricao:`Sorteio das duplas — ${jogoTexto(id,'finals')}: ${wDupla(pares[0])} x ${wDupla(pares[1])} (${como})`}]);
+  return null;
+}
+function sortearDuplas(id){
+  const g=jogoParaSortear(id);if(typeof g==='string')return g;
+  const ops=combinacoesSemRepetir(g);if(!ops.length)return 'Não há combinação sem repetir o parceiro.';
+  const rnd=n=>crypto.getRandomValues(new Uint32Array(1))[0]%n;
+  const op=ops[rnd(ops.length)];
+  return gravarSorteio(id,rnd(2)?[op[1],op[0]]:op,'sorteio automático');
+}
+function definirDuplas(id,pares){
+  const g=jogoParaSortear(id);if(typeof g==='string')return g;
+  if(!Array.isArray(pares)||pares.length!==2||pares.some(p=>!Array.isArray(p)||p.length!==2))return 'Escolha as duas duplas.';
+  const todos=pares.flat();
+  if(new Set(todos).size!==4||!todos.every(i=>g.jogadores.includes(i)))return 'As duplas têm que ser formadas pelos 4 atletas deste jogo.';
+  if(pares.some(p=>g.antes.some(x=>mesmaDupla(p,x))))return 'Não pode repetir a dupla do jogo anterior.';
+  return gravarSorteio(id,pares.map(p=>[...p]),'definido no saco de bolas');
+}
+function sortearDuplasTela(id){const e=sortearDuplas(id);if(e)alert(e);render()}
+function abrirDuplasManual(id){
+  const g=jogoParaSortear(id);if(typeof g==='string')return alert(g);
+  const [a,...resto]=g.jogadores,ok=resto.filter(i=>!g.antes.some(x=>mesmaDupla([a,i],x)));
+  $('modal').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)fecharModal()"><div class="modal-box"><h2>Duplas — ${esc(jogoTexto(id,'finals'))}</h2>
+   <p class="muted">Use o resultado do saco de bolas. Não pode repetir a dupla do jogo anterior.</p>
+   <p style="margin-top:12px"><b>Parceiro de ${name(a)}</b></p>
+   <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">${ok.map((i,k)=>`<label style="flex-direction:row;align-items:center;gap:8px"><input type="radio" name="dmParceiro" value="${i}" ${k===0?'checked':''} style="width:20px;height:20px">${name(i)} <span class="muted">— contra ${resto.filter(x=>x!==i).map(name).join(' / ')}</span></label>`).join('')}</div>
+   <div class="panel-actions"><button onclick="confirmarDuplasManual('${id}')">CONFIRMAR DUPLAS</button><button class="secondary" onclick="fecharModal()">Cancelar</button></div></div></div>`;
+}
+function confirmarDuplasManual(id){
+  const g=jogoParaSortear(id),r=document.querySelector('input[name=dmParceiro]:checked');if(typeof g==='string'||!r)return;
+  const a=g.jogadores[0],p=+r.value,outros=g.jogadores.filter(i=>i!==a&&i!==p);
+  const e=definirDuplas(id,[[a,p],outros]);if(e)return alert(e);
+  fecharModal();render();
+}
+function cartaoSorteio(x){
+  const pode=podeMexerNoMata();
+  return `<div class="match-card"><div class="match-label">${esc(x.nome)} — etapa especial</div><p style="margin-top:6px">Duplas sorteadas antes do jogo entre: <b>${x.jogadores.map(name).join(', ')}</b></p><p class="muted" style="margin-top:4px">Não pode repetir a dupla do jogo anterior.</p>${pode?`<div class="row" style="margin-top:8px;flex-wrap:wrap"><button data-sortear="${x.id}" onclick="sortearDuplasTela('${x.id}')">🎲 Sortear duplas</button><button class="secondary" onclick="abrirDuplasManual('${x.id}')">✍ Informar do saco de bolas</button></div>`:''}</div>`;
 }
 function wNome(i){return nomeCompleto(i)||'?'}
 function wDupla(p){return p.map(wNome).join(' / ')}
@@ -1715,6 +1791,8 @@ function eq(a,b){return cmp(a,b)===0}
 function blocks(list){let out=[];for(let x of list){let last=out[out.length-1];if(last&&eq(last[0],x))last.push(x);else out.push([x])}return CONFRONTO_DIRETO?out.flatMap(dividirPorConfronto):out}
 // 4º critério nas etapas de temporada: saldo de games nos jogos em que os empatados se enfrentaram
 let CONFRONTO_DIRETO=false;
+// Etapa especial da temporada (duplas sorteadas da semifinal em diante)
+let ESPECIAL=false;
 function saldoConfronto(i,bloco){
   let s=0;const g=grupoDe(i);
   for(const m of games(g)){const v=S.scores[m.id];if(!valid(v))continue;
@@ -1747,7 +1825,7 @@ function escopoTexto(k){return k.startsWith('g')?'Grupo '+'ABCDEFGH'[+k.slice(1,
 function changeTie(k){
   if(S.status!=='drawn')return false;
   if((Object.keys(S.finals).length||(S.subs||[]).length)&&!confirm('Alterar desempate apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;
-  S.finals={}; S.subs=[]; S.wo={}; S.breaks=S.breaks||{};
+  S.finals={}; S.subs=[]; S.sorteioMata={}; Object.keys(S.wo||{}).filter(x=>!x.includes('-')).forEach(x=>delete S.wo[x]); S.breaks=S.breaks||{};
   if(k.startsWith('g'))for(let x of Object.keys(S.breaks))if(x.startsWith('r'))delete S.breaks[x];
   return true;
 }
@@ -1788,6 +1866,7 @@ function digitarPlacar(el,id,k,lado){
   const st=$('st'+id),a=$('a'+id).value,b=$('b'+id).value;
   if(st){
     if(a!==''&&b!==''&&a===b){st.textContent='não existe empate';st.className='placar-status warn';return}
+    if(a!==''&&b!==''&&Math.max(+a,+b)<6){st.textContent='o vencedor precisa ter 6 games';st.className='placar-status warn';return}
     if((a==='')!==(b==='')){st.textContent='complete o placar';st.className='placar-status muted';return}
   }
   placarTimers[id]=setTimeout(()=>salvarPlacar(id,k,lado===1),a!==''&&b!==''?250:700);
@@ -1813,13 +1892,16 @@ function salvarPlacar(id,k,avancar){
 }
 function aplicarPlacar(id,k,novo,wo){
   if(S.status!=='drawn'){alert('Lançamentos bloqueados.');return false}
+  // regra do placar: o vencedor precisa ter 6 games ou mais (3x5 não vale)
+  if(novo&&Math.max(...novo)<6){alert('Placar inválido: o vencedor precisa ter 6 games ou mais.');return false}
   const antes=S[k][id];
   if(JSON.stringify(antes??null)===JSON.stringify(novo)&&(S.wo||{})[id]===wo)return false;
   if(k==='finals'&&!S.ordemChave)S.ordemChave=Object.keys(S.finals).length?'antiga':'planilha';
   // W.O. do mata-mata: ids sem '-' (q1, s1, f, t); os dos grupos têm '-' (0-1)
   const woMata=Object.keys(S.wo||{}).filter(x=>!x.includes('-'));
   if(k==='scores'&&(Object.keys(S.finals).length||(S.subs||[]).length||woMata.length)){if(!confirm('Alterar a fase de grupos apagará o mata-mata'+((S.subs||[]).length?' e as substituições':'')+'. Continuar?'))return false;S.finals={};S.subs=[];woMata.forEach(x=>delete S.wo[x])}
-  const apagar=x=>{delete S.finals[x];if(S.wo)delete S.wo[x]};
+  if(k==='scores'&&!Object.keys(S.finals).length)S.sorteioMata={};
+  const apagar=x=>{delete S.finals[x];if(S.wo)delete S.wo[x];if(S.sorteioMata)delete S.sorteioMata[x]};
   if(k==='finals'&&id.startsWith('q')){apagar(['q1','q2'].includes(id)?'s1':'s2');apagar('f');apagar('t')}
   if(k==='finals'&&id.startsWith('s')){apagar('f');apagar('t')}
   if(k==='scores'){for(let x of Object.keys(S.breaks||{}))if(x.startsWith('r')||x.startsWith('g'+id.split('-')[0]+':'))delete S.breaks[x];}
@@ -2162,19 +2244,10 @@ function renderKnockout(bracketOnly=false){
   if(!cg)return h+'<section><p class="tag">Revise a classificação dos 16 atletas.</p></section>';
   let duos=cg.duos;
   if(!bracketOnly)h+=duoCards(duos);
-  let qs=ordemQuartas().map((p,i)=>({id:'q'+(i+1),a:duos[p[0]],b:duos[p[1]]}));
-  let ss=[];
-  for(let i=0;i<2;i++){
-    let x=qs[2*i],y=qs[2*i+1];
-    if(valid(S.finals[x.id])&&valid(S.finals[y.id]))ss.push({id:'s'+(i+1),a:winner(x),b:winner(y)}); else ss.push(null);
-  }
-  let f=null,t=null;
-  if(ss[0]&&ss[1]&&valid(S.finals[ss[0].id])&&valid(S.finals[ss[1].id])){
-    f={id:'f',a:winner(ss[0]),b:winner(ss[1])};
-    t={id:'t',a:loser(ss[0]),b:loser(ss[1])};
-  }
+  const c=chaveAtual(),{qs,ss,f,t}=c,esp=id=>c.aguardando.find(x=>x.id===id);
   if(bracketOnly)return renderBracket(qs,ss,f,t);
-  h+='<section><h2>Quartas de final</h2>'+qs.map(m=>scorecard(m,'finals')).join('')+'</section><section><h2>Semifinais</h2>'+ss.map((m,i)=>m?scorecard(m,'finals'):placeholderCard('S'+(i+1),'Aguardando as quartas')).join('')+'</section><section><h2>Final e terceiro lugar</h2>'+(f?scorecard(f,'finals')+scorecard(t,'finals'):placeholderCard('FINAL / 3º','Aguardando as semifinais'))+'</section>';
+  const jogo=(m,id,txt)=>m?scorecard(m,'finals'):esp(id)?cartaoSorteio(esp(id)):placeholderCard(id.toUpperCase(),txt);
+  h+=(ESPECIAL?'<section><p class="tag">Etapa especial: da semifinal em diante as duplas são sorteadas antes de cada jogo.</p></section>':'')+'<section><h2>Quartas de final</h2>'+qs.map(m=>scorecard(m,'finals')).join('')+'</section><section><h2>Semifinais</h2>'+ss.map((m,i)=>jogo(m,'s'+(i+1),'Aguardando as quartas')).join('')+'</section><section><h2>Final e terceiro lugar</h2>'+(f||t||esp('f')||esp('t')?jogo(f,'f','')+jogo(t,'t',''):placeholderCard('FINAL / 3º','Aguardando as semifinais'))+'</section>';
   if(f&&valid(S.finals.f))h+=`<section><h2 class="tag">Campeões: ${pair(winner(f))}</h2><p style="margin-top:8px">2º lugar: ${pair(loser(f))}</p>${t&&valid(S.finals.t)?'<p style="margin-top:4px">3º lugar: '+pair(winner(t))+'</p>':''}</section>`;
   return h;
 }

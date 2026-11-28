@@ -51,8 +51,14 @@ Confirmado pelo organizador: **sempre passam 16 atletas** para o mata-mata (com 
 - **Etapas especiais (padrão: 3 e 7)**: a partir da semifinal as duplas são sorteadas antes de
   cada partida, sem repetir o parceiro da partida anterior. O app oferece **sorteio automático**
   (com a trava) ou **preenchimento manual** (sorteio com o saco de bolas).
+  - No app (v6.6.0): as quartas seguem a chave normal. Quando os 4 vencedores de cada semifinal
+    estão definidos, o cartão da semi mostra "🎲 Sortear duplas" e "✍ Informar do saco de bolas";
+    o mesmo vale para a final e o 3º lugar depois das duas semis. O sorteio fica no histórico e não
+    pode ser refeito depois que o jogo tem placar. Alterar um placar anterior apaga os sorteios e
+    jogos que dependiam dele.
 
 ## Placar
+- **O vencedor precisa ter 6 games ou mais** (v6.6.0): 3×5 não é aceito.
 - Grupos e mata-mata: set até 6 (tie-break em 5×5 → 6×5).
 - 3º lugar e final: até 7 em 5×5; tie-break em 6×6 → 7×6.
 
@@ -72,6 +78,9 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
 
 ## Ranking da temporada
 - Padrão: 10 etapas; 5ª etapa vale o dobro; 1 descarte (menor pontuação, ausência = 0).
+- **Desempate (v6.6.0)**, nesta ordem: 1. vitórias; 2. saldo de games; 3. games pró — todos da
+  temporada inteira (todos os jogos de grupo e mata-mata das etapas jogadas); 4. maior pontuação em
+  uma etapa; 5. mais vitórias em uma única etapa. Empate em tudo: mesma posição.
 - **Ajustável por temporada**: ter ou não descarte, quantos, e quanto vale a ausência
   (0 ou a menor pontuação possível jogando). Etapas dobradas configuráveis.
 

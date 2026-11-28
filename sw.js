@@ -1,7 +1,7 @@
 // Liga Resenha V6 — service worker
 // Troque o número de CACHE a cada publicação.
 // Os dados das ligas (Supabase, outro domínio) NUNCA passam por este cache.
-const CACHE='liga-resenha-v6-pwa-11';
+const CACHE='liga-resenha-v6-pwa-12';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./vendor/supabase-2.119.0.js','./icon-192.png','./icon-512.png','./icon-maskable.png'];
 
 self.addEventListener('install',e=>e.waitUntil(
