@@ -134,5 +134,39 @@ try {
   const wl = await ev(async () => { const l3 = Object.values(__db.ligas).find((l) => l.etapa_numero === 3); l3.dados.names[0] = 'Fulano'; await abrirLiga(l3.id); abrirWhatsApp(); return $('wTexto').value; });
   check('whats: antes do sorteio mostra atletas', wl.includes('01. Fulano') && wl.includes('Grupos ainda não sorteados'));
   check('sem erros de JavaScript', errosJs.length === 0, errosJs.join(' | '));
+  // ---- Página pública (só consulta)
+  const tidP = await ev(() => Object.values(__db.temporadas)[0].id);
+  await ev((id) => abrirTemporada(id), tidP); await espera(400);
+  await ev(() => { tTab = 'Ranking'; render(); }); await espera(50);
+  check('botão de ligar página pública', (await txt()).includes('Ligar página pública'));
+  await ev(() => alternarPublica()); await espera(400);
+  check('página pública ligada no servidor', await ev((id) => __db.temporadas[id].publica === true && T.publica === true, tidP));
+  check('botão copiar link aparece', (await txt()).includes('Copiar link'));
+  const rkAdmin = await ev(() => calcularRanking().linhas.map((x) => x.pos + ':' + x.nome + ':' + x.total).join('|'));
+  const banco = await ev(() => JSON.stringify(__db));
+  const pub = await browser.newPage(); await pub.setViewport({ width: 390, height: 844 });
+  const errosPub = []; pub.on('pageerror', (e) => errosPub.push(e.message));
+  await pub.evaluateOnNewDocument(MOCK);
+  await pub.evaluateOnNewDocument((b) => { const d = JSON.parse(b); for (const k of Object.keys(d)) window.__db[k] = d[k]; }, banco);
+  await pub.goto(`http://127.0.0.1:${PORTA}/index.html?consulta`); await espera(600);
+  const evP = (f, ...a) => pub.evaluate(f, ...a), txtP = () => evP(() => document.body.innerText);
+  check('pública abre sem login', (await evP(() => view)) === 'publica' && (await txtP()).includes('página de consulta'));
+  check('ranking público igual ao do administrador', (await evP(() => calcularRanking().linhas.map((x) => x.pos + ':' + x.nome + ':' + x.total).join('|'))) === rkAdmin);
+  const semEdicao = () => evP(() => [...document.querySelectorAll('#main button')].every((b) => b.classList.contains('pub')) && [...document.querySelectorAll('#main input,#main select')].every((e) => e.disabled));
+  check('pública: ranking sem botões de edição', (await semEdicao()) && !(await txtP()).includes('WhatsApp'));
+  await pub.screenshot({ path: SAIDA + '/publica-ranking.png' });
+  await evP(() => { pTab = 'Etapas'; render(); });
+  const te = await txtP();
+  check('pública: etapas com atual e próxima', te.includes('Etapa atual:') && te.includes('Encerrada') && te.includes('Inscrições'), te.slice(0, 900).split('\n').join(' ¦ '));
+  await evP(() => abrirEtapaPublica(TE.find((l) => l.etapa_numero === 1).id));
+  check('pública: etapa abre nos jogos', (await evP(() => view + '/' + tab)) === 'publica-etapa/Jogos' && (await semEdicao()) && (await evP(() => document.querySelectorAll('#main input:disabled').length)) > 0);
+  for (const t of ['Grupos', 'Classificação', 'Chave']) { await evP((x) => { tab = x; render(); }, t); check('pública: aba ' + t + ' sem edição', await semEdicao()); }
+  await pub.screenshot({ path: SAIDA + '/publica-chave.png' });
+  await evP(() => voltarConsulta());
+  await evP(() => abrirEtapaPublica(TE.find((l) => l.etapa_numero === 3).id));
+  check('pública: etapa sem sorteio mostra atletas', (await txtP()).includes('Grupos ainda não sorteados') && (await txtP()).includes('Fulano'));
+  await evP(async () => { for (const t of Object.values(__db.temporadas)) t.publica = false; await abrirConsulta(); });
+  check('sem temporada pública: aviso', (await txtP()).includes('Nenhuma temporada está aberta para consulta'));
+  check('pública: sem erros de script', errosPub.length === 0, errosPub.join(' | '));
 } finally { await browser.close(); srv.close(); }
 console.log('OK:', ok.length); for (const f of falhas) console.log('FALHA:', f);

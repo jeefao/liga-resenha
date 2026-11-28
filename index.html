@@ -200,7 +200,7 @@ summary{cursor:pointer}
 <div id="impressao"></div>
 <script src="./vendor/supabase-2.119.0.js"></script>
 <script>
-const APP_VERSION='6.6.1';
+const APP_VERSION='6.7.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -1020,7 +1020,20 @@ function renderTemporadaCabecalho(){
    <h2 style="margin:12px 0 2px">${esc(T.nome)}</h2>
    <p class="muted">${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}${enc} etapa(s) encerrada(s) • ${criadas} de ${R.etapas} criadas • <span class="chip st-${T.status==='andamento'?'andamento':T.status==='encerrada'?'finalizada':'arquivada'}">${T_STATUS[T.status]||esc(T.status)}</span></p>
    ${tInfo.origem==='cache'?`<p class="warn" style="margin-top:6px">Sem conexão: mostrando a cópia guardada em ${fmtDataHora(tInfo.em)}.</p>`:''}
-   <div class="panel-actions">${acoes}</div></section>`;
+   <div class="panel-actions">${acoes}</div>
+   <div class="panel-actions"><button class="secondary" onclick="alternarPublica()">${T.publica?'🌐 Página pública: ligada — desligar':'🌐 Ligar página pública'}</button>${T.publica?'<button class="secondary" onclick="copiarLinkPublico()">🔗 Copiar link</button>':''}</div></section>`;
+}
+/* ---------- Página pública (só consulta) ---------- */
+const linkPublico=()=>location.origin+location.pathname+'?consulta';
+async function alternarPublica(){
+  if(!T)return;
+  const ligar=!T.publica;
+  if(!confirm(ligar?'Ligar a página pública desta temporada?\n\nQualquer pessoa com o link poderá VER a classificação, as etapas e os jogos (nomes dos atletas e placares). Ninguém consegue alterar nada por ela. Se houver mais de uma temporada pública, a página mostra a mais recente.':'Desligar a página pública desta temporada? O link deixa de mostrar esta temporada.'))return;
+  if(await salvarTemporada({p_publica:ligar},ligar?'Página pública ligada':'Página pública desligada')){render();if(ligar)copiarLinkPublico()}
+}
+async function copiarLinkPublico(){
+  const u=linkPublico();
+  try{await navigator.clipboard.writeText(u);alert('Link copiado:\n'+u)}catch{prompt('Copie o link da página pública:',u)}
 }
 // Apaga de vez uma temporada arquivada (com todas as etapas). Baixa um backup antes; sem backup, nada é apagado.
 async function apagarTemporada(){
@@ -1041,6 +1054,50 @@ async function apagarTemporada(){
     ocupado=false;sairDaTemporada();
   }catch(e){alert('Nada foi apagado: '+traduzErro(e))}
   finally{ocupado=false}
+}
+const PUBLICO=new URLSearchParams(location.search).has('consulta');
+let pTab='Ranking',pInfo={};
+async function abrirConsulta(){
+  view='carregando';render();
+  try{
+    const {data,error}=await sb.rpc('consulta_publica');if(error)throw error;
+    pInfo={em:new Date().toISOString()};
+    if(!data){T=null;TE=[];view='publica-vazia'}
+    else{T=data.temporada;TE=data.etapas||[];atletas=data.atletas||[];pontosCache.clear();view='publica'}
+  }catch(e){pInfo={erro:traduzErro(e)};view='publica-vazia'}
+  render();
+}
+function cabecalhoPublico(){
+  return `<section class="header-card"><p class="muted">Liga Resenha • página de consulta</p><h2 style="margin:6px 0 2px">${esc(T.nome)}</h2>
+   <p class="muted">${T.inicio?'Início '+fmtData(T.inicio)+' • ':''}<span class="chip st-${T.status==='andamento'?'andamento':'finalizada'}">${T_STATUS[T.status]||esc(T.status)}</span> • atualizado ${fmtDataHora(pInfo.em)}</p>
+   <div class="panel-actions"><button class="secondary pub" onclick="abrirConsulta()">↻ Atualizar</button></div></section>`;
+}
+function statusEtapaPublica(l){return ligaEncerrada(l)?'Encerrada':l.status==='preparacao'?'Inscrições':'Em andamento'}
+function renderEtapasPublicas(){
+  const R=regrasCompletas(T.regras),ets=TE.slice().sort((a,b)=>a.etapa_numero-b.etapa_numero);
+  const atual=ets.find(l=>!ligaEncerrada(l)),usados=new Set(ets.map(l=>l.etapa_numero));
+  let prox=null;if(T.status==='andamento')for(let n=1;n<=R.etapas;n++)if(!usados.has(n)){prox=n;break}
+  let h=`<section><h2>Etapas</h2><p class="muted">${atual?'Etapa atual: <b>'+esc(atual.nome)+'</b> ('+fmtData(atual.data)+'). ':'Nenhuma etapa em andamento. '}${prox?'Próxima: <b>Etapa '+prox+'</b>'+(R.dobradas.includes(prox)?' (vale o dobro)':'')+(R.especiais.includes(prox)?' (especial)':'')+'.':''}</p>`;
+  if(!ets.length)return h+'<p class="muted" style="margin-top:10px">Nenhuma etapa criada ainda.</p></section>';
+  h+=ets.map(l=>`<div class="match-card" style="margin-top:10px"><div class="match-label">Etapa ${l.etapa_numero}${R.dobradas.includes(l.etapa_numero)?' • vale o dobro':''}${R.especiais.includes(l.etapa_numero)?' • especial':''}</div>
+    <p style="margin-top:6px"><b>${esc(l.nome)}</b> • ${fmtData(l.data)} • ${statusEtapaPublica(l)}</p>
+    <div class="panel-actions"><button class="secondary pub" onclick="abrirEtapaPublica('${l.id}')">Ver grupos e jogos</button></div></div>`).join('');
+  return h+'</section>';
+}
+const pubTabs=['Grupos','Jogos','Classificação','Chave'];
+function abrirEtapaPublica(id){
+  const l=TE.find(x=>x.id===id);if(!l)return;
+  try{S=validarDados(l.dados)}catch{return alert('Não foi possível abrir esta etapa.')}
+  L={...l};const R=regrasCompletas(T.regras);CONFRONTO_DIRETO=R.confronto_direto;ESPECIAL=ehEspecial(L,R,S);
+  tab=S.drawn?'Jogos':'Grupos';view='publica-etapa';render();window.scrollTo(0,0);
+}
+function voltarConsulta(){L=null;S=null;view='publica';pTab='Etapas';render();window.scrollTo(0,0)}
+function renderEtapaPublica(){
+  if(!S.drawn)return `<section><h2>Atletas confirmados</h2><p class="muted">Grupos ainda não sorteados.</p><ol style="margin-top:8px">${S.names.filter(n=>n.trim()).map(n=>'<li>'+esc(n)+'</li>').join('')}</ol></section>`;
+  if(tab==='Grupos')return renderGroups();
+  if(tab==='Jogos')return renderGroupGames();
+  if(tab==='Classificação')return renderClassification();
+  return renderKnockout(true);
 }
 function sairDaTemporada(){T=null;TE=[];view='inicio';render();carregarLista()}
 async function mudarStatusTemporada(st){
@@ -2226,7 +2283,7 @@ function confirmarWO(id){
 }
 function renderBracket(qs,ss,f,t){
  const box=(m,label,placeholder)=>`<div class="br-match"><div class="br-label">${label}</div>${m?[m.a,m.b].map((p,k)=>`<div class="br-team ${valid(S.finals[m.id])&&S.finals[m.id][k]>S.finals[m.id][1-k]?'br-win':''}"><span>${pair(p)}</span><strong>${valid(S.finals[m.id])&&(S.wo||{})[m.id]===k?'W.O.':S.finals[m.id]?.[k]??'–'}</strong></div>`).join(''):`<div class="br-team br-empty">${placeholder[0]}</div><div class="br-team br-empty">${placeholder[1]}</div>`}</div>`;
- return `<section><h2>Chave da competição</h2><p class="muted">Deslize horizontalmente para acompanhar os cruzamentos. Os placares são lançados na aba Mata-mata.</p><div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button><button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button></div></section><div class="br-scroll"><div class="br-grid"><div class="br-head" style="grid-column:1;grid-row:1">Quartas</div><div class="br-head" style="grid-column:2;grid-row:1">Semifinais</div><div class="br-head" style="grid-column:3;grid-row:1">Final</div><svg class="br-lines" viewBox="0 0 960 600" preserveAspectRatio="none"><path d="M260 75 H300 V150 H340 M260 225 H300 V150 M260 375 H300 V450 H340 M260 525 H300 V450 M600 150 H640 V300 H680 M600 450 H640 V300"/></svg>${qs.map((m,i)=>`<div class="br-node" style="grid-column:1;grid-row:${2+i*2}/span 2">${box(m,'Q'+(i+1),[])}</div>`).join('')}<div class="br-node" style="grid-column:2;grid-row:3/span 2">${box(ss[0],'S1',['Vencedor Q1','Vencedor Q2'])}</div><div class="br-node" style="grid-column:2;grid-row:7/span 2">${box(ss[1],'S2',['Vencedor Q3','Vencedor Q4'])}</div><div class="br-node" style="grid-column:3;grid-row:5/span 2">${box(f,'Final',['Vencedor S1','Vencedor S2'])}</div></div></div><section><h2>Terceiro lugar</h2><p class="muted">Perdedores das semifinais</p>${box(t,'Disputa de 3º',['Perdedor S1','Perdedor S2'])}</section>`;
+ return `<section><h2>Chave da competição</h2><p class="muted">Deslize horizontalmente para acompanhar os cruzamentos.${PUBLICO?'':' Os placares são lançados na aba Mata-mata.'}</p><div class="panel-actions"><button onclick="tab='Mata-mata';render()">Lançar placares</button><button class="secondary" onclick="abrirImagemJogos('chave')">🖼 Imagem / 🖨 Imprimir chave</button></div></section><div class="br-scroll"><div class="br-grid"><div class="br-head" style="grid-column:1;grid-row:1">Quartas</div><div class="br-head" style="grid-column:2;grid-row:1">Semifinais</div><div class="br-head" style="grid-column:3;grid-row:1">Final</div><svg class="br-lines" viewBox="0 0 960 600" preserveAspectRatio="none"><path d="M260 75 H300 V150 H340 M260 225 H300 V150 M260 375 H300 V450 H340 M260 525 H300 V450 M600 150 H640 V300 H680 M600 450 H640 V300"/></svg>${qs.map((m,i)=>`<div class="br-node" style="grid-column:1;grid-row:${2+i*2}/span 2">${box(m,'Q'+(i+1),[])}</div>`).join('')}<div class="br-node" style="grid-column:2;grid-row:3/span 2">${box(ss[0],'S1',['Vencedor Q1','Vencedor Q2'])}</div><div class="br-node" style="grid-column:2;grid-row:7/span 2">${box(ss[1],'S2',['Vencedor Q3','Vencedor Q4'])}</div><div class="br-node" style="grid-column:3;grid-row:5/span 2">${box(f,'Final',['Vencedor S1','Vencedor S2'])}</div></div></div><section><h2>Terceiro lugar</h2><p class="muted">Perdedores das semifinais</p>${box(t,'Disputa de 3º',['Perdedor S1','Perdedor S2'])}</section>`;
 }
 function renderKnockout(bracketOnly=false){
   let h=`<section><h2>Mata-mata</h2><p class="muted">A chave é liberada após os ${groupGameCount()} jogos e os desempates necessários.</p><p style="margin-top:8px"><b>Classificação:</b> ${formatRule()}</p></section>`;
@@ -2283,6 +2340,18 @@ function render(){
     $('nav').innerHTML=tTabs.map(t=>`<button class="${t===tTab?'active':'secondary'}" onclick="tTab='${t}';render()">${t}</button>`).join('');
     h=renderTemporada();
   }
+  if(view==='publica-vazia')h=`<section><h2>Liga Resenha</h2><p class="muted" style="margin-top:6px">${pInfo.erro?'Não foi possível carregar: '+esc(pInfo.erro):'Nenhuma temporada está aberta para consulta no momento.'}</p><div class="panel-actions"><button class="pub" onclick="abrirConsulta()">Tentar de novo</button></div></section>`;
+  if(view==='publica'){
+    $('lifecycle').innerHTML=cabecalhoPublico();$('nav').style.display='';
+    $('nav').innerHTML=['Ranking','Etapas'].map(t=>`<button class="${t===pTab?'active':'secondary'}" onclick="pTab='${t}';render()">${t}</button>`).join('');
+    h=pTab==='Ranking'?renderRankingTemporada():renderEtapasPublicas();
+  }
+  if(view==='publica-etapa'){
+    $('lifecycle').innerHTML=`<section class="header-card"><button class="ghost pub" onclick="voltarConsulta()">← ${esc(T.nome)}</button><h2 style="margin:12px 0 2px">${esc(L.nome)}</h2><p class="muted">${fmtData(L.data)} • ${statusEtapaPublica(L)}</p></section>`;
+    $('nav').style.display=S.drawn?'':'none';
+    $('nav').innerHTML=pubTabs.map(t=>`<button class="${t===tab?'active':'secondary'}" onclick="tab='${t}';render()">${t}</button>`).join('');
+    h=renderEtapaPublica();
+  }
   if(view==='liga'){
     lsSet('lr6:aba:'+L.id,tab);
     renderLifecycle();
@@ -2297,8 +2366,10 @@ function render(){
     if(tab==='Chave')h=renderKnockout(true);
     if(tab==='Histórico')h=renderHistorico();
   }
-  h+=`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
+  h+=PUBLICO?`<div class="footer-note">Página só de consulta — nada pode ser alterado por aqui. • v${APP_VERSION}</div>`:`<div class="footer-note">Dados salvos online no servidor. Uma cópia fica neste aparelho para uso sem internet. • v${APP_VERSION}</div>`;
   $('main').innerHTML=h;
+  // página pública: só leitura (o servidor também não aceita gravação sem login)
+  if(PUBLICO){document.querySelectorAll('#main button:not(.pub)').forEach(e=>e.remove());document.querySelectorAll('#main input,#main select,#main textarea').forEach(e=>e.disabled=true)}
   if(view==='nova'){const q=$('nlQtd');q.onchange=()=>{$('nlRegra').textContent=FORMATS[q.value].label}}
   if(view==='liga'){
     if(S.status==='ended')document.querySelectorAll('#main input:not([type=file]), #main button[onclick^="chooseTie"], #main button[onclick^="resetTie"]').forEach(e=>e.disabled=true);
@@ -2313,6 +2384,7 @@ async function iniciar(){
     if(ev==='SIGNED_OUT'){usuario=null;if(['inicio','nova','atletas','temporada','nova-temporada'].includes(view)){view='login';render()}}
     else if(session)usuario=session.user;
   });
+  if(PUBLICO){abrirConsulta();return}
   view='carregando';render();
   let session=null;
   try{const r=await sb.auth.getSession();session=r.data&&r.data.session}catch{}
@@ -2332,7 +2404,7 @@ async function conferirVersaoNoServidor(recarregar){
     if(recarregar)abrirLiga(L.id,{ignorarCache:true});else setSync('desatualizada');
   }catch{}
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(view==='liga')conferirVersaoNoServidor(true);else if(view==='inicio')carregarLista()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(view==='publica')abrirConsulta();else if(view==='liga')conferirVersaoNoServidor(true);else if(view==='inicio')carregarLista()}});
 setInterval(()=>{
   if(view!=='liga')return;
   if(fila.pendente&&!enviando&&(sync.estado==='offline'||sync.estado==='pendente'))tentarNovamente();

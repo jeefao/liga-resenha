@@ -60,6 +60,18 @@ export const MOCK = () => {
       let n = 0; for (const l of Object.values(db.ligas)) if (l.temporada_id === p.p_id) { delete db.ligas[l.id]; n++; } delete db.temporadas[p.p_id]; return { ok: true, id: t.id, nome: t.nome, etapas: n }; },
     excluir_temporada(p) { const t = db.temporadas[p.p_id]; if (!t) throw { message: 'temporada_nao_encontrada' }; if (t.status !== 'arquivada') throw { message: 'temporada_nao_arquivada' };
       let n = 0; for (const l of Object.values(db.ligas)) if (l.temporada_id === p.p_id) { delete db.ligas[l.id]; n++; } delete db.temporadas[p.p_id]; return { ok: true, id: t.id, nome: t.nome, etapas: n }; },
+    consulta_publica() {
+      const t = Object.values(db.temporadas).filter((x) => x.publica && x.status !== 'arquivada').sort((x, y) => String(y.inicio).localeCompare(String(x.inicio)))[0];
+      if (!t) return null;
+      const etapas = Object.values(db.ligas).filter((l) => l.temporada_id === t.id && !l.excluida_em).sort((x, y) => x.etapa_numero - y.etapa_numero)
+        .map((l) => ({ id: l.id, nome: l.nome, data: l.data, status: l.status, etapa: l.etapa, etapa_numero: l.etapa_numero, participantes: l.participantes, versao: l.versao, atualizado_em: l.atualizado_em, excluida_em: null, dados: l.dados }));
+      const ajustes = ((t.dados || {}).ajustes || []).map((x) => ({ id: x.id, atleta_id: x.atleta_id, etapa: x.etapa, pontos: x.pontos, motivo: x.motivo }));
+      const ids = new Set();
+      etapas.forEach((l) => { (l.dados.ids || []).forEach((i) => i && ids.add(i)); [...(l.dados.subs || []), ...(l.dados.gsubs || [])].forEach((x) => x && x.atleta && x.atleta.id && ids.add(x.atleta.id)); });
+      ajustes.forEach((x) => x.atleta_id && ids.add(x.atleta_id));
+      return { temporada: { id: t.id, nome: t.nome, inicio: t.inicio, status: t.status, regras: t.regras, dados: { ajustes } }, etapas,
+        atletas: [...ids].map((i) => db.atletas[i]).filter(Boolean).map((x) => ({ id: x.id, nome: x.nome, situacao: x.situacao })) };
+    },
     garantir_atletas(p) {
       return p.p_nomes.map((n) => {
         n = norm(n || ''); if (!n) return null;

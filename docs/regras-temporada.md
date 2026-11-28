@@ -90,3 +90,9 @@ Exemplo de campeão no mata-mata: (1+1) + (1+2) + (3+3) = 11, mais os pontos dos
   games do desistente mantidos. **Substituto da Liga não gera pontos para ninguém.**
 - Ausência sem aviso: suspensão de 3 etapas (controle de suspensão).
 - **Convidados**: até 3 etapas; para entrar precisa chegar a uma semifinal; nova tentativa só após 4 etapas.
+
+## Página pública (v6.7.0)
+- Na temporada, o administrador liga/desliga "Página pública" e copia o link (`?consulta`).
+- Quem abre o link vê, sem login e sem poder alterar nada: classificação geral (mesmo cálculo e desempates), etapas (atual e próxima) e, de cada etapa, grupos, jogos, classificação e chave.
+- Só uma temporada aparece: a mais recente marcada como pública (arquivadas não aparecem).
+- Ficam visíveis os nomes dos atletas que jogaram a temporada e os ajustes de pontos com motivo. Não aparecem observações, apelidos, histórico nem atletas de fora da temporada.
