@@ -107,7 +107,7 @@ try {
   const ev = (f, ...a) => page.evaluate(f, ...a);
 
   // 1. Tela Atletas a partir do início
-  check('botão ATLETAS no início', (await txt()).includes('ATLETAS'), (await ev(() => view)) + ' | ' + (await txt()).slice(0, 200));
+  check('botão Atletas no início', (await txt()).includes('Atletas'), (await ev(() => view)) + ' | ' + (await txt()).slice(0, 200));
   await ev(() => abrirAtletas()); await espera(200);
   check('tela atletas vazia', (await txt()).includes('Nenhum atleta cadastrado'));
   await ev(() => abrirAtletaForm(null)); await espera(100);

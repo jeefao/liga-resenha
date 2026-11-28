@@ -50,7 +50,7 @@ try {
   await ev(() => verificarAcesso()); await espera(400);
   const ti = await txt();
   check('membro entra na administração', (await ev(() => view)) === 'inicio');
-  check('membro com "ligas": tem NOVA LIGA, sem nova temporada e sem USUÁRIOS', ti.includes('NOVA LIGA') && !ti.includes('Nova temporada') && !ti.includes('USUÁRIOS'), ti.slice(0, 400));
+  check('membro com "ligas": tem NOVA LIGA, sem nova temporada e sem USUÁRIOS', ti.includes('Nova liga relâmpago') && !ti.includes('Nova temporada') && !ti.includes('Usuários'), ti.slice(0, 400));
   check('membro vê as próprias permissões', ti.includes('Suas permissões: Ligas e jogos'));
   await page.screenshot({ path: SAIDA + '/permissoes-membro-inicio.png', fullPage: true });
   await ev(() => abrirAtletas()); await espera(300);
@@ -61,7 +61,7 @@ try {
 
   // 3. o dono troca para só "temporadas": a liga abre só para ver
   await ev(() => { __db.contas['m@teste'].permissoes = ['temporadas']; }); await ev(() => verificarAcesso()); await espera(300);
-  check('sem "ligas": sem NOVA LIGA', !(await txt()).includes('NOVA LIGA') && (await txt()).includes('Nova temporada'));
+  check('sem "ligas": sem NOVA LIGA', !(await txt()).includes('Nova liga relâmpago') && (await txt()).includes('Nova temporada'));
   await ev(async () => { await abrirLiga('lp'); }); await espera(300);
   const trav = await ev(() => ({ editaveis: [...document.querySelectorAll('#main input,#main select,#main textarea')].filter((e) => !e.disabled).length, iniciar: !!document.querySelector('[onclick^="startLeague"]'), sortear: !!document.querySelector('[onclick^="shuffle"],[onclick^="sortearDuplasTela"]') }));
   check('sem "ligas": liga só para ver (campos travados, sem iniciar nem sortear)', trav.editaveis === 0 && !trav.iniciar && !trav.sortear, JSON.stringify(trav));

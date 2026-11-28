@@ -113,8 +113,8 @@ try {
   // início mostra temporada e não mostra etapas na lista de relâmpagos
   await ev(() => sairDaTemporada()); await espera(400);
   const t = await txt();
-  check('início: temporada listada', t.includes('TEMPORADAS') && t.includes('Temporada Teste') && t.includes('2 de 3 etapas'));
-  check('início: etapas fora das ligas relâmpago', t.includes('LIGAS RELÂMPAGO') && !t.includes('Temporada Teste — Etapa'));
+  check('início: temporada listada', t.includes('Temporadas') && t.includes('Temporada Teste') && t.includes('2 de 3 etapas'));
+  check('início: etapas fora das ligas relâmpago', t.includes('Ligas relâmpago') && !t.includes('Temporada Teste — Etapa'));
   await page.screenshot({ path: SAIDA + '/inicio.png' });
   // sorteio de etapa usa etapas anteriores da temporada
   const hist = await ev(async () => { const l3 = crypto.randomUUID(); await sb.rpc('criar_etapa', { p_temporada_id: T ? T.id : temporadas[0].id, p_numero: 3, p_id: l3, p_nome: 'E3', p_data: hoje(), p_dados: { names: Array(16).fill(''), ids: Array(16).fill(null), scores: {}, finals: {}, breaks: {}, drawn: false, status: 'draft' } }); await abrirLiga(l3); return (await historicoDeGrupos()).length; });
@@ -159,7 +159,7 @@ try {
   await pub.evaluateOnNewDocument((b) => { const d = JSON.parse(b); for (const k of Object.keys(d)) window.__db[k] = d[k]; }, banco);
   await pub.goto(`http://127.0.0.1:${PORTA}/index.html`); await espera(600);
   // o administrador abre a consulta pelo botão do Início (mesma tela dos atletas)
-  check('administrador entra na administração', (await pub.evaluate(() => view)) === 'inicio' && (await pub.evaluate(() => document.body.innerText.includes('PÁGINA DE CONSULTA'))));
+  check('administrador entra na administração', (await pub.evaluate(() => view)) === 'inicio' && (await pub.evaluate(() => document.body.innerText.includes('Página de consulta'))));
   await pub.evaluate(() => abrirConsulta()); await espera(300);
   const evP = (f, ...a) => pub.evaluate(f, ...a), txtP = () => evP(() => document.body.innerText);
   const semEdicao = () => evP(() => [...document.querySelectorAll('#main button')].every((b) => b.classList.contains('pub')) && [...document.querySelectorAll('#main input,#main select')].every((e) => e.disabled));

@@ -47,7 +47,7 @@ try {
   await page.goto(URL0); await espera(300);
   // o mock é recriado a cada carga: recoloca o atleta e os pedidos
   await ev((a) => { Object.assign(__db.acessos, JSON.parse(a)); const id = 'atl-bia'; __db.atletas[id] = { id, nome: 'Bia Teste', apelido: null, situacao: 'membro', observacoes: null, versao: 1, atualizado_em: new Date().toISOString() }; __db.contas['bia@teste'] = { id: 'u-bia@teste', email: 'bia@teste', senha: '123456' }; __db.contas['x@teste'] = { id: 'u-x', email: 'x@teste', senha: '123456' }; }, acessosAntes);
-  check('administrador tem o botão Usuários', (await txt()).includes('USUÁRIOS'));
+  check('administrador tem o botão Usuários', (await txt()).includes('Usuários'));
   await ev(() => abrirUsuarios()); await espera(300);
   const tu = await txt();
   check('lista mostra os pedidos pendentes', tu.includes('Aguardando aprovação (2)') && tu.includes('bia@teste') && tu.includes('Fulano'), tu.slice(0, 400));
@@ -86,16 +86,16 @@ try {
   await ev(() => localStorage.setItem('mock:sessao', 'nenhuma'));
   await page.goto(URL0); await espera(300);
   await digita('email', 'admin@teste'); await digita('senha', 'admin123'); await page.click('#btnEntrar'); await espera(500);
-  check('administrador entra na administração pelo mesmo login', (await ev(() => view)) === 'inicio' && (await txt()).includes('PÁGINA DE CONSULTA'));
+  check('administrador entra na administração pelo mesmo login', (await ev(() => view)) === 'inicio' && (await txt()).includes('Página de consulta'));
   await ev(() => abrirConsulta()); await espera(300);
   check('administrador vê a consulta igual aos atletas', (await ev(() => view)) === 'publica' && (await txt()).includes('Bem-vindo, administrador') && (await txt()).includes('Rodada atual'));
   await page.screenshot({ path: SAIDA + '/acesso-admin-consulta.png' });
   await ev(() => abrirAdministracao()); await espera(300);
-  check('administrador volta para a administração', (await ev(() => view)) === 'inicio' && (await txt()).includes('USUÁRIOS'));
+  check('administrador volta para a administração', (await ev(() => view)) === 'inicio' && (await txt()).includes('Usuários'));
   // conta de atleta sem pedido: tela para pedir acesso, nunca a administração
   await ev(() => localStorage.setItem('mock:sessao', 'outro@teste'));
   await page.goto(URL0); await espera(500);
-  check('atleta sem pedido não vê a administração', (await ev(() => view)) === 'acesso' && (await txt()).includes('PEDIR ACESSO') && !(await txt()).includes('USUÁRIOS'));
+  check('atleta sem pedido não vê a administração', (await ev(() => view)) === 'acesso' && (await txt()).includes('PEDIR ACESSO') && !(await txt()).includes('Usuários'));
   // endereço antigo /adm/ leva ao endereço principal
   await page.goto(`http://127.0.0.1:${PORTA}/adm/`); await espera(500);
   check('endereço /adm/ redireciona para o principal', !page.url().includes('/adm'), page.url());

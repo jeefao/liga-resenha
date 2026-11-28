@@ -18,10 +18,10 @@ body{max-width:860px;margin:0 auto;padding:14px 14px 36px}
 a{color:inherit}
 h1,h2,h3,p{margin:0}
 h1{font-size:28px;line-height:1.1}
-h2{font-size:21px;margin-bottom:10px}
+h2{font-size:18px;margin-bottom:10px}
 h3{font-size:16px}
 button,input,select,textarea{font:inherit}
-button{border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,var(--gold) 0%,var(--gold-2) 100%);color:#1a1a1a;font-weight:800;border-radius:12px;padding:11px 14px;cursor:pointer;box-shadow:0 6px 14px rgba(0,0,0,.22)}
+button{border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,var(--gold) 0%,var(--gold-2) 100%);color:#1a1a1a;font-weight:700;font-size:14px;border-radius:10px;padding:8px 12px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.18)}
 button.secondary{background:linear-gradient(180deg,#233149 0%,#162237 100%);color:#f8fafc;border-color:#364152}
 button.ghost{background:transparent;border-color:#46556a;color:#e2e8f0;box-shadow:none}
 button.danger{background:linear-gradient(180deg,#7f1d1d 0%,#5b1414 100%);color:#fecdd3;border-color:#9f1239}
@@ -30,13 +30,12 @@ input,textarea,select{width:100%;background:#091220;color:#fff;border:1px solid 
 textarea{min-height:280px;resize:vertical}
 img{max-width:100%;display:block}
 .header-card,.card,section{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(8px);border-radius:18px;padding:14px;margin:10px 0;box-shadow:0 10px 30px rgba(0,0,0,.18)}
-.hero{padding:18px;border-radius:24px;background:linear-gradient(180deg,rgba(244,200,90,.15) 0%,rgba(18,53,100,.22) 35%,rgba(255,255,255,.02) 100%);border:1px solid rgba(244,200,90,.25)}
-.hero-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.logo-wrap{width:118px;flex:0 0 118px;border-radius:24px;background:rgba(255,255,255,.9);padding:8px;box-shadow:0 10px 24px rgba(0,0,0,.25)}
-.hero-text{flex:1;min-width:220px}
-.subtitle{color:var(--muted);margin-top:8px}
-.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.badge{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);font-size:12px;color:#e2e8f0}
+.hero{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:linear-gradient(180deg,rgba(244,200,90,.09),rgba(255,255,255,.02));border:1px solid rgba(244,200,90,.18)}
+.hero .logo{width:46px;height:46px;flex:none;object-fit:contain;border-radius:12px;background:#fff;padding:3px}
+.hero h1{font-size:19px;line-height:1.15;letter-spacing:.2px}
+.subtitle{color:var(--gold);font-size:13px;font-weight:600;margin-top:1px}
+.atalhos{display:flex;gap:6px;flex-wrap:wrap}
+.atalhos button{flex:1 1 auto}
 .status-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;font-weight:700;background:rgba(244,200,90,.13);border:1px solid rgba(244,200,90,.25);color:#fff}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -45,7 +44,7 @@ img{max-width:100%;display:block}
 .kpi .v{font-size:22px;font-weight:800;color:var(--gold)}
 .muted{color:var(--muted);font-size:13px}
 nav{display:flex;gap:8px;overflow:auto;padding:4px 2px 2px;margin:10px 0 14px;position:sticky;top:0;background:linear-gradient(180deg,rgba(5,11,20,.95),rgba(5,11,20,.72));backdrop-filter:blur(10px);z-index:10}
-nav button{white-space:nowrap;border-radius:999px;padding:10px 14px}
+nav button{white-space:nowrap;border-radius:999px;padding:7px 12px}
 nav button.active{outline:2px solid rgba(244,200,90,.35)}
 table{width:100%;border-collapse:collapse;font-size:14px}
 td,th{padding:9px 6px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -110,11 +109,7 @@ td:not(:first-child),th:not(:first-child){text-align:center}
 .footer-note{margin:24px 0 8px;color:var(--muted);font-size:12px;text-align:center}
 @media (max-width:740px){
   body{padding:12px 12px 32px}
-  .hero-top{flex-direction:column;align-items:center;text-align:center}
-  .hero-text{min-width:0}
   .grid-2,.grid-4,.quick-box,.names-grid,.duos{grid-template-columns:1fr}
-  h1{font-size:24px}
-  .logo-wrap{width:128px;flex-basis:auto}
 }
 
 .br-scroll{overflow-x:auto;padding:8px 0 16px}.br-grid{width:100%;min-width:760px;max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);column-gap:3.49%;grid-template-rows:32px repeat(6,70px);position:relative}.br-head{font-weight:800;color:var(--gold);text-align:center;align-self:center}.br-lines{position:absolute;left:0;top:32px;width:100%;height:420px;pointer-events:none;z-index:0}.br-lines path{fill:none;stroke:#d5ad52;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.br-node{position:relative;z-index:1;align-self:center}.br-match{background:#101e32;border:1px solid #64748b;border-radius:12px;overflow:hidden}.br-label{padding:6px 10px;color:#f4c85a;font-size:12px;font-weight:800;background:#172945}.br-team{min-height:36px;display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 8px;border-top:1px solid #334155;font-size:12px;line-height:1.3}.br-team span{overflow-wrap:anywhere}.br-head{grid-row:1}.br-team strong{font-size:16px}.br-win{background:#244b38;color:#b9f6cc}.br-empty{color:#a8b6c9}.score input{font-size:20px;max-width:68px}.round-stack .match-card{margin-bottom:8px}
@@ -124,7 +119,7 @@ label input,label select{margin-top:6px;font-weight:400}
 .form-grid{display:grid;gap:12px}
 .sync{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:40;width:max-content;max-width:calc(100% - 24px);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;border-radius:14px;font-weight:700;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .sync button{padding:7px 12px;font-size:13px}
-.s-ok{background:#14361f;border:1px solid rgba(34,197,94,.7);color:#bbf7d0}
+.s-ok{background:#14361f;border:1px solid rgba(34,197,94,.7);color:#bbf7d0;pointer-events:none}
 .s-info{background:#12305a;border:1px solid rgba(96,165,250,.6);color:#dbeafe}
 .s-warn{background:#4a2a07;border:1px solid rgba(245,158,11,.8);color:#fde68a}
 .s-err{background:#5a1420;border:1px solid rgba(251,113,133,.85);color:#fecdd3}
