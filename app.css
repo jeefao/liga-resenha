@@ -225,3 +225,8 @@ button.mini{padding:4px 9px;font-size:12px}
 .hist-quando{font-size:12px;color:var(--muted);margin-bottom:2px}
 .hist-quando b{color:var(--text,inherit)}
 .hist-area{display:inline-block;margin-left:4px;padding:0 6px;border-radius:6px;background:rgba(255,255,255,.06);font-size:11px}
+.podio svg{display:block;width:100%;max-width:620px;margin:8px auto 0}
+.podio-nomes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:620px;margin:6px auto 0;text-align:center}
+.podio-nome{display:flex;flex-direction:column;gap:2px;font-size:13px;min-width:0}
+.podio-nome b{font-size:13px}.podio-nome span{overflow-wrap:anywhere}
+.podio-nome.p1 b{color:#f6d36b}.podio-nome.p2 b{color:#d9dde3}.podio-nome.p3 b{color:#e09a62}

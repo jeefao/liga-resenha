@@ -34,6 +34,7 @@ try {
   check('chave vazia explica o cruzamento', ['Dupla 1 (1º e 2º)', 'Dupla 8 (15º e 16º)', 'Vencedor Q1', 'Vencedor S1', 'Perdedor S1'].every((x) => vazia.t.includes(x)), vazia.t.slice(0, 300));
   check('sem chave formada, sem botão de imagem', !vazia.img);
   await page.screenshot({ path: SAIDA + '/chave-vazia.png', fullPage: true });
+  check('sem final jogada: sem pódio', !(await ev(() => !!document.querySelector('.podio'))));
   // completa os grupos e o mata-mata
   await ev(() => {
     let semente = 5; const rnd = () => (semente = (semente * 9301 + 49297) % 233280) / 233280;
@@ -58,6 +59,16 @@ try {
   check('no computador a chave cabe sem rolar', cheia.cabe);
   check('com chave formada, botão de imagem', cheia.img);
   await page.screenshot({ path: SAIDA + '/chave-cheia.png', fullPage: true });
+  const pod = await ev(() => { const c = chavePronta(), nomes = [...document.querySelectorAll('.podio-nome')].map((x) => x.innerText.replace(/\s+/g, ' ').trim());
+    const dupla = (d) => d.map((i) => rawName(i)).join(' ');
+    return { nomes, ok: nomes[1] === 'Campeões ' + dupla(winner(c.f)) && nomes[0] === '2º lugar ' + dupla(loser(c.f)) && nomes[2] === '3º lugar ' + dupla(winner(c.t)), figuras: document.querySelectorAll('.podio svg > g').length }; });
+  check('pódio: campeões no meio, 2º à esquerda, 3º à direita, 6 atletas', pod.ok && pod.figuras === 6, JSON.stringify(pod));
+  await page.setViewport({ width: 900, height: 900, deviceScaleFactor: 2 }); await espera(100);
+  await (await page.$('.podio')).screenshot({ path: SAIDA + '/podio.png' });
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 }); await espera(100);
+  await (await page.$('.podio')).screenshot({ path: SAIDA + '/podio-celular.png' });
+  check('pódio cabe na largura do celular', await ev(() => document.querySelector('.podio').scrollWidth <= document.querySelector('.podio').clientWidth + 1));
+  await page.setViewport({ width: 900, height: 900, deviceScaleFactor: 1 });
   await page.setViewport({ width: 390, height: 844 }); await ev(() => render()); await espera(200);
   const cel = await ev(() => { const e = document.querySelector('.br-scroll'); return { meio: Math.abs(e.scrollLeft - (e.scrollWidth - e.clientWidth) / 2) < 2, rola: e.scrollWidth > e.clientWidth }; });
   check('no celular a chave abre centralizada na final', cel.rola && cel.meio, JSON.stringify(cel));

@@ -1,4 +1,4 @@
-const APP_VERSION='7.8.1';
+const APP_VERSION='7.9.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -2534,7 +2534,79 @@ function renderBracket(c){
   ${no(3,'2/span 3',box(f,'f','🏆 Final'))}${no(3,'5/span 3',box(t,'t','🥉 3º lugar'))}
   ${no(4,'3/span 4',box(ss[1],'s2','Semi 2'))}
   ${no(5,'2/span 3',box(qs[2],'q3','Q3'))}${no(5,'5/span 3',box(qs[3],'q4','Q4'))}
- </div></div>`;
+ </div></div>`+renderPodio(c);
+}
+// pódio (abaixo da chave): as 3 duplas com o uniforme da liga (azul com a faixa dourada), medalha e raquete
+const POD_METAL={1:['#f6d36b','#b8860b','Campeões'],2:['#eef0f3','#8f98a6','2º lugar'],3:['#e09a62','#8a4b22','3º lugar']};
+// aparência sorteada por rodada: a semente vem do id da liga, então é sempre a mesma em qualquer tela ou aparelho
+function podSemente(){const t=String(L&&L.id||'');let h=2166136261;for(let i=0;i<t.length;i++)h=Math.imul(h^t.charCodeAt(i),16777619);return h>>>0}
+function podSorteio(k){let a=(podSemente()^Math.imul(k+1,2654435761))>>>0;return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+const POD_PELE=['#f6d0ae','#e2b086','#d9a06b','#c68a5e','#a8744f','#8d5a3b','#6b4028','#f1c99a'];
+const POD_CABELO=['#14110f','#2b1d14','#4a3020','#6b4a2b','#a5743a','#d9b26a','#8a8a8a','#3b2a1f','#7a2e1c'];
+const POD_SHORT=['#16244a','#111111','#f2f2f2','#6b7280','#b91c1c','#15803d','#c8b48a','#2563eb','#0f766e','#7c3aed','#ea580c','#e11d48'];
+const POD_ACESS=['#16244a','#111111','#f2f2f2','#e3a94e','#b91c1c','#2563eb','#15803d','#ec4899'];
+const POD_RAQ=[['#1d1d1f','#f08a24'],['#f2f2f2','#2563eb'],['#b91c1c','#111111'],['#facc15','#111111'],['#16a34a','#f2f2f2'],['#2563eb','#facc15'],['#7c3aed','#f2f2f2'],['#ea580c','#1d1d1f'],['#0ea5e9','#e11d48'],['#111111','#22d3ee'],['#ec4899','#1d1d1f'],['#e5e7eb','#b91c1c']];
+function podFigura(x,y,k,lado,metal){
+  const r=podSorteio(k),um=l=>l[Math.floor(r()*l.length)],id='pc'+k+'_'+podSemente()%1e6,sx=lado;
+  const pele=um(POD_PELE),cab=um(POD_CABELO),short=um(POD_SHORT),acess=um(POD_ACESS),[rq,rq2]=um(POD_RAQ);
+  const cabelo=um(['curto','curto','cacheado','careca','rabo','topete','longo']),cabeca=um(['nada','nada','bone','bone','viseira','faixa']);
+  const barba=cabelo!=='rabo'&&cabelo!=='longo'&&r()<.45,oculos=r()<.3,ambos=r()<.3,desenho=um(['faixa','meio','listras','liso','anel','raio']);
+  const ombro=[20*sx,-108],mao=[36*sx,-150],outra=ambos?[-34*sx,-146]:[-24*sx,-70];
+  const raquete=`<g transform="translate(${mao[0]} ${mao[1]}) rotate(${(12+r()*16)*sx})">
+    <rect x="-2.5" y="-16" width="5" height="18" rx="2" fill="#2a2a2a"/><rect x="-2.8" y="-6" width="5.6" height="7" rx="2" fill="${rq2}"/>
+    <clipPath id="${id}r"><ellipse cx="0" cy="-30" rx="12" ry="15"/></clipPath>
+    <ellipse cx="0" cy="-30" rx="12" ry="15" fill="${rq}"/>
+    <g clip-path="url(#${id}r)">${desenho==='faixa'?`<path d="M-14 -24 L14 -40 L14 -33 L-14 -17 Z" fill="${rq2}"/>`:desenho==='meio'?`<rect x="0" y="-46" width="14" height="32" fill="${rq2}"/>`:desenho==='listras'?`<g fill="${rq2}"><rect x="-14" y="-38" width="28" height="3"/><rect x="-14" y="-31" width="28" height="3"/><rect x="-14" y="-24" width="28" height="3"/></g>`:desenho==='anel'?`<ellipse cx="0" cy="-30" rx="7" ry="9" fill="none" stroke="${rq2}" stroke-width="3"/>`:desenho==='raio'?`<path d="M3 -45 L-5 -29 L1 -29 L-4 -15 L7 -33 L1 -33 Z" fill="${rq2}"/>`:''}
+     <g fill="rgba(0,0,0,.35)"><circle cx="-4" cy="-24" r="1.3"/><circle cx="4" cy="-24" r="1.3"/><circle cx="0" cy="-19" r="1.3"/><circle cx="-5" cy="-31" r="1.3"/><circle cx="5" cy="-31" r="1.3"/><circle cx="0" cy="-37" r="1.3"/></g></g>
+    <ellipse cx="0" cy="-30" rx="12" ry="15" fill="none" stroke="${rq2}" stroke-width="2"/></g>`;
+  const pes=`<ellipse cx="-8" cy="-1.5" rx="7" ry="3.2" fill="${pele}"/><ellipse cx="8" cy="-1.5" rx="7" ry="3.2" fill="${pele}"/>
+    <g fill="rgba(0,0,0,.18)"><circle cx="-13" cy="-2" r="1"/><circle cx="-11" cy="-3" r="1"/><circle cx="13" cy="-2" r="1"/><circle cx="11" cy="-3" r="1"/></g>`;
+  const atras=cabelo==='longo'?`<path d="M-14 -134 Q-17 -112 -11 -108 L11 -108 Q17 -112 14 -134 Z" fill="${cab}"/>`:cabelo==='rabo'?`<path d="M${-10*sx} -138 Q${-24*sx} -132 ${-20*sx} -114 Q${-15*sx} -124 ${-10*sx} -130 Z" fill="${cab}"/>`:'';
+  const topo=cabelo==='careca'?'':cabelo==='cacheado'?`<g fill="${cab}"><circle cx="-9" cy="-140" r="6"/><circle cx="0" cy="-145" r="7"/><circle cx="9" cy="-140" r="6"/><circle cx="-13" cy="-133" r="4"/><circle cx="13" cy="-133" r="4"/></g>`
+    :cabelo==='topete'?`<path d="M-13 -132 Q-14 -146 -2 -151 Q12 -150 13 -132 Q8 -141 0 -141 Q-8 -140 -13 -132 Z" fill="${cab}"/>`
+    :`<path d="M-13 -131 Q-13 -147 0 -147 Q13 -147 13 -131 Q8 -140 0 -140 Q-8 -140 -13 -131 Z" fill="${cab}"/>`;
+  const chapeu=cabeca==='bone'?`<path d="M-13.5 -133 Q-13 -149 0 -149 Q13 -149 13.5 -133 Z" fill="${acess}"/><ellipse cx="${-7*sx}" cy="-133.5" rx="12" ry="2.6" fill="${acess}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`
+    :cabeca==='viseira'?`<rect x="-13.5" y="-139" width="27" height="5" rx="2" fill="${acess}"/><ellipse cx="${-6*sx}" cy="-135" rx="12" ry="2.4" fill="${acess}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`
+    :cabeca==='faixa'?`<rect x="-13.5" y="-140" width="27" height="5" rx="2" fill="${acess}"/>`:'';
+  return `<g transform="translate(${x} ${y})">
+   <ellipse cx="0" cy="2" rx="26" ry="5" fill="rgba(0,0,0,.28)"/>
+   <rect x="-12" y="-42" width="9" height="40" rx="3" fill="${pele}"/><rect x="3" y="-42" width="9" height="40" rx="3" fill="${pele}"/>${pes}
+   <path d="M-16 -64 H16 L15 -38 H2 L0 -46 L-2 -38 H-15 Z" fill="${short}" stroke="rgba(0,0,0,.25)" stroke-width="1"/>
+   <line x1="${-20*sx}" y1="-106" x2="${outra[0]}" y2="${outra[1]}" stroke="${pele}" stroke-width="8" stroke-linecap="round"/>
+   ${ambos?`<circle cx="${outra[0]}" cy="${outra[1]}" r="5" fill="${pele}"/>`:''}
+   <line x1="${ombro[0]}" y1="${ombro[1]}" x2="${mao[0]}" y2="${mao[1]}" stroke="${pele}" stroke-width="8" stroke-linecap="round"/>
+   ${raquete}${atras}
+   <clipPath id="${id}"><path d="M-21 -112 Q0 -119 21 -112 L22 -61 L-22 -61 Z"/></clipPath>
+   <g clip-path="url(#${id})"><rect x="-24" y="-120" width="48" height="62" fill="#1f3f73"/>
+    <polygon points="4,-122 26,-122 26,-96 -2,-58 -16,-58" fill="#e3a94e"/></g>
+   <path d="M-21 -112 Q0 -119 21 -112" stroke="#11203f" stroke-width="2" fill="none"/>
+   <circle cx="${-20*sx}" cy="-106" r="7" fill="${sx<0?'#e3a94e':'#1f3f73'}"/><circle cx="${ombro[0]}" cy="${ombro[1]}" r="7" fill="${sx<0?'#1f3f73':'#e3a94e'}"/>
+   <rect x="-5" y="-121" width="10" height="9" fill="${pele}"/>
+   <circle cx="0" cy="-131" r="13" fill="${pele}"/>${topo}${chapeu}
+   ${barba?`<path d="M-11 -129 Q-10 -116 0 -116 Q10 -116 11 -129 Q6 -122 0 -123 Q-6 -122 -11 -129 Z" fill="${cab==='#d9b26a'?'#a5743a':cab}"/>`:''}
+   ${oculos?`<g fill="#111"><rect x="-10" y="-135" width="8" height="5" rx="2"/><rect x="2" y="-135" width="8" height="5" rx="2"/><rect x="-2" y="-134" width="4" height="1.5"/></g>`
+     :`<circle cx="-4.5" cy="-132" r="1.5" fill="#1b1b1b"/><circle cx="4.5" cy="-132" r="1.5" fill="#1b1b1b"/>`}
+   <path d="M-4 -125 Q0 -${r()<.5?121:122.5} 4 -125" stroke="#5a2e1a" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+   <path d="M-8 -113 L0 -94 L8 -113" stroke="#3b4cc0" stroke-width="3" fill="none" stroke-linejoin="round"/>
+   <circle cx="0" cy="-89" r="7" fill="${metal[0]}" stroke="${metal[1]}" stroke-width="2"/><circle cx="0" cy="-89" r="2.6" fill="#f08a24"/>
+  </g>`;
+}
+function renderPodio(c){
+  if(!c||!c.f||!valid(S.finals.f))return '';
+  const lugares={1:winner(c.f),2:loser(c.f),3:c.t&&valid(S.finals.t)?winner(c.t):null};
+  const degraus=[[2,20,300],[1,220,270],[3,420,320]]; // lugar, x, topo
+  let svg='<ellipse cx="320" cy="170" rx="150" ry="120" fill="url(#podBrilho)"/>';
+  for(const [p,x,topo] of degraus){
+    const m=POD_METAL[p],h=380-topo;
+    svg+=`<rect x="${x}" y="${topo}" width="200" height="${h}" fill="url(#podGrad)" stroke="#0d1830"/><rect x="${x}" y="${topo}" width="200" height="6" fill="${m[0]}"/>
+      <text x="${x+100}" y="${topo+(h>70?62:44)}" text-anchor="middle" font-size="${h>70?46:38}" font-weight="800" fill="${m[0]}" stroke="${m[1]}" stroke-width="1">${p}º</text>`;
+    if(lugares[p])svg+=podFigura(x+62,topo,p*2,-1,m)+podFigura(x+138,topo,p*2+1,1,m);
+    else svg+=`<text x="${x+100}" y="${topo-20}" text-anchor="middle" font-size="16" fill="#94a3b8">a definir</text>`;
+  }
+  const nomes=[2,1,3].map(p=>`<div class="podio-nome p${p}"><b>${POD_METAL[p][2]}</b>${lugares[p]?lugares[p].map(i=>`<span>${name(i)}</span>`).join(''):'<span class="muted">a definir</span>'}</div>`).join('');
+  return `<section class="podio"><h2>Pódio</h2>
+   <svg viewBox="0 40 640 345" role="img" aria-label="Pódio da liga"><defs><linearGradient id="podGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22437c"/><stop offset="1" stop-color="#132648"/></linearGradient><radialGradient id="podBrilho"><stop offset="0" stop-color="#f6d36b" stop-opacity=".28"/><stop offset="1" stop-color="#f6d36b" stop-opacity="0"/></radialGradient></defs>${svg}</svg>
+   <div class="podio-nomes">${nomes}</div></section>`;
 }
 // chave formada (com substituições e sorteios) ou null enquanto os grupos/desempates não permitem
 function chavePronta(){
