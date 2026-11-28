@@ -177,6 +177,8 @@ summary{cursor:pointer}
 .fin-linha{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07)}
 .fin-linha-txt{flex:1 1 160px;min-width:0}
 .fin-valor{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-pend{display:inline-block;padding:0 6px;border-radius:6px;background:rgba(255,190,60,.18);color:#ffcf66;font-weight:600}
+.fin-linha-pend .fin-valor{color:#ffcf66}
 .fin-acoes{display:flex;gap:4px;flex-basis:100%;justify-content:flex-end}
 button.mini{padding:4px 9px;font-size:12px}
 .seg{display:flex;border:1px solid #364152;border-radius:10px;overflow:hidden}

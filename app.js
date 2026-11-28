@@ -1,4 +1,4 @@
-const APP_VERSION='7.6.0';
+const APP_VERSION='7.7.0';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -90,6 +90,7 @@ function traduzErro(e){
   if(/rodada_com_pagamentos/.test(m))return 'esta rodada já tem pagamentos marcados; volte todos para pendente antes';
   if(/atleta_nao_inscrito/.test(m))return 'este atleta não está mais inscrito na liga (atualize a tela)';
   if(/rodada_sem_cobranca/.test(m))return 'esta rodada não está com cobrança ativa (atualize a tela)';
+  if(/lancamento_nao_encontrado/.test(m))return 'este lançamento não existe mais (atualize a tela)';
   if(/premio_pago/.test(m))return 'este prêmio já foi pago; para mudar, exclua o lançamento do pagamento';
   if(/lancamento_de_premio/.test(m))return 'pagamento de prêmio não se edita; exclua e pague de novo';
   if(/valor_invalido/.test(m))return 'valor inválido';
@@ -309,7 +310,7 @@ const pode=a=>!!(meuAcesso&&meuAcesso.admin&&(meuAcesso.dono||(meuAcesso.permiss
 const ACAO_PERMISSAO={ligas:"criarLiga duplicarLiga mudarArquivo moverParaLixeira retirarDaLixeira restaurarVersao startLeague endLeague corrigirResultados setCapacity clearNames shuffle sortearDuplasTela desfazerGrupoTela confirmarDuplasManual abrirDuplasManual chooseTie resetTie digitarPlacar previaWO abrirWO confirmarWO novoAtletaParaWO previaSub abrirSubstituicao aplicarSubstituicao desfazerSubstituicao removerPosicao toggleAtleta novoAtletaNaLiga aplicarColarLista abrirColarLista vincularCadastro importarAntiga importarArquivo abrirNovaEtapa criarEtapa usarVersaoServidor manterMinhasAlteracoes",
   temporadas:"criarTemporada mudarStatusTemporada salvarRegras salvarDataPrevista adicionarAjuste removerAjuste",
   atletas:"abrirAtletaForm salvarAtletaForm",
-  financeiro_lancar:"finAbrirLanc finSalvarLanc finExcluirLanc finMarcar finValorPago finSalvarValorPago finCobrar finParar finValorRodada finSalvarAjustes finSalvarValorTemp finAbrirPremio finSalvarPremio finExcluirPremio finPagarPremio",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios responderSenha"};
+  financeiro_lancar:"finAbrirLanc finSalvarLanc finExcluirLanc finBaixar finMarcar finValorPago finSalvarValorPago finCobrar finParar finValorRodada finSalvarAjustes finSalvarValorTemp finAbrirPremio finSalvarPremio finExcluirPremio finPagarPremio",dono:"apagarDeVez esvaziarLixeira apagarAtleta apagarTemporada abrirUsuarios responderSenha"};
 const FN_PERMISSAO={};for(const [a,l] of Object.entries(ACAO_PERMISSAO))for(const f of l.split(' '))FN_PERMISSAO[f]=a;
 function permitido(a){return a==='dono'?ehDono():pode(a)}
 function areaDoClique(c){
@@ -2597,7 +2598,9 @@ function finKpis(t){
   return `<div class="fin-kpis">
     <div class="fin-kpi"><span>Caixa atual</span><b>${reais(t.caixa)}</b></div>
     <div class="fin-kpi"><span>A receber</span><b>${reais(t.a_receber)}</b></div>
+    <div class="fin-kpi"><span>A pagar</span><b>${reais(t.a_pagar||0)}</b></div>
     <div class="fin-kpi"><span>Premiação prevista</span><b>${reais(t.premiacao_prevista)}</b></div>
+    ${t.entradas_a_receber?`<div class="fin-kpi"><span>Entradas a receber</span><b>${reais(t.entradas_a_receber)}</b></div>`:''}
     <div class="fin-kpi fin-futuro${t.saldo_futuro<0?' neg':''}"><span>Saldo futuro previsto</span><b>${reais(t.saldo_futuro)}</b></div>
   </div>`;
 }
@@ -2606,19 +2609,32 @@ function finBotoesLanc(liga,temporada){
   const a=`${liga?`'${liga}'`:'null'},${temporada?`'${temporada}'`:'null'}`;
   return `<div class="panel-actions"><button class="secondary" onclick="finAbrirLanc(null,'saida',${a})">+ Despesa</button><button class="secondary" onclick="finAbrirLanc(null,'entrada',${a})">+ Entrada</button></div>`;
 }
+// lançamentos + uma linha automática de receita por rodada com inscrições pagas (soma o que foi marcado como pago)
+function finTodosLanc(){
+  const ins=fin.rodadas.filter(r=>r.recebido>0).map(r=>{const pg=r.inscritos.filter(i=>i.status==='pago');
+    return {id:'insc-'+r.liga_id,auto:true,tipo:'entrada',categoria:'Inscrições',descricao:pg.length+' pago(s)',valor_centavos:r.recebido,
+      data:pg.map(i=>i.pago_em).filter(Boolean).sort().pop()||r.data,liga_id:r.liga_id,liga_nome:r.nome,pago:true}});
+  return [...fin.lancamentos,...ins].sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+}
+const finPendentes=()=>fin.lancamentos.filter(x=>x.pago===false);
 function finResumo(){
-  const t=fin.totais;
+  const t=fin.totais,todos=finTodosLanc().filter(x=>x.pago!==false);
   return `<section>${finKpis(t)}
-    <p class="muted" style="margin-top:10px">Caixa = saldo inicial ${reais(t.saldo_inicial)} + inscrições ${reais(t.inscricoes_recebidas)} + entradas ${reais(t.entradas)} − saídas ${reais(t.saidas)}. Saldo futuro previsto = caixa − premiação prevista.</p>
+    <p class="muted" style="margin-top:10px">Caixa = saldo inicial ${reais(t.saldo_inicial)} + inscrições ${reais(t.inscricoes_recebidas)} + entradas recebidas ${reais(t.entradas)} − despesas pagas ${reais(t.saidas)}. Saldo futuro previsto = caixa − a pagar${t.entradas_a_receber?' + entradas a receber':''} − premiação prevista. Inscrições pendentes ficam só em "A receber".</p>
     ${finBotoesLanc()}</section>
-   <section><h3>Últimos lançamentos</h3>${finListaLanc(fin.lancamentos.slice(0,8))}${fin.lancamentos.length>8?`<div class="panel-actions"><button class="ghost" onclick="finTab='Lançamentos';render()">Ver todos (${fin.lancamentos.length})</button></div>`:''}</section>`;
+   ${finPendentes().length?`<section><h3>A pagar e a receber</h3>${finListaLanc(finPendentes())}</section>`:''}
+   <section><h3>Últimos pagos e recebidos</h3>${finListaLanc(todos.slice(0,8))}${todos.length>8?`<div class="panel-actions"><button class="ghost" onclick="finTab='Lançamentos';render()">Ver todos (${todos.length})</button></div>`:''}</section>`;
 }
 function finListaLanc(l){
   if(!l.length)return '<p class="muted" style="margin-top:8px">Nada lançado ainda.</p>';
+  const sai=x=>x.tipo==='saida';
   return `<div class="fin-lista">${l.map(x=>{const onde=x.liga_nome?esc(x.liga_nome):x.temporada_nome?'Temporada '+esc(x.temporada_nome):'Liga (geral)';
-    return `<div class="fin-linha"><div class="fin-linha-txt"><b>${esc(x.categoria)}</b>${x.descricao?' — '+esc(x.descricao):''}<div class="muted">${fmtData(x.data)} • ${onde}</div></div>
-      <div class="fin-valor ${x.tipo==='saida'?'neg':'pos'}">${x.tipo==='saida'?'−':'+'} ${reais(x.valor_centavos)}</div>
-      ${finLanca()?`<div class="fin-acoes">${x.premio_id?'':`<button class="ghost mini" onclick="finAbrirLanc('${x.id}')">Editar</button>`}<button class="ghost mini" onclick="finExcluirLanc('${x.id}')">Excluir</button></div>`:''}</div>`}).join('')}</div>`;
+    const sit=x.auto?'soma automática das inscrições pagas':x.pago===false?`<span class="fin-pend">${sai(x)?'a pagar':'a receber'}</span>`:x.pago_em&&x.pago_em!==x.data?(sai(x)?'pago':'recebido')+' em '+fmtData(x.pago_em):'';
+    const acoes=x.auto?`<button class="ghost mini" onclick="finTab='Rodadas';finRodadaId='${x.liga_id}';render()">Ver rodada</button>`
+      :finLanca()?`${x.pago===false?`<button class="secondary mini" onclick="finBaixar('${x.id}')">${sai(x)?'Pagar':'Receber'}</button>`:''}${x.premio_id?'':`<button class="ghost mini" onclick="finAbrirLanc('${x.id}')">Editar</button>`}<button class="ghost mini" onclick="finExcluirLanc('${x.id}')">Excluir</button>`:'';
+    return `<div class="fin-linha${x.pago===false?' fin-linha-pend':''}"><div class="fin-linha-txt"><b>${esc(x.categoria)}</b>${x.descricao?' — '+esc(x.descricao):''}<div class="muted">${fmtData(x.data)} • ${onde}${sit?' • '+sit:''}</div></div>
+      <div class="fin-valor ${x.pago===false?'':sai(x)?'neg':'pos'}">${sai(x)?'−':'+'} ${reais(x.valor_centavos)}</div>
+      ${acoes?`<div class="fin-acoes">${acoes}</div>`:''}</div>`}).join('')}</div>`;
 }
 function finNomeRodada(r){return `${esc(r.nome)}${r.apagada?' <span class="muted">(liga apagada)</span>':r.na_lixeira?' <span class="muted">(na lixeira)</span>':''}`}
 function finRodadas(){
@@ -2636,12 +2652,12 @@ function finRodadas(){
 }
 function finRodadaDetalhe(){
   const r=fin.rodadas.find(x=>x.liga_id===finRodadaId);if(!r){finRodadaId=null;return finRodadas()}
-  const lanc=fin.lancamentos.filter(x=>x.liga_id===r.liga_id),prem=fin.premios.filter(p=>p.liga_id===r.liga_id);
+  const lanc=finTodosLanc().filter(x=>x.liga_id===r.liga_id),prem=fin.premios.filter(p=>p.liga_id===r.liga_id);
   const saldo=r.recebido+r.entradas-r.saidas,L=finLanca();
   const seg=(i,k,s,txt)=>`<button class="${i.status===s?'on':''}" ${L?`onclick="finMarcar('${r.liga_id}',${k},'${s}')"`:'disabled'}>${txt}</button>`;
   return `<section><button class="ghost" onclick="finRodadaId=null;render()">← Rodadas</button>
     <h3 style="margin-top:10px">${finNomeRodada(r)}</h3><p class="muted">${fmtData(r.data)} • inscrição ${reais(r.valor_centavos)}${r.valor_proprio!=null?' (valor só desta rodada)':' (valor padrão)'}</p>
-    <div class="fin-kpis" style="margin-top:10px"><div class="fin-kpi"><span>Recebido</span><b>${reais(r.recebido)}</b></div><div class="fin-kpi"><span>A receber</span><b>${reais(r.a_receber)}</b></div><div class="fin-kpi"><span>Despesas</span><b>${reais(r.saidas)}</b></div><div class="fin-kpi fin-futuro${saldo<0?' neg':''}"><span>Saldo da rodada</span><b>${reais(saldo)}</b></div></div>
+    <div class="fin-kpis" style="margin-top:10px"><div class="fin-kpi"><span>Recebido</span><b>${reais(r.recebido)}</b></div><div class="fin-kpi"><span>A receber</span><b>${reais(r.a_receber)}</b></div><div class="fin-kpi"><span>Despesas pagas</span><b>${reais(r.saidas)}</b>${r.a_pagar?`<small class="muted">+ ${reais(r.a_pagar)} a pagar</small>`:''}</div><div class="fin-kpi fin-futuro${saldo<0?' neg':''}"><span>Saldo da rodada</span><b>${reais(saldo)}</b></div></div>
     ${L?`<details style="margin-top:10px"><summary class="muted">Mudar o valor da inscrição desta rodada</summary><div class="row" style="margin-top:8px;align-items:end"><label style="flex:1">Valor (R$) <input id="fin-valor-rodada" inputmode="decimal" placeholder="vazio = valor padrão" value="${reaisCampo(r.valor_proprio)}"></label><button class="secondary" onclick="finValorRodada('${r.liga_id}')">Salvar valor</button></div></details>`:''}</section>
    <section><h3>Inscritos (${r.inscritos.length})</h3>${r.inscritos.length?`<div class="fin-lista">${r.inscritos.map((i,k)=>`<div class="fin-linha"><div class="fin-linha-txt"><b>${esc(i.nome)}</b>${i.status==='pago'?`<div class="muted">pagou ${reais(i.valor_centavos)}${i.pago_em?' em '+fmtData(i.pago_em):''}${L?` • <a href="#" onclick="finValorPago('${r.liga_id}',${k});return false">mudar valor</a>`:''}</div>`:''}</div>
       <div class="seg">${seg(i,k,'pago','Pago')}${seg(i,k,'pendente','Pendente')}${seg(i,k,'isento','Isento')}</div></div>`).join('')}</div>`:'<p class="muted" style="margin-top:8px">A liga ainda não tem atletas inscritos.</p>'}</section>
@@ -2657,8 +2673,11 @@ function finListaPremios(ps){
 }
 function finLancamentos(){
   const t=fin.totais;
-  return `<section><p>Entradas <b class="pos">${reais(t.entradas)}</b> • Saídas <b class="neg">${reais(t.saidas)}</b></p><p class="muted" style="margin-top:4px">As inscrições pagas aparecem nas rodadas.</p>${finBotoesLanc()}</section>
-   <section>${finListaLanc(fin.lancamentos)}</section>`;
+  const pend=finPendentes();
+  return `<section><p>Entradas <b class="pos">${reais(t.entradas+t.inscricoes_recebidas)}</b> • Saídas <b class="neg">${reais(t.saidas)}</b></p>
+    <p class="muted" style="margin-top:4px">Só o que foi pago ou recebido. A pagar ${reais(t.a_pagar||0)}${t.entradas_a_receber?' • entradas a receber '+reais(t.entradas_a_receber):''}. As inscrições marcadas como pagas entram sozinhas, uma linha por rodada.</p>${finBotoesLanc()}</section>
+   ${pend.length?`<section><h3>A pagar e a receber (${pend.length})</h3>${finListaLanc(pend)}</section>`:''}
+   <section><h3>Pagos e recebidos</h3>${finListaLanc(finTodosLanc().filter(x=>x.pago!==false))}</section>`;
 }
 function finPremiacao(){
   const porTemp=fin.temporadas.map(t=>({t,ps:fin.premios.filter(p=>p.temporada_id===t.id)})).filter(x=>x.ps.length||x.t.status!=='arquivada');
@@ -2737,6 +2756,7 @@ function finAbrirLanc(id,tipo,liga,temporada){
       <label>Valor (R$)<input id="fin-l-valor" inputmode="decimal" value="${x?reaisCampo(x.valor_centavos):''}" placeholder="0,00"></label>
       <label>Descrição (opcional)<input id="fin-l-desc" maxlength="200" value="${x&&x.descricao?esc(x.descricao):''}"></label>
       <label>Data<input id="fin-l-data" type="date" value="${x?x.data:hoje()}"></label>
+      <label>Situação<select id="fin-l-pago"><option value="0"${x&&x.pago!==false?'':' selected'}>${tipo==='saida'?'A pagar':'A receber'} (entra só no saldo futuro)</option><option value="1"${x&&x.pago!==false?' selected':''}>${tipo==='saida'?'Já paga':'Já recebida'} (sai/entra no caixa)</option></select></label>
       <label>De onde é<select id="fin-l-vinc">${opcoesHtml}</select></label>
     </div>
     <div class="panel-actions"><button onclick="finSalvarLanc(${x?`'${x.id}'`:'null'})">Salvar</button><button class="ghost" onclick="fecharModal()">Cancelar</button></div></div></div>`;
@@ -2745,7 +2765,12 @@ async function finSalvarLanc(id){
   const v=finLerValor('fin-l-valor',{zero:false});if(v===undefined)return;
   const vinc=$('fin-l-vinc').value;
   await finGravar('fin_lancar',{p_id:id||crypto.randomUUID(),p_tipo:$('fin-l-tipo').value,p_categoria:$('fin-l-cat').value,p_descricao:$('fin-l-desc').value.trim()||null,
-    p_valor_centavos:v,p_data:$('fin-l-data').value||null,p_liga_id:vinc.startsWith('l:')?vinc.slice(2):null,p_temporada_id:vinc.startsWith('t:')?vinc.slice(2):null},'Lançamento salvo.');
+    p_valor_centavos:v,p_data:$('fin-l-data').value||null,p_liga_id:vinc.startsWith('l:')?vinc.slice(2):null,p_temporada_id:vinc.startsWith('t:')?vinc.slice(2):null,p_pago:$('fin-l-pago').value==='1'},'Lançamento salvo.');
+}
+async function finBaixar(id){
+  const x=fin.lancamentos.find(l=>l.id===id);if(!x)return;const sai=x.tipo==='saida';
+  if(!confirm(`${sai?'Pagar':'Receber'} ${x.categoria} de ${reais(x.valor_centavos)} hoje?\n\n${sai?'O valor sai':'O valor entra'} no caixa atual.`))return;
+  await finGravar('fin_baixar_lancamento',{p_id:id,p_pago:true},sai?'Despesa paga.':'Entrada recebida.');
 }
 async function finExcluirLanc(id){
   const x=fin.lancamentos.find(l=>l.id===id);if(!x)return;

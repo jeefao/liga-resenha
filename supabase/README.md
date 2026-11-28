@@ -48,6 +48,7 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
    13. `supabase/migrations/20261129000001_pedido_nova_senha.sql` (esqueci a senha: o atleta pede a senha nova no app, sem login; ela só passa a valer quando o dono aprova na aba Usuários)
    14. `supabase/migrations/20261129000002_corrige_ajustes_financas.sql` (o Supabase recusa UPDATE sem WHERE: corrige o Salvar dos Ajustes do Finanças)
    15. `supabase/migrations/20261129000003_historico_app.sql` (histórico do app, situação do atleta na próxima liga e atletas que são administradores)
+   16. `supabase/migrations/20261129000004_financeiro_baixa.sql` (Finanças: despesa/entrada paga ou pendente, com baixa)
    O resultado esperado é "Success. No rows returned".
 3. **Cadastro dos atletas** (a partir da migration 10): em *Authentication* → *Sign In / Providers*,
    deixe **ligado** *Allow new users to sign up* e, em *Email*, **desligue** *Confirm email* e salve.
@@ -91,3 +92,13 @@ Os testes rodam um PostgreSQL em memória (PGlite) e não acessam nenhum Supabas
   (aba Histórico do Finanças). Ninguém lê a tabela direto. O histórico começa a contar a partir da instalação.
 - Todo UPDATE/DELETE dentro das funções precisa de WHERE (o Supabase recusa sem): o teste
   `supabase/tests/update-com-where.test.js` confere isso nas migrations.
+
+## Finanças: pago ou pendente (v7.7.0)
+
+- Cada despesa/entrada tem situação: paga (entra no caixa) ou a pagar / a receber (entra só no saldo futuro).
+  Os lançamentos que já existiam continuam pagos. O botão Pagar/Receber chama `fin_baixar_lancamento(id, true)`
+  (precisa de "Financeiro: lançar"); pagamento de prêmio já nasce pago.
+- Saldo futuro previsto = caixa − a pagar + entradas a receber − premiação prevista. Inscrições pendentes continuam
+  à parte, em "A receber".
+- As inscrições marcadas como pagas aparecem nos lançamentos como uma linha automática por rodada ("Inscrições —
+  N pago(s)"). Ela é calculada na tela a partir das inscrições, então não precisa ser lançada e não conta em dobro.

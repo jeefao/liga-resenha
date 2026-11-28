@@ -57,6 +57,7 @@ export const MOCK = () => {
   const finValorRodada = (lid) => { const r = fin.rodadas[lid], l = db.ligas[lid]; if (r && r.inscricao_centavos != null) return r.inscricao_centavos; if (l && l.temporada_id && fin.temporadas[l.temporada_id] != null) return fin.temporadas[l.temporada_id]; return fin.config.inscricao_relampago_centavos; };
   function finResumo() {
     const vivos = Object.values(fin.lancamentos).filter((x) => !x.excluido), soma = (l) => l.reduce((s, x) => s + x.valor_centavos, 0);
+    const pagos = vivos.filter((x) => x.pago !== false), pend = vivos.filter((x) => x.pago === false);
     const nomeLiga = (id) => (db.ligas[id] || {}).nome || (fin.rodadas[id] || {}).liga_nome || null, nomeTemp = (id) => (db.temporadas[id] || {}).nome || null;
     const rodadas = Object.values(fin.rodadas).map((r) => {
       const l = db.ligas[r.liga_id], ins = finInscritos(l && l.dados);
@@ -66,17 +67,19 @@ export const MOCK = () => {
       return { liga_id: r.liga_id, nome: nomeLiga(r.liga_id), data: l ? l.data : null, temporada_id: l ? l.temporada_id : null, temporada_nome: l && l.temporada_id ? nomeTemp(l.temporada_id) : null, etapa_numero: l ? l.etapa_numero : null, status: l ? l.status : null,
         na_lixeira: !!(l && l.excluida_em), apagada: !l, valor_centavos: valor, valor_proprio: r.inscricao_centavos, inscritos: insc,
         recebido: soma(insc.filter((i) => i.status === 'pago')), a_receber: valor * insc.filter((i) => i.status === 'pendente').length,
-        entradas: soma(vivos.filter((x) => x.liga_id === r.liga_id && x.tipo === 'entrada')), saidas: soma(vivos.filter((x) => x.liga_id === r.liga_id && x.tipo === 'saida')),
+        entradas: soma(pagos.filter((x) => x.liga_id === r.liga_id && x.tipo === 'entrada')), saidas: soma(pagos.filter((x) => x.liga_id === r.liga_id && x.tipo === 'saida')),
+        a_pagar: soma(pend.filter((x) => x.liga_id === r.liga_id && x.tipo === 'saida')),
         premiacao_prevista: soma(Object.values(fin.premios).filter((q) => q.liga_id === r.liga_id && !q.lancamento_id)) };
     }).sort((a, b) => String(b.data).localeCompare(String(a.data)));
     const c = fin.config, recebido = soma(Object.values(fin.inscricoes).filter((f) => f.status === 'pago'));
-    const entradas = soma(vivos.filter((x) => x.tipo === 'entrada')), saidas = soma(vivos.filter((x) => x.tipo === 'saida'));
+    const entradas = soma(pagos.filter((x) => x.tipo === 'entrada')), saidas = soma(pagos.filter((x) => x.tipo === 'saida'));
+    const aPagar = soma(pend.filter((x) => x.tipo === 'saida')), entAReceber = soma(pend.filter((x) => x.tipo === 'entrada'));
     const previsto = soma(Object.values(fin.premios).filter((q) => !q.lancamento_id)), caixa = c.saldo_inicial_centavos + recebido + entradas - saidas;
     return { config: { ...c }, temporadas: Object.values(db.temporadas).map((t) => ({ id: t.id, nome: t.nome, status: t.status, inscricao_centavos: fin.temporadas[t.id] ?? null })),
       rodadas, ligas_sem_cobranca: Object.values(db.ligas).filter((l) => !l.excluida_em && !fin.rodadas[l.id]).map((l) => ({ id: l.id, nome: l.nome, data: l.data, temporada_nome: l.temporada_id ? nomeTemp(l.temporada_id) : null, etapa_numero: l.etapa_numero })),
-      lancamentos: vivos.sort((a, b) => String(b.data).localeCompare(String(a.data)) || b.ordem - a.ordem).map((x) => ({ ...x, liga_nome: x.liga_id ? nomeLiga(x.liga_id) : null, temporada_nome: x.temporada_id ? nomeTemp(x.temporada_id) : null })),
+      lancamentos: vivos.sort((a, b) => String(b.data).localeCompare(String(a.data)) || b.ordem - a.ordem).map((x) => ({ ...x, pago: x.pago !== false, pago_em: x.pago !== false ? x.pago_em || x.data : null, liga_nome: x.liga_id ? nomeLiga(x.liga_id) : null, temporada_nome: x.temporada_id ? nomeTemp(x.temporada_id) : null })),
       premios: Object.values(fin.premios).map((q) => ({ ...q, pago: !!q.lancamento_id, liga_nome: q.liga_id ? nomeLiga(q.liga_id) : null, temporada_nome: q.temporada_id ? nomeTemp(q.temporada_id) : null })).sort((a, b) => a.colocacao - b.colocacao),
-      totais: { saldo_inicial: c.saldo_inicial_centavos, inscricoes_recebidas: recebido, entradas, saidas, caixa, a_receber: rodadas.reduce((s, r) => s + r.a_receber, 0), premiacao_prevista: previsto, saldo_futuro: caixa - previsto } };
+      totais: { saldo_inicial: c.saldo_inicial_centavos, inscricoes_recebidas: recebido, entradas, saidas, caixa, a_receber: rodadas.reduce((s, r) => s + r.a_receber, 0), premiacao_prevista: previsto, a_pagar: aPagar, entradas_a_receber: entAReceber, saldo_futuro: caixa - aPagar + entAReceber - previsto } };
   }
   const rpc = {
     criar_liga(p) {
@@ -211,8 +214,14 @@ export const MOCK = () => {
     fin_lancar(p) {
       finPode('financeiro_lancar'); if (!(p.p_valor_centavos >= 1)) throw { message: 'valor_invalido' }; if (!(p.p_categoria || '').trim()) throw { message: 'categoria_invalida' };
       const x = fin.lancamentos[p.p_id]; if (x && x.premio_id) throw { message: 'lancamento_de_premio' };
-      fin.lancamentos[p.p_id] = { ...(x || { id: p.p_id, premio_id: null, ordem: ++finOrdem }), tipo: p.p_tipo, categoria: p.p_categoria, descricao: p.p_descricao, valor_centavos: p.p_valor_centavos, data: p.p_data || hojeIso(), liga_id: p.p_liga_id || null, temporada_id: p.p_temporada_id || null };
+      const pago = p.p_pago ?? (x ? x.pago !== false : true);
+      fin.lancamentos[p.p_id] = { ...(x || { id: p.p_id, premio_id: null, ordem: ++finOrdem }), tipo: p.p_tipo, categoria: p.p_categoria, descricao: p.p_descricao, valor_centavos: p.p_valor_centavos, data: p.p_data || hojeIso(), liga_id: p.p_liga_id || null, temporada_id: p.p_temporada_id || null,
+        pago, pago_em: pago ? (x && x.pago !== false && x.pago_em) || hojeIso() : null };
       return { ok: true, id: p.p_id };
+    },
+    fin_baixar_lancamento(p) {
+      finPode('financeiro_lancar'); const x = fin.lancamentos[p.p_id]; if (!x || x.excluido) throw { message: 'lancamento_nao_encontrado' }; if (x.premio_id) throw { message: 'lancamento_de_premio' };
+      x.pago = p.p_pago !== false; x.pago_em = x.pago ? p.p_pago_em || hojeIso() : null; return { ok: true };
     },
     fin_excluir_lancamento(p) { finPode('financeiro_lancar'); const x = fin.lancamentos[p.p_id]; if (!x || x.excluido) throw { message: 'lancamento_nao_encontrado' }; x.excluido = true; Object.values(fin.premios).forEach((q) => { if (q.lancamento_id === x.id) q.lancamento_id = null; }); return { ok: true }; },
     fin_salvar_premio(p) {

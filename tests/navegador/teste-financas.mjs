@@ -54,7 +54,7 @@ try {
 
   // despesa da rodada e prêmio previsto
   await clica('+ Despesa');
-  await ev(() => { document.getElementById('fin-l-cat').value = 'Quadra'; document.getElementById('fin-l-valor').value = '30'; document.getElementById('fin-l-desc').value = 'aluguel'; });
+  await ev(() => { document.getElementById('fin-l-cat').value = 'Quadra'; document.getElementById('fin-l-valor').value = '30'; document.getElementById('fin-l-desc').value = 'aluguel'; document.getElementById('fin-l-pago').value = '1'; });
   await clica('Salvar', '#modal button'); await espera(200);
   check('despesa ligada à rodada', (await ev(() => { const l = Object.values(__db.fin.lancamentos)[0]; return l && l.liga_id === 'lf' && l.valor_centavos === 3000 && l.categoria === 'Quadra'; })));
   await clica('+ Prêmio');
@@ -82,8 +82,18 @@ try {
   await ev(() => { document.getElementById('fin-l-valor').value = '12'; document.getElementById('fin-l-vinc').value = 'l:lr2'; });
   await clica('Salvar', '#modal button'); await espera(200);
   check('despesa ligada à relâmpago sem cobrança', await ev(() => Object.values(__db.fin.lancamentos).some((l) => l.liga_id === 'lr2' && l.valor_centavos === 1200)));
-  await page.screenshot({ path: SAIDA + '/financas-de-onde.png' });
-  await ev(() => fecharModal());
+  // despesa nova nasce "a pagar": não mexe no caixa, só no saldo futuro
+  await clica('Resumo'); t = await txt();
+  check('despesa a pagar: caixa R$ 80, a pagar R$ 12, futuro R$ 68', t.includes('Caixa atual\n' + R('80,00')) && t.includes('A pagar\n' + R('12,00')) && t.includes('Saldo futuro previsto\n' + R('68,00')), t.slice(0, 700));
+  check('resumo mostra o bloco "A pagar e a receber"', t.includes('A pagar e a receber'));
+  await clica('Lançamentos'); t = await txt();
+  check('lançamentos: linha automática das inscrições pagas da rodada', t.includes('Inscrições — 1 pago(s)') && t.includes('soma automática das inscrições pagas'), t.slice(0, 900));
+  await page.screenshot({ path: SAIDA + '/financas-lancamentos.png', fullPage: true });
+  check('botão Pagar na despesa pendente', await clica('Pagar')); await espera(200);
+  await clica('Resumo'); t = await txt();
+  check('depois de pagar: caixa R$ 68, a pagar R$ 0, futuro R$ 68', t.includes('Caixa atual\n' + R('68,00')) && t.includes('A pagar\n' + R('0,00')) && t.includes('Saldo futuro previsto\n' + R('68,00')), t.slice(0, 700));
+  check('baixa gravada com data', await ev(() => Object.values(__db.fin.lancamentos).some((l) => l.liga_id === 'lr2' && l.pago === true && !!l.pago_em)));
+  await clica('Lançamentos');
   // valor inválido não grava nada
   await clica('+ Despesa');
   await ev(() => { document.getElementById('fin-l-valor').value = 'abc'; });
