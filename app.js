@@ -1,4 +1,4 @@
-const APP_VERSION='7.8.0';
+const APP_VERSION='7.8.1';
 const SB_URL='https://frioxrtyffuotmmdmtxu.supabase.co';
 const SB_KEY='sb_publishable_NTpbYH-L6cZG2Zx3K2bcdQ_7U8JoTZi';
 const LEGACY_KEYS=['resenha16-evento-20261114-v4','resenha16-evento-20261114-v3'];
@@ -41,6 +41,20 @@ const objeto=v=>v&&typeof v==='object'&&!Array.isArray(v)?JSON.parse(JSON.string
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}
 function hoje(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)}
+// ordem das listas: primeiro o que vem (de hoje em diante, do mais perto ao mais longe),
+// depois o que já passou (do mais recente ao mais antigo); sem data no fim
+function porProximidade(lista,dataDe=x=>x.data){
+  const h=hoje(),d=x=>{const v=dataDe(x);return v?String(v).slice(0,10):''};
+  return lista.slice().sort((a,b)=>{const x=d(a),y=d(b);
+    if(!x||!y)return (!x)-(!y);
+    const fx=x>=h,fy=y>=h;if(fx!==fy)return fy-fx;
+    return fx?x.localeCompare(y):y.localeCompare(x)});
+}
+// data de referência da temporada: a próxima etapa (marcada ou prevista); sem nenhuma futura, a mais recente
+function dataTemporada(t,etapas){
+  const h=hoje(),ds=[...etapas.filter(e=>e.temporada_id===t.id).map(e=>e.data),...Object.values((t.dados&&t.dados.datas)||{})].filter(Boolean).map(x=>String(x).slice(0,10));
+  return ds.filter(x=>x>=h).sort()[0]||ds.sort().pop()||t.inicio||null;
+}
 function fmtData(s){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||'');return m?`${m[3]}/${m[2]}/${m[1]}`:esc(s)}
 function fmtHora(iso){return iso?new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''}
 function fmtDataHora(iso){return iso?new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):''}
@@ -589,8 +603,8 @@ function ligaCard(x){
    </div></div>`;
 }
 function renderInicio(){
-  const relampagos=lista.filter(x=>!x.temporada_id),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
-  const tAtivas=temporadas.filter(t=>t.status!=='arquivada'),tArquivadas=temporadas.filter(t=>t.status==='arquivada');
+  const relampagos=porProximidade(lista.filter(x=>!x.temporada_id)),ativas=relampagos.filter(x=>x.status!=='arquivada'),arquivadas=relampagos.filter(x=>x.status==='arquivada');
+  const tOrd=porProximidade(temporadas,t=>dataTemporada(t,lista)),tAtivas=tOrd.filter(t=>t.status!=='arquivada'),tArquivadas=tOrd.filter(t=>t.status==='arquivada');
   const antiga=ligaAntigaDoAparelho();
   let h=`<section><div class="atalhos">${pode('financeiro_ver')?'<button class="secondary" onclick="abrirFinancas()">Finanças</button>':''}<button class="secondary" onclick="abrirAtletas()">Atletas</button><button class="secondary" onclick="abrirUsuarios()">Usuários${pendentesAprovacao()?` <span class="alerta" title="pessoas esperando aprovação">🔔 ${pendentesAprovacao()}</span>`:''}</button><button class="secondary" onclick="abrirConsulta()">Página de consulta</button><button class="secondary" onclick="atualizarInicio()" title="Buscar de novo os dados no servidor">↻ Atualizar</button>${botaoInstalar('')}</div>${meuAcesso&&meuAcesso.admin&&!ehDono()?`<p class="muted" style="margin-top:10px">Suas permissões: ${PERMISSOES.filter(([k])=>pode(k)).map(([,t])=>t).join(', ')||'só consultar'}.</p>`:''}</section>`;
   if(listaInfo.origem==='cache')h+=`<section class="tie-card tie-pending"><b>Sem conexão com o servidor</b><p class="muted" style="margin-top:6px">${listaInfo.em?'Mostrando a lista guardada neste aparelho em '+fmtDataHora(listaInfo.em)+'.':'Nenhuma lista guardada neste aparelho.'} (${esc(listaInfo.erro)})</p><div class="panel-actions"><button class="secondary" onclick="carregarLista()">Tentar novamente</button></div></section>`;
@@ -1259,7 +1273,7 @@ function renderInicioPublico(){
 }
 function renderTemporadasPublicas(){
   if(!PUB.temporadas.length)return '<section><h2>Temporadas</h2><p class="muted" style="margin-top:6px">Nenhuma temporada ainda.</p></section>';
-  return `<section><h2>Temporadas</h2>${PUB.temporadas.map(t=>{const n=PUB.etapas.filter(e=>e.temporada_id===t.id).length;return `<div class="match-card" style="margin-top:10px"><div class="match-label">${T_STATUS[t.status]||esc(t.status)}</div>
+  return `<section><h2>Temporadas</h2>${porProximidade(PUB.temporadas,t=>dataTemporada(t,PUB.etapas)).map(t=>{const n=PUB.etapas.filter(e=>e.temporada_id===t.id).length;return `<div class="match-card" style="margin-top:10px"><div class="match-label">${T_STATUS[t.status]||esc(t.status)}</div>
     <p style="margin-top:6px"><b>${esc(t.nome)}</b>${t.inicio?' • início '+fmtData(t.inicio):''} • ${n} etapa(s)</p>
     <div class="panel-actions"><button class="secondary pub" onclick="abrirTemporadaPublica('${t.id}')">Ver classificação e etapas</button></div></div>`}).join('')}</section>`;
 }
@@ -1277,7 +1291,7 @@ function renderEtapasPublicas(){
   return h+'</section>';
 }
 function renderRelampagosPublicas(){
-  return `<section><h2>Ligas relâmpago</h2><p class="muted">Fora do ranking das temporadas.</p>${PUB.relampagos.length?PUB.relampagos.map(l=>cartaoLigaPublica(l,'Relâmpago')).join(''):'<p class="muted" style="margin-top:10px">Nenhuma liga relâmpago no momento.</p>'}</section>`;
+  return `<section><h2>Ligas relâmpago</h2><p class="muted">Fora do ranking das temporadas.</p>${PUB.relampagos.length?porProximidade(PUB.relampagos).map(l=>cartaoLigaPublica(l,'Relâmpago')).join(''):'<p class="muted" style="margin-top:10px">Nenhuma liga relâmpago no momento.</p>'}</section>`;
 }
 const pubTabs=['Grupos','Jogos','Classificação','Chave'];
 function abrirEtapaPublica(id,daRodada=false){
@@ -2328,6 +2342,7 @@ function renderGroupGames(){
   return h;
 }
 function renderClassification(){
+  if(!S.drawn)return `<section><h2>Classificação</h2><p class="muted">Realize o sorteio na aba Grupos para ver a classificação.</p><div class="panel-actions"><button onclick="tab='Grupos';render()">Ir para grupos</button></div></section>`;
   let h=`<section><h2>Classificação individual</h2><p class="muted">V = vitórias • SG = saldo de games • GP = games pró.${CONFRONTO_DIRETO?' Etapa de temporada: o 4º critério é o confronto direto (saldo de games nos jogos entre os empatados).':''} Quando houver empate absoluto, os atletas ficam destacados para você definir o desempate manualmente.</p></section>`;
   for(let g=0;g<groupIndexes().length;g++){
     let r=rank(g);

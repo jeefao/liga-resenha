@@ -39,12 +39,33 @@ try {
 
   // administração: painel da liga
   await page.goto(URL0); await espera(200); await prepara();
+  // ordem das listas: próximas primeiro (da mais perto à mais longe), depois as que já passaram
+  const ordem = () => ev(() => {
+    const d = (n) => { const x = new Date(Date.now() + n * 864e5); return new Date(x.getTime() - x.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+    const base = __db.ligas.lp;
+    __db.ligas.lLonge = { ...base, id: 'lLonge', nome: 'Rel Longe', data: d(40), dados: { ...base.dados } };
+    __db.ligas.lPerto = { ...base, id: 'lPerto', nome: 'Rel Perto', data: d(2), dados: { ...base.dados } };
+    __db.ligas.lPassou = { ...base, id: 'lPassou', nome: 'Rel Passou', data: d(-5), dados: { ...base.dados } };
+    __db.ligas.lAntiga = { ...base, id: 'lAntiga', nome: 'Rel Antiga', data: d(-60), dados: { ...base.dados } };
+    __db.ligas.lp.data = d(10);
+  });
+  await ordem(); await ev(() => carregarLista()); await espera(500);
+  let ord = await ev(() => [...document.querySelectorAll('.liga-card h3')].map((h) => h.innerText.trim()).filter((n) => n.startsWith('Rel')));
+  check('ADM: relâmpagos da mais próxima para a mais distante, passadas no fim', ord.join(' / ') === 'Rel Perto / Relâmpago Pagamentos / Rel Longe / Rel Passou / Rel Antiga', ord.join(' / '));
+  check('ADM: temporada usa a próxima data (etapa futura antes de uma que já passou)', await ev(() => {
+    const ts = [{ id: 't1', nome: 'A', inicio: '2020-01-01', dados: { datas: { 1: '2020-02-01' } } }, { id: 't2', nome: 'B', inicio: '2020-01-01', dados: { datas: { 1: '2020-02-01', 2: '2099-03-01' } } }];
+    return porProximidade(ts, (t) => dataTemporada(t, [])).map((t) => t.id).join() === 't2,t1';
+  }));
   await ev(() => abrirLiga('lp')); await espera(500); await ev(() => { tab = 'Painel'; render(); }); await espera(300);
-  let l = await linhas('.inscritos > div');
+  let t0, l = await linhas('.inscritos > div');
   if (!l.length) throw new Error('sem lista: ' + (await ev(() => view + '/' + tab + ' ' + document.body.innerText.slice(0, 300))));
   check('ADM: inscritos em ordem alfabética, vagos no fim', l[0].startsWith('01 • ana Nome') && l[1].startsWith('02 • Bia Teste') && l[2].startsWith('03 • Zeca Teste') && l[3] === '04 • (vago)' && l.length === 16, l.slice(0, 4).join(' / '));
   check('ADM: tag Pago no pago e Isento no isento; pendente sem tag', l[1].endsWith('Pago') && l[0].endsWith('Isento') && l[2] === '03 • Zeca Teste', l.slice(0, 3).join(' / '));
   await page.screenshot({ path: SAIDA + '/inscritos-adm.png', fullPage: true });
+  await ev(() => { tab = 'Classificação'; render(); }); await espera(200);
+  t0 = await ev(() => document.getElementById('main').innerText);
+  check('ADM: sem sorteio, Classificação só avisa (sem grupos)', !/Grupo [A-D]/.test(t0) && t0.includes('Realize o sorteio'), t0.slice(0, 300));
+  await ev(() => { tab = 'Painel'; render(); }); await espera(200);
   check('ADM: a ordem dos dados da liga não mudou', await ev(() => S.names[0] === 'Zeca Teste' && S.names[1] === 'Bia Teste'));
   // sem cobrança: sem tags
   await ev(() => { delete __db.fin.rodadas.lp; abrirLiga('lp'); }); await espera(500); await ev(() => { tab = 'Painel'; render(); }); await espera(300);
@@ -54,6 +75,9 @@ try {
   // consulta: atleta logada
   await ev(() => localStorage.setItem('mock:sessao', 'nenhuma')); await page.reload(); await espera(200); await prepara();
   await ev(async () => { const { data } = await sb.auth.signInWithPassword({ email: 'bia@teste.local', password: 'bia123' }); usuario = data.user; verificarAcesso(); }); await espera(600);
+  await ordem(); await ev(() => abrirConsulta()); await espera(500); await ev(() => irSecaoPublica('relampagos')); await espera(300);
+  ord = await ev(() => [...document.querySelectorAll('.match-card b')].map((h) => h.innerText.trim()).filter((n) => n.startsWith('Rel')));
+  check('consulta: relâmpagos da mais próxima para a mais distante', ord.join(' / ') === 'Rel Perto / Relâmpago Pagamentos / Rel Longe / Rel Passou / Rel Antiga', ord.join(' / '));
   await ev(() => abrirEtapaPublica('lp')); await espera(500);
   l = await linhas('.lista-insc li');
   check('consulta: ordem alfabética com as tags', l.join(' / ') === 'ana Nome Isento / Bia Teste Pagamento Confirmado / Zeca Teste Falta Pagamento', l.join(' / '));
